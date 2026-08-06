@@ -64,7 +64,7 @@ def test_engine_with_mock_backend() -> None:
         capabilities=capabilities,
         canned_structured_data={
             "password": "mocked-password-123",
-            "family": "mocked-family",
+            "family": "dictionary-word",
             "note": "mocked note",
         },
     )
@@ -81,7 +81,7 @@ def test_engine_with_mock_backend() -> None:
         attacker_backend=attacker_backend,
     ).run()
 
-    assert result.rounds[0].defender_strategy == "mocked-family"
+    assert result.rounds[0].defender_strategy == "dictionary-word"
 
     plan = result.rounds[0].attack.plan
     assert any(p.strategy == "common" and p.weight == 0.5 for p in plan)
