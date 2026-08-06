@@ -17,6 +17,7 @@ from password_arena.providers import (
     ProviderResponse,
     ThinkingLevel,
     UsageMetrics,
+    parse_and_validate_json,
 )
 
 
@@ -27,7 +28,12 @@ class GeminiProvider:
         self._capabilities = ModelCapabilities(
             model_id=model,
             thinking_supported="pro" in model or "thinking" in model,
-            accepted_thinking_levels=(ThinkingLevel.AUTO, ThinkingLevel.LOW, ThinkingLevel.MEDIUM, ThinkingLevel.HIGH),
+            accepted_thinking_levels=(
+                ThinkingLevel.AUTO,
+                ThinkingLevel.LOW,
+                ThinkingLevel.MEDIUM,
+                ThinkingLevel.HIGH,
+            ),
             structured_output_supported=True,
             context_limit=1048576,
             output_limit=8192,
@@ -51,18 +57,40 @@ class GeminiProvider:
         if self._client:
             return self._client
         if genai is None:
-            raise ProviderError(AvailabilityState.PROVIDER_UNAVAILABLE, "google-genai package is not installed.")
+            raise ProviderError(
+                AvailabilityState.PROVIDER_UNAVAILABLE,
+                "google-genai package is not installed."
+            )
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
-            raise ProviderError(AvailabilityState.AUTHENTICATION_FAILED, "GEMINI_API_KEY environment variable is not set.")
+            raise ProviderError(
+                AvailabilityState.AUTHENTICATION_FAILED,
+                "GEMINI_API_KEY environment variable is not set."
+            )
         return genai.Client(api_key=api_key)
 
     def check_availability(self) -> AvailabilityResult:
         if genai is None:
-            return AvailabilityResult(state=AvailabilityState.PROVIDER_UNAVAILABLE, message="google-genai package is not installed.")
+            return AvailabilityResult(
+                state=AvailabilityState.PROVIDER_UNAVAILABLE,
+                message="google-genai package is not installed."
+            )
         if not os.environ.get("GEMINI_API_KEY") and self._client is None:
-            return AvailabilityResult(state=AvailabilityState.AUTHENTICATION_FAILED, message="GEMINI_API_KEY environment variable is not set.")
-        return AvailabilityResult(state=AvailabilityState.AVAILABLE, message="available")
+            return AvailabilityResult(
+                state=AvailabilityState.AUTHENTICATION_FAILED,
+                message="GEMINI_API_KEY environment variable is not set."
+            )
+            
+        try:
+            client = self._get_client()
+            # Verify the model exists and is accessible
+            client.models.get(name=f"models/{self.model}")
+            return AvailabilityResult(state=AvailabilityState.AVAILABLE, message="available")
+        except Exception as e:
+            return AvailabilityResult(
+                state=AvailabilityState.AUTHENTICATION_FAILED, 
+                message=f"Failed to access model {self.model}: {e}"
+            )
 
     def generate(self, request: ProviderRequest) -> ProviderResponse:
         client = self._get_client()
@@ -77,8 +105,18 @@ class GeminiProvider:
             config_kwargs["response_mime_type"] = "application/json"
             config_kwargs["response_schema"] = request.structured_schema
 
-        if self._capabilities.thinking_supported and request.thinking_level != ThinkingLevel.AUTO:
-            pass
+        if request.thinking_level != ThinkingLevel.AUTO:
+            if not self._capabilities.thinking_supported:
+                raise ProviderError(
+                    AvailabilityState.UNSUPPORTED_CONFIGURATION, 
+                    f"Model {self.model} does not support explicit thinking levels."
+                )
+            if request.thinking_level not in self._capabilities.accepted_thinking_levels:
+                raise ProviderError(
+                    AvailabilityState.UNSUPPORTED_CONFIGURATION,
+                    f"Model {self.model} does not support thinking level "
+                    f"{request.thinking_level.value}."
+                )
 
         try:
             config = types.GenerateContentConfig(**config_kwargs) if types else None
@@ -90,16 +128,31 @@ class GeminiProvider:
         except Exception as e:
             raise ProviderError(AvailabilityState.UNKNOWN_ERROR, str(e)) from e
             
+        content = response.text or ""
+        parsed_data, success, error_msg = parse_and_validate_json(
+            content, request.structured_schema
+        )
+
         metrics = UsageMetrics(
-            input_tokens=response.usage_metadata.prompt_token_count if response.usage_metadata else 0,
-            output_tokens=response.usage_metadata.candidates_token_count if response.usage_metadata else 0,
+            input_tokens=(
+                response.usage_metadata.prompt_token_count if response.usage_metadata else 0
+            ),
+            output_tokens=(
+                response.usage_metadata.candidates_token_count if response.usage_metadata else 0
+            ),
             requested_thinking_level=request.thinking_level,
-            effective_thinking_level=request.thinking_level if self._capabilities.thinking_supported else ThinkingLevel.AUTO,
+            effective_thinking_level=(
+                request.thinking_level 
+                if self._capabilities.thinking_supported 
+                else ThinkingLevel.AUTO
+            ),
+            structured_validation_success=success,
         )
 
         return ProviderResponse(
-            content=response.text or "",
+            content=content,
             provider_name=self.provider_name,
             model_id=self.model_id,
+            parsed_structured_data=parsed_data,
             metrics=metrics,
         )

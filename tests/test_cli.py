@@ -2,7 +2,7 @@ import subprocess
 import sys
 
 
-def test_cli_invalid_config():
+def test_cli_invalid_config() -> None:
     # Test passing an invalid rounds value
     # We can run it via sys.executable -m password_arena.cli
     result = subprocess.run(

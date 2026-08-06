@@ -1,4 +1,5 @@
 import os
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
@@ -13,7 +14,7 @@ from password_arena.providers import (
 
 
 @pytest.fixture
-def mock_client():
+def mock_client() -> Any:
     client = Mock()
     mock_response = Mock()
     mock_choice = Mock()
@@ -25,7 +26,7 @@ def mock_client():
     return client
 
 
-def test_openai_provider_initialization(mock_client):
+def test_openai_provider_initialization(mock_client: Any) -> None:
     provider = OpenAIProvider(model="gpt-4o", client=mock_client)
     assert provider.check_availability().state == AvailabilityState.AVAILABLE
     caps = provider.get_capabilities()
@@ -33,13 +34,13 @@ def test_openai_provider_initialization(mock_client):
     assert caps.structured_output_supported is True
 
 
-def test_openai_provider_no_credentials():
+def test_openai_provider_no_credentials() -> None:
     with patch.dict(os.environ, {}, clear=True):
         provider = OpenAIProvider(model="gpt-4o")
         assert provider.check_availability().state == AvailabilityState.AUTHENTICATION_FAILED
 
 
-def test_openai_provider_generate(mock_client):
+def test_openai_provider_generate(mock_client: Any) -> None:
     provider = OpenAIProvider(model="gpt-4o", client=mock_client)
     request = ProviderRequest(
         prompt="hello",
@@ -54,7 +55,7 @@ def test_openai_provider_generate(mock_client):
     assert response.metrics.estimated_cost > 0.0
 
 
-def test_openai_provider_error_mapping(mock_client):
+def test_openai_provider_error_mapping(mock_client: Any) -> None:
     mock_client.chat.completions.create.side_effect = AuthenticationError(
         message="Invalid token", response=Mock(), body=None
     )

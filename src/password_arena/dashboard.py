@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from password_arena.engine import ArenaEngine
+from password_arena.engine import PreflightFailure, build_arena_engine
 from password_arena.models import ArenaConfig, RoleConfig
 from password_arena.providers import ThinkingLevel
 from password_arena.reporting import experiment_report_markdown
@@ -50,22 +50,46 @@ with st.sidebar:
     st.divider()
     st.header("Roles")
     
-    providers = ["rule_based", "openai", "gemini", "ollama"]
+    providers = ["rule_based", "gemini", "ollama"]
     thinkings = ["auto", "minimal", "low", "medium", "high", "maximum"]
 
     st.subheader("Defender")
-    def_prov = st.selectbox("Provider", providers, index=providers.index(st.session_state["defender_provider"]), key="def_prov")
+    def_prov = st.selectbox(
+        "Provider",
+        providers,
+        index=providers.index(st.session_state["defender_provider"]),
+        key="def_prov",
+    )
     st.session_state["defender_provider"] = def_prov
     if def_prov != "rule_based":
-        st.session_state["defender_model"] = st.text_input("Model ID", st.session_state["defender_model"], key="def_mod")
-        st.session_state["defender_thinking"] = st.selectbox("Thinking level", thinkings, index=thinkings.index(st.session_state["defender_thinking"]), key="def_think")
+        st.session_state["defender_model"] = st.text_input(
+            "Model ID", st.session_state["defender_model"], key="def_mod"
+        )
+        st.session_state["defender_thinking"] = st.selectbox(
+            "Thinking level",
+            thinkings,
+            index=thinkings.index(st.session_state["defender_thinking"]),
+            key="def_think",
+        )
 
     st.subheader("Attacker")
-    att_prov = st.selectbox("Provider", providers, index=providers.index(st.session_state["attacker_provider"]), key="att_prov")
+    att_prov = st.selectbox(
+        "Provider",
+        providers,
+        index=providers.index(st.session_state["attacker_provider"]),
+        key="att_prov",
+    )
     st.session_state["attacker_provider"] = att_prov
     if att_prov != "rule_based":
-        st.session_state["attacker_model"] = st.text_input("Model ID", st.session_state["attacker_model"], key="att_mod")
-        st.session_state["attacker_thinking"] = st.selectbox("Thinking level", thinkings, index=thinkings.index(st.session_state["attacker_thinking"]), key="att_think")
+        st.session_state["attacker_model"] = st.text_input(
+            "Model ID", st.session_state["attacker_model"], key="att_mod"
+        )
+        st.session_state["attacker_thinking"] = st.selectbox(
+            "Thinking level",
+            thinkings,
+            index=thinkings.index(st.session_state["attacker_thinking"]),
+            key="att_think",
+        )
 
     st.divider()
     st.header("Profiles")
@@ -82,57 +106,71 @@ with st.sidebar:
             st.error(f"Failed to load profile: {e}")
 
     profile_name = st.text_input("Save profile as", "my_profile")
+
+    config = ArenaConfig(
+        rounds=int(rounds),
+        start_difficulty=int(start_difficulty),
+        difficulty_step=int(difficulty_step),
+        max_guesses=int(max_guesses),
+        seed=int(seed),
+        reveal_passwords=reveal_passwords,
+        defender_config=RoleConfig(
+            provider=st.session_state["defender_provider"],
+            model=(
+                st.session_state["defender_model"]
+                if st.session_state["defender_provider"] != "rule_based"
+                else None
+            ),
+            thinking_level=(
+                ThinkingLevel(st.session_state["defender_thinking"])
+                if st.session_state["defender_provider"] != "rule_based"
+                else ThinkingLevel.AUTO
+            ),
+        ),
+        attacker_config=RoleConfig(
+            provider=st.session_state["attacker_provider"],
+            model=(
+                st.session_state["attacker_model"]
+                if st.session_state["attacker_provider"] != "rule_based"
+                else None
+            ),
+            thinking_level=(
+                ThinkingLevel(st.session_state["attacker_thinking"])
+                if st.session_state["attacker_provider"] != "rule_based"
+                else ThinkingLevel.AUTO
+            ),
+        ),
+    )
+
     if st.button("Save profile"):
-        config_obj = ArenaConfig(
-            rounds=int(st.session_state["rounds"]),
-            start_difficulty=int(st.session_state["start_difficulty"]),
-            difficulty_step=int(st.session_state["difficulty_step"]),
-            max_guesses=int(st.session_state["max_guesses"]),
-            seed=int(st.session_state["seed"]),
-            reveal_passwords=bool(st.session_state["reveal_passwords"]),
-            defender_config=RoleConfig(
-                provider=st.session_state["defender_provider"],
-                model=st.session_state["defender_model"] if st.session_state["defender_provider"] != "rule_based" else None,
-                thinking_level=ThinkingLevel(st.session_state["defender_thinking"]) if st.session_state["defender_provider"] != "rule_based" else ThinkingLevel.AUTO,
-            ),
-            attacker_config=RoleConfig(
-                provider=st.session_state["attacker_provider"],
-                model=st.session_state["attacker_model"] if st.session_state["attacker_provider"] != "rule_based" else None,
-                thinking_level=ThinkingLevel(st.session_state["attacker_thinking"]) if st.session_state["attacker_provider"] != "rule_based" else ThinkingLevel.AUTO,
-            ),
-        )
         profile_path = Path(f"{profile_name}.json")
-        profile_path.write_text(json.dumps(asdict(config_obj), indent=2), encoding="utf-8")
+        profile_path.write_text(json.dumps(asdict(config), indent=2), encoding="utf-8")
         st.success(f"Saved to {profile_path.name}")
 
     st.divider()
-    run = st.button("Run arena", type="primary", use_container_width=True)
+    
+    # Preflight check
+    result = build_arena_engine(config)
+    run_disabled = False
+    if isinstance(result, PreflightFailure):
+        st.error(f"Preflight failed for {result.role}: {result.message} ({result.state})")
+        run_disabled = True
+
+    run = st.button("Run arena", type="primary", use_container_width=True, disabled=run_disabled)
 
 if not run:
-    st.info("Choose the experiment controls and run the arena.")
+    if not run_disabled:
+        st.info("Choose the experiment controls and run the arena.")
     st.stop()
 
-config = ArenaConfig(
-    rounds=int(rounds),
-    start_difficulty=int(start_difficulty),
-    difficulty_step=int(difficulty_step),
-    max_guesses=int(max_guesses),
-    seed=int(seed),
-    reveal_passwords=reveal_passwords,
-    defender_config=RoleConfig(
-        provider=st.session_state["defender_provider"],
-        model=st.session_state["defender_model"] if st.session_state["defender_provider"] != "rule_based" else None,
-        thinking_level=ThinkingLevel(st.session_state["defender_thinking"]) if st.session_state["defender_provider"] != "rule_based" else ThinkingLevel.AUTO,
-    ),
-    attacker_config=RoleConfig(
-        provider=st.session_state["attacker_provider"],
-        model=st.session_state["attacker_model"] if st.session_state["attacker_provider"] != "rule_based" else None,
-        thinking_level=ThinkingLevel(st.session_state["attacker_thinking"]) if st.session_state["attacker_provider"] != "rule_based" else ThinkingLevel.AUTO,
-    ),
-)
-experiment = ArenaEngine(config).run()
+if isinstance(result, PreflightFailure):
+    st.stop() # sanity check
+experiment = result.run()
 if experiment.interruption_reason:
-    st.error(f"Experiment paused early due to provider error ({experiment.interruption_state}): {experiment.interruption_reason}")
+    st.error(
+        f"Experiment paused early due to provider error ({experiment.interruption_state}): "
+        f"{experiment.interruption_reason}"
+    )
     if not experiment.rounds:
         st.warning("No rounds were completed.")
         st.stop()

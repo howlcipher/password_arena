@@ -444,6 +444,12 @@ Create a provider-neutral capability model used to populate valid UI options and
 **Priority:** P1  
 **Status:** Done
 
+**Implementation note:**
+Enforced valid capabilities at provider generation layer for OpenAI, Gemini, and Ollama. Rejected configurations raising `ProviderError(UNSUPPORTED_CONFIGURATION)`. Validated schema with preflight checks in UI and CLI.
+
+**Validation performed:**
+Ran `pytest`, `ruff check .`, `mypy src/password_arena tests` all passed.
+
 Expose `auto`, `minimal`, `low`, `medium`, `high`, and `maximum` as provider-neutral choices.
 
 **Acceptance criteria**
@@ -461,6 +467,12 @@ Expose `auto`, `minimal`, `low`, `medium`, `high`, and `maximum` as provider-neu
 **Priority:** P0  
 **Status:** Done
 
+**Implementation note:**
+Introduced `AvailabilityState` enum covering network/auth/quota states. Created `check_availability()` method on `AgentBackend` and called it in preflight stage via `build_arena_engine`. Mapped specific HTTP/API errors from `httpx`, `google.genai`, and `openai` clients to the normalized values.
+
+**Validation performed:**
+Ran `pytest`, `ruff check .`, `mypy src/password_arena tests` all passed.
+
 Normalize provider and local-runtime failures so users understand when a selected model cannot participate.
 
 **Acceptance criteria**
@@ -477,6 +489,12 @@ Normalize provider and local-runtime failures so users understand when a selecte
 
 **Priority:** P0  
 **Status:** Done
+
+**Implementation note:**
+Updated `ArenaEngine` to support iterative execution using `self.completed_rounds`. The engine stops on `ProviderError` returning `ExperimentResult` containing `interruption_reason`. The same engine instance can be re-run and seamlessly continues stateful lists (`breached_families`, `known_passwords`) without skipping or duplicating a round. Dashboard updated to halt execution visually.
+
+**Validation performed:**
+Added `test_engine_resumption` with a failing mock provider. Ran `pytest`, `ruff check .`, `mypy src/password_arena tests` all passed.
 
 Preserve experiment integrity when a selected model becomes unavailable.
 

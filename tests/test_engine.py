@@ -1,4 +1,3 @@
-import pytest
 
 from password_arena import ArenaConfig, ArenaEngine
 
@@ -10,11 +9,54 @@ def test_engine_runs_requested_rounds() -> None:
     assert result.rounds[-1].round_number == 4
 
 
-def test_engine_single_use() -> None:
-    engine = ArenaEngine(ArenaConfig(rounds=1, max_guesses=10))
-    engine.run()
-    with pytest.raises(RuntimeError, match="single-use"):
-        engine.run()
+def test_engine_resumption() -> None:
+    from password_arena.providers import (
+        AvailabilityState,
+        MockProvider,
+        ModelCapabilities,
+        ProviderError,
+        ProviderRequest,
+        ProviderResponse,
+        ThinkingLevel,
+    )
+
+    capabilities = ModelCapabilities(
+        model_id="mock",
+        thinking_supported=False,
+        accepted_thinking_levels=(ThinkingLevel.AUTO,),
+        structured_output_supported=True,
+        context_limit=1000,
+        output_limit=1000,
+        token_accounting=False,
+        cost_metadata=False,
+        local_execution=True,
+    )
+    
+    class FailingMockProvider(MockProvider):
+        def __init__(self) -> None:
+            super().__init__(
+                capabilities, 
+                canned_structured_data={"family": "dictionary-word", "note": "x"}
+            )
+            self.calls = 0
+            
+        def generate(self, request: ProviderRequest) -> ProviderResponse:
+            self.calls += 1
+            if self.calls == 1:
+                raise ProviderError(AvailabilityState.RATE_LIMITED, "Rate limited on round 1")
+            return super().generate(request)
+            
+    engine = ArenaEngine(
+        ArenaConfig(rounds=2, max_guesses=10), 
+        defender_backend=FailingMockProvider()
+    )
+    res1 = engine.run()
+    assert res1.interruption_state == "rate_limited"
+    assert len(res1.rounds) == 0
+    
+    res2 = engine.run()
+    assert res2.interruption_reason is None
+    assert len(res2.rounds) == 2
 
 
 def test_passwords_are_hidden_by_default() -> None:
@@ -64,7 +106,7 @@ def test_engine_with_mock_backend() -> None:
         capabilities=capabilities,
         canned_structured_data={
             "password": "mocked-password-123",
-            "family": "mocked-family",
+            "family": "dictionary-word",
             "note": "mocked note",
         },
     )
@@ -81,7 +123,7 @@ def test_engine_with_mock_backend() -> None:
         attacker_backend=attacker_backend,
     ).run()
 
-    assert result.rounds[0].defender_strategy == "mocked-family"
+    assert result.rounds[0].defender_strategy == "dictionary-word"
 
     plan = result.rounds[0].attack.plan
     assert any(p.strategy == "common" and p.weight == 0.5 for p in plan)

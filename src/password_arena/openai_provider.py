@@ -1,4 +1,3 @@
-import contextlib
 import json
 import os
 import time
@@ -24,6 +23,7 @@ from password_arena.providers import (
     ProviderResponse,
     ThinkingLevel,
     UsageMetrics,
+    parse_and_validate_json,
 )
 
 # Registry of supported OpenAI models
@@ -161,6 +161,20 @@ class OpenAIProvider(AgentBackend):
         if request.temperature is not None and not self._capabilities.thinking_supported:
             kwargs["temperature"] = request.temperature
 
+        if request.thinking_level != ThinkingLevel.AUTO:
+            if not self._capabilities.thinking_supported:
+                raise ProviderError(
+                    AvailabilityState.UNSUPPORTED_CONFIGURATION,
+                    f"Model {self.model} does not support explicit thinking levels."
+                )
+            if request.thinking_level not in self._capabilities.accepted_thinking_levels:
+                raise ProviderError(
+                    AvailabilityState.UNSUPPORTED_CONFIGURATION,
+                    f"Model {self.model} does not support thinking level "
+                    f"{request.thinking_level.value}."
+                )
+            kwargs["reasoning_effort"] = request.thinking_level.value
+
         if request.max_tokens is not None:
             # o1 uses max_completion_tokens
             if self.model.startswith("o1"):
@@ -200,10 +214,9 @@ class OpenAIProvider(AgentBackend):
 
         content = response.choices[0].message.content or ""
 
-        parsed_structured_data = None
-        if request.structured_schema:
-            with contextlib.suppress(json.JSONDecodeError):
-                parsed_structured_data = json.loads(content)
+        parsed_structured_data, success, error_msg = parse_and_validate_json(
+            content, request.structured_schema
+        )
 
         input_tokens = 0
         output_tokens = 0
@@ -227,6 +240,7 @@ class OpenAIProvider(AgentBackend):
             retries=0,
             requested_thinking_level=ThinkingLevel.AUTO,
             effective_thinking_level=ThinkingLevel.AUTO,
+            structured_validation_success=success,
         )
 
         return ProviderResponse(

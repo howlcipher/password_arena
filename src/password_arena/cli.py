@@ -5,7 +5,7 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
-from password_arena.engine import ArenaEngine
+from password_arena.engine import PreflightFailure, build_arena_engine
 from password_arena.history import HistoryManager
 from password_arena.models import ArenaConfig
 from password_arena.reporting import experiment_report_markdown
@@ -108,8 +108,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 config_dict = json.loads(config_content)
                 # Validation that rejects secret-like fields in profile files
                 for k in config_dict:
-                    if any(s in k.lower() for s in ("api_key", "token", "secret", "auth")) and k.lower() != "max_tokens":
-                        parser.error(f"Configuration file contains forbidden secret-like field: {k}")
+                    k_lower = k.lower()
+                    if (
+                        any(s in k_lower for s in ("api_key", "token", "secret", "auth")) 
+                        and k_lower != "max_tokens"
+                    ):
+                        parser.error(
+                            f"Configuration file contains forbidden secret-like field: {k}"
+                        )
             except Exception as e:
                 parser.error(f"Failed to load config file: {e}")
 
@@ -148,7 +154,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         except ValueError as e:
             parser.error(str(e))
 
-        experiment = ArenaEngine(config).run()
+        result = build_arena_engine(config)
+        if isinstance(result, PreflightFailure):
+            parser.error(f"Preflight failed for {result.role}: {result.message} ({result.state})")
+        experiment = result.run()
         hm.save(experiment)
 
     print("\nPassword Arena")

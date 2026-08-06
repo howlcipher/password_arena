@@ -1,3 +1,4 @@
+from typing import Any
 
 import pytest
 
@@ -5,7 +6,7 @@ from password_arena.history import HistoryManager
 from password_arena.models import ArenaConfig, ExperimentResult
 
 
-def test_history_manager_save_load_list_delete(tmp_path):
+def test_history_manager_save_load_list_delete(tmp_path: Any) -> None:
     hm = HistoryManager(storage_dir=tmp_path)
     
     config = ArenaConfig(rounds=2)
