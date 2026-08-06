@@ -95,8 +95,18 @@ class GeminiProvider:
             config_kwargs["response_mime_type"] = "application/json"
             config_kwargs["response_schema"] = request.structured_schema
 
-        if self._capabilities.thinking_supported and request.thinking_level != ThinkingLevel.AUTO:
-            pass
+        if request.thinking_level != ThinkingLevel.AUTO:
+            if not self._capabilities.thinking_supported:
+                raise ProviderError(
+                    AvailabilityState.UNSUPPORTED_CONFIGURATION, 
+                    f"Model {self.model} does not support explicit thinking levels."
+                )
+            if request.thinking_level not in self._capabilities.accepted_thinking_levels:
+                raise ProviderError(
+                    AvailabilityState.UNSUPPORTED_CONFIGURATION,
+                    f"Model {self.model} does not support thinking level "
+                    f"{request.thinking_level.value}."
+                )
 
         try:
             config = types.GenerateContentConfig(**config_kwargs) if types else None

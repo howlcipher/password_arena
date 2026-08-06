@@ -100,14 +100,18 @@ class OllamaProvider:
         if self._capabilities.structured_output_supported and request.structured_schema is not None:
             payload["format"] = request.structured_schema
             
-        if (
-            request.thinking_level != ThinkingLevel.AUTO 
-            and not self._capabilities.thinking_supported
-        ):
-            payload["prompt"] = (
-                "Please think step-by-step and write out your reasoning before "
-                f"providing the final answer.\n\n{request.prompt}"
-            )
+        if request.thinking_level != ThinkingLevel.AUTO:
+            if not self._capabilities.thinking_supported:
+                raise ProviderError(
+                    AvailabilityState.UNSUPPORTED_CONFIGURATION,
+                    f"Model {self.model} does not support explicit thinking levels."
+                )
+            if request.thinking_level not in self._capabilities.accepted_thinking_levels:
+                raise ProviderError(
+                    AvailabilityState.UNSUPPORTED_CONFIGURATION,
+                    f"Model {self.model} does not support thinking level "
+                    f"{request.thinking_level.value}."
+                )
             
         try:
             with httpx.Client() as client:
