@@ -183,7 +183,7 @@ class AdaptiveAttacker:
         return AttackResult(
             False,
             guesses,
-            ordered[0],
+            None,
             elapsed,
             None,
             plan,

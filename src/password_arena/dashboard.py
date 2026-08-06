@@ -51,7 +51,7 @@ for item in experiment.rounds:
             "Strength score": item.strength.score,
             "Solved": item.attack.solved,
             "Guesses": item.attack.guesses_used,
-            "Attack strategy": item.attack.strategy,
+            "Attack strategy": item.attack.winning_strategy,
             "Defender strategy": item.defender_strategy,
             "Elapsed ms": round(item.attack.elapsed_ms, 3),
         }

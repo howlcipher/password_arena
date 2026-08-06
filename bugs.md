@@ -88,20 +88,21 @@ Some rounds are structurally unreachable by the intended passphrase strategy reg
 ## BUG-004 — Failed attacks report a strategy as though it solved the password
 
 **Priority:** P2  
-**Status:** Open
+**Status:** Resolved  
+**Resolved in:** BUG-004 Fix
 
-### Reproduction
+### Previous behavior
 
 Run a resistant round and inspect `AttackResult.strategy` or the dashboard's “Attack strategy” column. The field contains the highest-priority strategy even though no strategy succeeded and several may have been attempted.
 
-### Impact
+### Resolution
 
-Consumers can misread the field as the successful strategy. The full attempted list is accurate, but the summary field is ambiguous.
+- Renamed `AttackResult.strategy` to `AttackResult.winning_strategy` and set it to `None` on failure.
+- Updated `cli.py`, `dashboard.py`, `reporting.py`, and `attacker.py` to use `winning_strategy`.
 
-### Expected resolution
+### Validation performed
 
-- Rename the field to `winning_strategy` and make it `None` on failure, or add a separate `primary_strategy` field.
-- Update CLI, dashboard, JSON schema, reports, and tests.
+Run `ruff check .`, `mypy src/password_arena`, and `pytest`. All passed.
 
 ---
 

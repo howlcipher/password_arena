@@ -49,7 +49,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(
             f"{item.round_number:>3}  {item.difficulty:>3}  {item.password_length:>6}  "
             f"{item.strength.entropy_bits:>8.2f}  {str(item.attack.solved):>6}  "
-            f"{item.attack.guesses_used:>8}  {item.attack.strategy}"
+            f"{item.attack.guesses_used:>8}  {item.attack.winning_strategy or '<none>'}"
         )
     print("=" * 86)
     total_rounds = len(experiment.rounds)

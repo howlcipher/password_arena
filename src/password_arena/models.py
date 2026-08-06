@@ -63,7 +63,7 @@ class StrategyBudget:
 class AttackResult:
     solved: bool
     guesses_used: int
-    strategy: str
+    winning_strategy: str | None
     elapsed_ms: float
     candidate: str | None = None
     plan: tuple[StrategyBudget, ...] = ()

@@ -13,13 +13,14 @@ def round_report_markdown(item: RoundResult) -> str:
     )
     defender_actions = "\n".join(f"- {action}" for action in item.report.defender.actions)
     attacker_actions = "\n".join(f"- {action}" for action in item.report.attacker.actions)
+    winning_str = f" using `{item.attack.winning_strategy}`" if item.attack.winning_strategy else ""
 
     return f"""## Round {item.round_number} — {status}
 
 **Difficulty:** {item.difficulty}  
 **Password:** `{item.password_display}` ({item.password_length} characters)  
 **Estimated entropy:** {item.strength.entropy_bits:.2f} bits  
-**Guess result:** {item.attack.guesses_used:,} guesses using `{item.attack.strategy}`  
+**Guess result:** {item.attack.guesses_used:,} guesses{winning_str}  
 **Runtime:** {item.attack.elapsed_ms:.3f} ms
 
 ### Defender side
