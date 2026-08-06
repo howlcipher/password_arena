@@ -1,0 +1,8 @@
+{
+  "rounds": 8,
+  "start_difficulty": 1,
+  "difficulty_step": 1,
+  "max_guesses": 5000,
+  "seed": 42,
+  "reveal_passwords": false
+}

@@ -1,0 +1,633 @@
+{
+  "config": {
+    "rounds": 8,
+    "start_difficulty": 1,
+    "difficulty_step": 1,
+    "max_guesses": 5000,
+    "seed": 42,
+    "reveal_passwords": false
+  },
+  "summary": {
+    "solved_rounds": 2,
+    "total_rounds": 8,
+    "solve_rate": 0.25
+  },
+  "rounds": [
+    {
+      "round_number": 1,
+      "difficulty": 1,
+      "password_display": "\u2022\u2022\u2022\u2022\u2022",
+      "password_length": 5,
+      "strength": {
+        "entropy_bits": 10.58,
+        "score": 0,
+        "character_pool": 26,
+        "pattern_penalty": 0.45,
+        "findings": [
+          "Contains a common password token"
+        ]
+      },
+      "attack": {
+        "solved": true,
+        "guesses_used": 8,
+        "strategy": "common",
+        "elapsed_ms": 0.026198999989901495,
+        "candidate": null,
+        "plan": [
+          {
+            "strategy": "common",
+            "weight": 0.7032,
+            "guess_budget": 3518
+          },
+          {
+            "strategy": "mutation",
+            "weight": 0.2009,
+            "guess_budget": 1004
+          },
+          {
+            "strategy": "passphrase",
+            "weight": 0.0804,
+            "guess_budget": 401
+          },
+          {
+            "strategy": "random",
+            "weight": 0.0156,
+            "guess_budget": 77
+          }
+        ],
+        "attempted_strategies": [
+          "common"
+        ]
+      },
+      "defender_strategy": "dictionary-word",
+      "attacker_note": "Successful strategy received a higher future selection weight. Learned 1 new synthetic token(s).",
+      "defender_note": "Selected dictionary-word for difficulty 1.",
+      "report": {
+        "defender": {
+          "decision": "Selected dictionary-word for difficulty 1.",
+          "actions": [
+            "Generated a synthetic dictionary-word password.",
+            "Set length to 5 characters."
+          ],
+          "observation": "The password solved. Evaluator findings: Contains a common password token.",
+          "learning_update": "Recorded dictionary-word as breached and will harden it if reused."
+        },
+        "attacker": {
+          "decision": "Ranked common as the highest-priority strategy for difficulty 1.",
+          "actions": [
+            "Allocated 3,518 guesses to common (70.3% of the plan).",
+            "Allocated 1,004 guesses to mutation (20.1% of the plan).",
+            "Allocated 401 guesses to passphrase (8.0% of the plan).",
+            "Allocated 77 guesses to random (1.6% of the plan)."
+          ],
+          "observation": "Found a match after 8 guesses; attempted common.",
+          "learning_update": "Successful strategy received a higher future selection weight. Learned 1 new synthetic token(s)."
+        },
+        "evaluator_summary": "Round 1 solved. Strength score was 0/4 with an estimated 10.58 bits after structural penalties.",
+        "security_lesson": "The dictionary-word structure remained predictable inside the current attack model; cosmetic complexity should not be treated as randomness."
+      }
+    },
+    {
+      "round_number": 2,
+      "difficulty": 2,
+      "password_display": "\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
+      "password_length": 7,
+      "strength": {
+        "entropy_bits": 18.76,
+        "score": 0,
+        "character_pool": 62,
+        "pattern_penalty": 0.45,
+        "findings": [
+          "Contains a common password token"
+        ]
+      },
+      "attack": {
+        "solved": true,
+        "guesses_used": 232,
+        "strategy": "mutation",
+        "elapsed_ms": 0.0860579999653055,
+        "candidate": null,
+        "plan": [
+          {
+            "strategy": "mutation",
+            "weight": 0.722,
+            "guess_budget": 3611
+          },
+          {
+            "strategy": "common",
+            "weight": 0.1444,
+            "guess_budget": 722
+          },
+          {
+            "strategy": "passphrase",
+            "weight": 0.0963,
+            "guess_budget": 481
+          },
+          {
+            "strategy": "random",
+            "weight": 0.0373,
+            "guess_budget": 186
+          }
+        ],
+        "attempted_strategies": [
+          "mutation"
+        ]
+      },
+      "defender_strategy": "capitalized-word-number",
+      "attacker_note": "Successful strategy received a higher future selection weight.",
+      "defender_note": "Selected capitalized-word-number for difficulty 2.",
+      "report": {
+        "defender": {
+          "decision": "Selected capitalized-word-number for difficulty 2.",
+          "actions": [
+            "Generated a synthetic capitalized-word-number password.",
+            "Set length to 7 characters."
+          ],
+          "observation": "The password solved. Evaluator findings: Contains a common password token.",
+          "learning_update": "Recorded capitalized-word-number as breached and will harden it if reused."
+        },
+        "attacker": {
+          "decision": "Ranked mutation as the highest-priority strategy for difficulty 2.",
+          "actions": [
+            "Allocated 3,611 guesses to mutation (72.2% of the plan).",
+            "Allocated 722 guesses to common (14.4% of the plan).",
+            "Allocated 481 guesses to passphrase (9.6% of the plan).",
+            "Allocated 186 guesses to random (3.7% of the plan)."
+          ],
+          "observation": "Found a match after 232 guesses; attempted mutation.",
+          "learning_update": "Successful strategy received a higher future selection weight."
+        },
+        "evaluator_summary": "Round 2 solved. Strength score was 0/4 with an estimated 18.76 bits after structural penalties.",
+        "security_lesson": "The capitalized-word-number structure remained predictable inside the current attack model; cosmetic complexity should not be treated as randomness."
+      }
+    },
+    {
+      "round_number": 3,
+      "difficulty": 3,
+      "password_display": "\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
+      "password_length": 7,
+      "strength": {
+        "entropy_bits": 44.87,
+        "score": 2,
+        "character_pool": 85,
+        "pattern_penalty": 1.0,
+        "findings": [
+          "No obvious structural weakness detected"
+        ]
+      },
+      "attack": {
+        "solved": false,
+        "guesses_used": 5000,
+        "strategy": "mutation",
+        "elapsed_ms": 2.3770620000505005,
+        "candidate": null,
+        "plan": [
+          {
+            "strategy": "mutation",
+            "weight": 0.7958,
+            "guess_budget": 3980
+          },
+          {
+            "strategy": "common",
+            "weight": 0.1061,
+            "guess_budget": 530
+          },
+          {
+            "strategy": "passphrase",
+            "weight": 0.0707,
+            "guess_budget": 353
+          },
+          {
+            "strategy": "random",
+            "weight": 0.0274,
+            "guess_budget": 137
+          }
+        ],
+        "attempted_strategies": [
+          "mutation",
+          "common",
+          "passphrase",
+          "random",
+          "random-overflow"
+        ]
+      },
+      "defender_strategy": "substitution-pattern",
+      "attacker_note": "Failure recorded; attacker retained synthetic token structure for later rounds.",
+      "defender_note": "Selected substitution-pattern for difficulty 3.",
+      "report": {
+        "defender": {
+          "decision": "Selected substitution-pattern for difficulty 3.",
+          "actions": [
+            "Generated a synthetic substitution-pattern password.",
+            "Set length to 7 characters."
+          ],
+          "observation": "The password resisted the bounded guess budget. Evaluator findings: No obvious structural weakness detected.",
+          "learning_update": "Recorded substitution-pattern as surviving the current bounded attack."
+        },
+        "attacker": {
+          "decision": "Ranked mutation as the highest-priority strategy for difficulty 3.",
+          "actions": [
+            "Allocated 3,980 guesses to mutation (79.6% of the plan).",
+            "Allocated 530 guesses to common (10.6% of the plan).",
+            "Allocated 353 guesses to passphrase (7.1% of the plan).",
+            "Allocated 137 guesses to random (2.7% of the plan)."
+          ],
+          "observation": "Found no match after 5,000 guesses; attempted mutation, common, passphrase, random, random-overflow.",
+          "learning_update": "Failure recorded; attacker retained synthetic token structure for later rounds."
+        },
+        "evaluator_summary": "Round 3 resisted the bounded guess budget. Strength score was 2/4 with an estimated 44.87 bits after structural penalties.",
+        "security_lesson": "This structure survived this bounded experiment, but that is not proof of real-world security against larger or different attack models."
+      }
+    },
+    {
+      "round_number": 4,
+      "difficulty": 4,
+      "password_display": "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
+      "password_length": 16,
+      "strength": {
+        "entropy_bits": 105.12,
+        "score": 4,
+        "character_pool": 95,
+        "pattern_penalty": 1.0,
+        "findings": [
+          "No obvious structural weakness detected"
+        ]
+      },
+      "attack": {
+        "solved": false,
+        "guesses_used": 5000,
+        "strategy": "passphrase",
+        "elapsed_ms": 2.977836000013667,
+        "candidate": null,
+        "plan": [
+          {
+            "strategy": "passphrase",
+            "weight": 0.6897,
+            "guess_budget": 3450
+          },
+          {
+            "strategy": "mutation",
+            "weight": 0.2059,
+            "guess_budget": 1029
+          },
+          {
+            "strategy": "common",
+            "weight": 0.0686,
+            "guess_budget": 343
+          },
+          {
+            "strategy": "random",
+            "weight": 0.0358,
+            "guess_budget": 178
+          }
+        ],
+        "attempted_strategies": [
+          "passphrase",
+          "mutation",
+          "common",
+          "random",
+          "random-overflow"
+        ]
+      },
+      "defender_strategy": "two-word-passphrase",
+      "attacker_note": "Failure recorded; attacker retained synthetic token structure for later rounds. Learned 2 new synthetic token(s).",
+      "defender_note": "Selected two-word-passphrase for difficulty 4.",
+      "report": {
+        "defender": {
+          "decision": "Selected two-word-passphrase for difficulty 4.",
+          "actions": [
+            "Generated a synthetic two-word-passphrase password.",
+            "Set length to 16 characters."
+          ],
+          "observation": "The password resisted the bounded guess budget. Evaluator findings: No obvious structural weakness detected.",
+          "learning_update": "Recorded two-word-passphrase as surviving the current bounded attack."
+        },
+        "attacker": {
+          "decision": "Ranked passphrase as the highest-priority strategy for difficulty 4.",
+          "actions": [
+            "Allocated 3,450 guesses to passphrase (69.0% of the plan).",
+            "Allocated 1,029 guesses to mutation (20.6% of the plan).",
+            "Allocated 343 guesses to common (6.9% of the plan).",
+            "Allocated 178 guesses to random (3.6% of the plan)."
+          ],
+          "observation": "Found no match after 5,000 guesses; attempted passphrase, mutation, common, random, random-overflow.",
+          "learning_update": "Failure recorded; attacker retained synthetic token structure for later rounds. Learned 2 new synthetic token(s)."
+        },
+        "evaluator_summary": "Round 4 resisted the bounded guess budget. Strength score was 4/4 with an estimated 105.12 bits after structural penalties.",
+        "security_lesson": "This structure survived this bounded experiment, but that is not proof of real-world security against larger or different attack models."
+      }
+    },
+    {
+      "round_number": 5,
+      "difficulty": 5,
+      "password_display": "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
+      "password_length": 22,
+      "strength": {
+        "entropy_bits": 134.39,
+        "score": 4,
+        "character_pool": 69,
+        "pattern_penalty": 1.0,
+        "findings": [
+          "No obvious structural weakness detected"
+        ]
+      },
+      "attack": {
+        "solved": false,
+        "guesses_used": 5000,
+        "strategy": "passphrase",
+        "elapsed_ms": 3.611417000001893,
+        "candidate": null,
+        "plan": [
+          {
+            "strategy": "passphrase",
+            "weight": 0.6906,
+            "guess_budget": 3455
+          },
+          {
+            "strategy": "mutation",
+            "weight": 0.2051,
+            "guess_budget": 1025
+          },
+          {
+            "strategy": "common",
+            "weight": 0.0684,
+            "guess_budget": 341
+          },
+          {
+            "strategy": "random",
+            "weight": 0.036,
+            "guess_budget": 179
+          }
+        ],
+        "attempted_strategies": [
+          "passphrase",
+          "mutation",
+          "common",
+          "random",
+          "random-overflow"
+        ]
+      },
+      "defender_strategy": "multi-word-passphrase",
+      "attacker_note": "Failure recorded; attacker retained synthetic token structure for later rounds. Learned 2 new synthetic token(s).",
+      "defender_note": "Selected multi-word-passphrase for difficulty 5.",
+      "report": {
+        "defender": {
+          "decision": "Selected multi-word-passphrase for difficulty 5.",
+          "actions": [
+            "Generated a synthetic multi-word-passphrase password.",
+            "Set length to 22 characters."
+          ],
+          "observation": "The password resisted the bounded guess budget. Evaluator findings: No obvious structural weakness detected.",
+          "learning_update": "Recorded multi-word-passphrase as surviving the current bounded attack."
+        },
+        "attacker": {
+          "decision": "Ranked passphrase as the highest-priority strategy for difficulty 5.",
+          "actions": [
+            "Allocated 3,455 guesses to passphrase (69.1% of the plan).",
+            "Allocated 1,025 guesses to mutation (20.5% of the plan).",
+            "Allocated 341 guesses to common (6.8% of the plan).",
+            "Allocated 179 guesses to random (3.6% of the plan)."
+          ],
+          "observation": "Found no match after 5,000 guesses; attempted passphrase, mutation, common, random, random-overflow.",
+          "learning_update": "Failure recorded; attacker retained synthetic token structure for later rounds. Learned 2 new synthetic token(s)."
+        },
+        "evaluator_summary": "Round 5 resisted the bounded guess budget. Strength score was 4/4 with an estimated 134.39 bits after structural penalties.",
+        "security_lesson": "This structure survived this bounded experiment, but that is not proof of real-world security against larger or different attack models."
+      }
+    },
+    {
+      "round_number": 6,
+      "difficulty": 6,
+      "password_display": "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
+      "password_length": 28,
+      "strength": {
+        "entropy_bits": 76.97,
+        "score": 3,
+        "character_pool": 69,
+        "pattern_penalty": 0.45,
+        "findings": [
+          "Contains a common password token"
+        ]
+      },
+      "attack": {
+        "solved": false,
+        "guesses_used": 5000,
+        "strategy": "passphrase",
+        "elapsed_ms": 4.226700999993227,
+        "candidate": null,
+        "plan": [
+          {
+            "strategy": "passphrase",
+            "weight": 0.6914,
+            "guess_budget": 3459
+          },
+          {
+            "strategy": "mutation",
+            "weight": 0.2043,
+            "guess_budget": 1021
+          },
+          {
+            "strategy": "common",
+            "weight": 0.0681,
+            "guess_budget": 340
+          },
+          {
+            "strategy": "random",
+            "weight": 0.0362,
+            "guess_budget": 180
+          }
+        ],
+        "attempted_strategies": [
+          "passphrase",
+          "mutation",
+          "common",
+          "random",
+          "random-overflow"
+        ]
+      },
+      "defender_strategy": "multi-word-passphrase",
+      "attacker_note": "Failure recorded; attacker retained synthetic token structure for later rounds. Learned 1 new synthetic token(s).",
+      "defender_note": "Selected multi-word-passphrase for difficulty 6.",
+      "report": {
+        "defender": {
+          "decision": "Selected multi-word-passphrase for difficulty 6.",
+          "actions": [
+            "Generated a synthetic multi-word-passphrase password.",
+            "Set length to 28 characters."
+          ],
+          "observation": "The password resisted the bounded guess budget. Evaluator findings: Contains a common password token.",
+          "learning_update": "Recorded multi-word-passphrase as surviving the current bounded attack."
+        },
+        "attacker": {
+          "decision": "Ranked passphrase as the highest-priority strategy for difficulty 6.",
+          "actions": [
+            "Allocated 3,459 guesses to passphrase (69.1% of the plan).",
+            "Allocated 1,021 guesses to mutation (20.4% of the plan).",
+            "Allocated 340 guesses to common (6.8% of the plan).",
+            "Allocated 180 guesses to random (3.6% of the plan)."
+          ],
+          "observation": "Found no match after 5,000 guesses; attempted passphrase, mutation, common, random, random-overflow.",
+          "learning_update": "Failure recorded; attacker retained synthetic token structure for later rounds. Learned 1 new synthetic token(s)."
+        },
+        "evaluator_summary": "Round 6 resisted the bounded guess budget. Strength score was 3/4 with an estimated 76.97 bits after structural penalties.",
+        "security_lesson": "This structure survived this bounded experiment, but that is not proof of real-world security against larger or different attack models."
+      }
+    },
+    {
+      "round_number": 7,
+      "difficulty": 7,
+      "password_display": "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
+      "password_length": 14,
+      "strength": {
+        "entropy_bits": 79.81,
+        "score": 3,
+        "character_pool": 52,
+        "pattern_penalty": 1.0,
+        "findings": [
+          "No obvious structural weakness detected"
+        ]
+      },
+      "attack": {
+        "solved": false,
+        "guesses_used": 5000,
+        "strategy": "random",
+        "elapsed_ms": 13.189471000032427,
+        "candidate": null,
+        "plan": [
+          {
+            "strategy": "random",
+            "weight": 0.7943,
+            "guess_budget": 3973
+          },
+          {
+            "strategy": "passphrase",
+            "weight": 0.1185,
+            "guess_budget": 592
+          },
+          {
+            "strategy": "mutation",
+            "weight": 0.0697,
+            "guess_budget": 348
+          },
+          {
+            "strategy": "common",
+            "weight": 0.0174,
+            "guess_budget": 87
+          }
+        ],
+        "attempted_strategies": [
+          "random",
+          "passphrase",
+          "mutation",
+          "common",
+          "random-overflow"
+        ]
+      },
+      "defender_strategy": "cryptographic-random",
+      "attacker_note": "Failure recorded; attacker retained synthetic token structure for later rounds. Learned 1 new synthetic token(s).",
+      "defender_note": "Selected cryptographic-random for difficulty 7.",
+      "report": {
+        "defender": {
+          "decision": "Selected cryptographic-random for difficulty 7.",
+          "actions": [
+            "Generated a synthetic cryptographic-random password.",
+            "Set length to 14 characters."
+          ],
+          "observation": "The password resisted the bounded guess budget. Evaluator findings: No obvious structural weakness detected.",
+          "learning_update": "Recorded cryptographic-random as surviving the current bounded attack."
+        },
+        "attacker": {
+          "decision": "Ranked random as the highest-priority strategy for difficulty 7.",
+          "actions": [
+            "Allocated 3,973 guesses to random (79.4% of the plan).",
+            "Allocated 592 guesses to passphrase (11.8% of the plan).",
+            "Allocated 348 guesses to mutation (7.0% of the plan).",
+            "Allocated 87 guesses to common (1.7% of the plan)."
+          ],
+          "observation": "Found no match after 5,000 guesses; attempted random, passphrase, mutation, common, random-overflow.",
+          "learning_update": "Failure recorded; attacker retained synthetic token structure for later rounds. Learned 1 new synthetic token(s)."
+        },
+        "evaluator_summary": "Round 7 resisted the bounded guess budget. Strength score was 3/4 with an estimated 79.81 bits after structural penalties.",
+        "security_lesson": "Cryptographically secure randomness removed the human patterns targeted by the bounded attacker; password-manager generation is the safer real-world endpoint."
+      }
+    },
+    {
+      "round_number": 8,
+      "difficulty": 8,
+      "password_display": "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
+      "password_length": 16,
+      "strength": {
+        "entropy_bits": 105.12,
+        "score": 4,
+        "character_pool": 95,
+        "pattern_penalty": 1.0,
+        "findings": [
+          "No obvious structural weakness detected"
+        ]
+      },
+      "attack": {
+        "solved": false,
+        "guesses_used": 5000,
+        "strategy": "random",
+        "elapsed_ms": 15.126759999930073,
+        "candidate": null,
+        "plan": [
+          {
+            "strategy": "random",
+            "weight": 0.7953,
+            "guess_budget": 3979
+          },
+          {
+            "strategy": "passphrase",
+            "weight": 0.1182,
+            "guess_budget": 590
+          },
+          {
+            "strategy": "mutation",
+            "weight": 0.0692,
+            "guess_budget": 345
+          },
+          {
+            "strategy": "common",
+            "weight": 0.0173,
+            "guess_budget": 86
+          }
+        ],
+        "attempted_strategies": [
+          "random",
+          "passphrase",
+          "mutation",
+          "common",
+          "random-overflow"
+        ]
+      },
+      "defender_strategy": "cryptographic-random",
+      "attacker_note": "Failure recorded; attacker retained synthetic token structure for later rounds.",
+      "defender_note": "Selected cryptographic-random for difficulty 8.",
+      "report": {
+        "defender": {
+          "decision": "Selected cryptographic-random for difficulty 8.",
+          "actions": [
+            "Generated a synthetic cryptographic-random password.",
+            "Set length to 16 characters."
+          ],
+          "observation": "The password resisted the bounded guess budget. Evaluator findings: No obvious structural weakness detected.",
+          "learning_update": "Recorded cryptographic-random as surviving the current bounded attack."
+        },
+        "attacker": {
+          "decision": "Ranked random as the highest-priority strategy for difficulty 8.",
+          "actions": [
+            "Allocated 3,979 guesses to random (79.5% of the plan).",
+            "Allocated 590 guesses to passphrase (11.8% of the plan).",
+            "Allocated 345 guesses to mutation (6.9% of the plan).",
+            "Allocated 86 guesses to common (1.7% of the plan)."
+          ],
+          "observation": "Found no match after 5,000 guesses; attempted random, passphrase, mutation, common, random-overflow.",
+          "learning_update": "Failure recorded; attacker retained synthetic token structure for later rounds."
+        },
+        "evaluator_summary": "Round 8 resisted the bounded guess budget. Strength score was 4/4 with an estimated 105.12 bits after structural penalties.",
+        "security_lesson": "Cryptographically secure randomness removed the human patterns targeted by the bounded attacker; password-manager generation is the safer real-world endpoint."
+      }
+    }
+  ]
+}

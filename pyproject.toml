@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "password-arena"
+version = "0.1.0"
+description = "A safe, local adversarial-learning sandbox where password attacker and defender agents adapt across rounds."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "William Elias" }]
+keywords = ["ai", "cybersecurity", "agents", "passwords", "simulation"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Security",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dashboard = ["pandas>=2.2", "streamlit>=1.37"]
+dev = ["pytest>=8.2", "ruff>=0.5", "mypy>=1.10"]
+all = ["pandas>=2.2", "streamlit>=1.37", "pytest>=8.2", "ruff>=0.5", "mypy>=1.10"]
+
+[project.scripts]
+password-arena = "password_arena.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["password_arena"]
+exclude = ["src/password_arena/dashboard.py"]
