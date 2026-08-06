@@ -341,7 +341,13 @@ Allow the user to select a provider, model, and thinking level independently for
 ## IMP-018 — OpenAI provider adapter
 
 **Priority:** P1  
-**Status:** Blocked by IMP-001
+**Status:** Done
+
+**Implementation note:**
+Added `OpenAIProvider` in `src/password_arena/openai_provider.py` which implements the `AgentBackend` protocol. Supported mapping of standard OpenAI exceptions to the normalized `AvailabilityState`. Token usage, estimated cost, and latency are recorded where possible.
+
+**Validation performed:**
+Wrote deterministic fake-client tests in `tests/test_openai_provider.py` making no paid calls. Validated with `ruff check .`, `mypy src/password_arena`, and `pytest` which all pass.
 
 Implement an optional OpenAI backend using schema-validated role requests and responses.
 
