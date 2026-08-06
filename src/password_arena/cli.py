@@ -27,7 +27,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
     config = ArenaConfig(
         rounds=args.rounds,
         start_difficulty=args.start_difficulty,
@@ -36,6 +37,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         seed=args.seed,
         reveal_passwords=args.reveal_passwords,
     )
+    try:
+        config.validate()
+    except ValueError as e:
+        parser.error(str(e))
+    
     experiment = ArenaEngine(config).run()
 
     print("\nPassword Arena")
