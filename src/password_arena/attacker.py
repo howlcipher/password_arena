@@ -6,6 +6,7 @@ import string
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from typing import Protocol
 
 from password_arena.grammars import COMMON_PASSWORDS as COMMON
 from password_arena.grammars import SHARED_WORDS, SYMBOLS
@@ -21,48 +22,125 @@ def _dedupe(candidates: Iterator[str]) -> Iterator[str]:
             yield candidate
 
 
-def common_candidates() -> Iterator[str]:
-    yield from COMMON
+@dataclass(slots=True)
+class AttackContext:
+    password_length: int
+    known_words: tuple[str, ...]
+    rng: random.Random
 
 
-def mutation_candidates(words: tuple[str, ...]) -> Iterator[str]:
-    substitutions = {"a": "@", "e": "3", "i": "1", "o": "0", "s": "$"}
-    for word in words:
-        mutated = "".join(substitutions.get(char, char) for char in word)
-        forms = tuple(dict.fromkeys((word, word.title(), word.upper(), mutated, mutated.title())))
-        yield from forms
-        for number in range(0, 100):
-            for form in forms:
-                yield f"{form}{number:02d}"
-        for symbol in SYMBOLS:
-            for form in forms:
-                yield f"{form}{symbol}"
+class AttackStrategy(Protocol):
+    @property
+    def name(self) -> str: ...
+    @property
+    def supported_inputs(self) -> str: ...
+    def candidates(self, context: AttackContext) -> Iterator[str]: ...
 
 
-def passphrase_candidates(words: tuple[str, ...], max_words: int = 4) -> Iterator[str]:
-    limited = words[: min(len(words), 12)]
-    for count in range(2, max_words + 1):
-        for parts in itertools.permutations(limited, count):
-            variants = (
-                "-".join(parts),
-                "-".join(part.title() for part in parts),
-                f"{parts[0].title()}-" + "-".join(parts[1:]),
+class CommonStrategy:
+    @property
+    def name(self) -> str:
+        return "common"
+    
+    @property
+    def supported_inputs(self) -> str:
+        return "common passwords list"
+        
+    def candidates(self, context: AttackContext) -> Iterator[str]:
+        yield from COMMON
+
+
+class MutationStrategy:
+    @property
+    def name(self) -> str:
+        return "mutation"
+        
+    @property
+    def supported_inputs(self) -> str:
+        return "known words"
+        
+    def candidates(self, context: AttackContext) -> Iterator[str]:
+        substitutions = {"a": "@", "e": "3", "i": "1", "o": "0", "s": "$"}
+        for word in context.known_words:
+            mutated = "".join(substitutions.get(char, char) for char in word)
+            forms = tuple(
+                dict.fromkeys((word, word.title(), word.upper(), mutated, mutated.title()))
             )
-            for base in dict.fromkeys(variants):
-                yield base
-                for suffix in range(0, 1000):
-                    if suffix < 100:
-                        yield f"{base}{suffix:02d}"
-                    else:
-                        yield f"{base}{suffix}"
-                for string_suffix in ("123", "2026"):
-                    yield base + string_suffix
+            yield from forms
+            for number in range(0, 100):
+                for form in forms:
+                    yield f"{form}{number:02d}"
+            for symbol in SYMBOLS:
+                for form in forms:
+                    yield f"{form}{symbol}"
 
 
-def random_candidates(rng: random.Random, length: int = 16) -> Iterator[str]:
-    alphabet = string.ascii_letters + string.digits + SYMBOLS
-    while True:
-        yield "".join(rng.choice(alphabet) for _ in range(length))
+class PassphraseStrategy:
+    @property
+    def name(self) -> str:
+        return "passphrase"
+        
+    @property
+    def supported_inputs(self) -> str:
+        return "known words"
+        
+    def candidates(self, context: AttackContext) -> Iterator[str]:
+        limited = context.known_words[: min(len(context.known_words), 12)]
+        for count in range(2, 5):
+            for parts in itertools.permutations(limited, count):
+                variants = (
+                    "-".join(parts),
+                    "-".join(part.title() for part in parts),
+                    f"{parts[0].title()}-" + "-".join(parts[1:]),
+                )
+                for base in dict.fromkeys(variants):
+                    yield base
+                    for suffix in range(0, 1000):
+                        if suffix < 100:
+                            yield f"{base}{suffix:02d}"
+                        else:
+                            yield f"{base}{suffix}"
+                    for string_suffix in ("123", "2026"):
+                        yield base + string_suffix
+
+
+class RandomStrategy:
+    @property
+    def name(self) -> str:
+        return "random"
+        
+    @property
+    def supported_inputs(self) -> str:
+        return "password length"
+        
+    def candidates(self, context: AttackContext) -> Iterator[str]:
+        alphabet = string.ascii_letters + string.digits + SYMBOLS
+        while True:
+            yield "".join(context.rng.choice(alphabet) for _ in range(context.password_length))
+
+
+class StrategyRegistry:
+    def __init__(self) -> None:
+        self._strategies: dict[str, AttackStrategy] = {}
+
+    def register(self, strategy: AttackStrategy) -> None:
+        self._strategies[strategy.name] = strategy
+
+    def get(self, name: str) -> AttackStrategy | None:
+        return self._strategies.get(name)
+
+    def get_all(self) -> list[AttackStrategy]:
+        return list(self._strategies.values())
+
+    def __contains__(self, name: str) -> bool:
+        return name in self._strategies
+
+
+default_registry = StrategyRegistry()
+default_registry.register(CommonStrategy())
+default_registry.register(MutationStrategy())
+default_registry.register(PassphraseStrategy())
+default_registry.register(RandomStrategy())
 
 
 @dataclass(slots=True)
@@ -75,6 +153,10 @@ class AdaptiveAttacker:
         default_factory=lambda: {"common": 1.0, "mutation": 1.0, "passphrase": 1.0, "random": 0.1}
     )
     backend: AgentBackend | None = None
+    strategy_registry: StrategyRegistry = field(default_factory=lambda: default_registry)
+    enabled_strategies: set[str] = field(
+        default_factory=lambda: {"common", "mutation", "passphrase", "random"}
+    )
 
     def _strategy_weights(self, difficulty: int, max_guesses: int) -> dict[str, float]:
         if self.backend:
@@ -89,26 +171,42 @@ class AdaptiveAttacker:
         else:
             base = {"common": 0.01, "mutation": 0.04, "passphrase": 0.10, "random": 0.85}
 
+        # Filter out disabled strategies
+        base = {
+            k: v for k, v in base.items() 
+            if k in self.enabled_strategies and k in self.strategy_registry
+        }
+        if not base:
+             # Fallback if nothing enabled
+             return {}
+
         weighted = {
-            name: weight * min(1.75, max(0.75, 0.75 + 0.25 * self.strategy_scores[name]))
+            name: weight * min(1.75, max(0.75, 0.75 + 0.25 * self.strategy_scores.get(name, 1.0)))
             for name, weight in base.items()
         }
         total = sum(weighted.values())
+        if total == 0:
+            return {}
         return {name: weight / total for name, weight in weighted.items()}
 
     def _candidates(self, strategy: str, password_length: int) -> Iterator[str]:
+        if strategy not in self.enabled_strategies:
+            return iter([])
+        strat_obj = self.strategy_registry.get(strategy)
+        if strat_obj is None:
+            return iter([])
         known = tuple(dict.fromkeys((*self.learned_words, *SHARED_WORDS, *COMMON)))
-        if strategy == "common":
-            return common_candidates()
-        if strategy == "mutation":
-            return mutation_candidates(known)
-        if strategy == "passphrase":
-            return passphrase_candidates(known)
-        return random_candidates(self.rng, password_length)
+        ctx = AttackContext(password_length=password_length, known_words=known, rng=self.rng)
+        return strat_obj.candidates(ctx)
 
     def attack(self, password: str, difficulty: int, max_guesses: int) -> AttackResult:
         started = time.perf_counter()
         weights = self._strategy_weights(difficulty, max_guesses)
+        if not weights:
+            # Nothing enabled
+            elapsed = (time.perf_counter() - started) * 1000
+            return AttackResult(False, 0, None, elapsed, None, (), ())
+
         ordered = sorted(weights, key=lambda k: weights[k], reverse=True)
         raw_allocations = {name: max_guesses * weights[name] for name in ordered}
         allocations = {name: int(raw_allocations[name]) for name in ordered}
@@ -142,7 +240,7 @@ class AdaptiveAttacker:
                 guesses += 1
                 if candidate == password:
                     elapsed = (time.perf_counter() - started) * 1000
-                    self.strategy_scores[strategy] += 2.0
+                    self.strategy_scores[strategy] = self.strategy_scores.get(strategy, 1.0) + 2.0
                     return AttackResult(
                         True,
                         guesses,
@@ -155,25 +253,31 @@ class AdaptiveAttacker:
 
         if guesses < max_guesses:
             attempted.append("random-overflow")
-            source = random_candidates(self.rng, len(password))
-            for candidate in itertools.islice(source, max_guesses - guesses):
-                guesses += 1
-                if candidate == password:
-                    elapsed = (time.perf_counter() - started) * 1000
-                    self.strategy_scores["random"] += 2.0
-                    return AttackResult(
-                        True,
-                        guesses,
-                        "random",
-                        elapsed,
-                        candidate,
-                        plan,
-                        tuple(attempted),
-                    )
+            # Reuse random strategy for overflow, if available
+            overflow_strat = self.strategy_registry.get("random")
+            if overflow_strat and "random" in self.enabled_strategies:
+                known = tuple(dict.fromkeys((*self.learned_words, *SHARED_WORDS, *COMMON)))
+                ctx = AttackContext(password_length=len(password), known_words=known, rng=self.rng)
+                source = overflow_strat.candidates(ctx)
+                for candidate in itertools.islice(source, max_guesses - guesses):
+                    guesses += 1
+                    if candidate == password:
+                        elapsed = (time.perf_counter() - started) * 1000
+                        new_score = self.strategy_scores.get("random", 1.0) + 2.0
+                        self.strategy_scores["random"] = new_score
+                        return AttackResult(
+                            True,
+                            guesses,
+                            "random",
+                            elapsed,
+                            candidate,
+                            plan,
+                            tuple(attempted),
+                        )
 
         elapsed = (time.perf_counter() - started) * 1000
         for strategy in ordered:
-            self.strategy_scores[strategy] *= 0.98
+            self.strategy_scores[strategy] = self.strategy_scores.get(strategy, 1.0) * 0.98
         return AttackResult(
             False,
             guesses,
@@ -218,12 +322,16 @@ class AdaptiveAttacker:
             },
             "required": ["weights", "reasoning"]
         }
+        
+        # Build list of available strategies
+        avail = [s for s in self.strategy_registry._strategies if s in self.enabled_strategies]
+        
         prompt = (
             f"Allocate strategy weights (sum to 1.0) for a password attack at "
             f"difficulty {difficulty} (1-10).\n"
             f"Current strategy scores: {self.strategy_scores}.\n"
             f"Total guesses allowed: {max_guesses}.\n"
-            "Strategies typically available: common, mutation, passphrase, random.\n"
+            f"Strategies typically available: {', '.join(avail)}.\n"
             "Respond strictly in the provided JSON schema."
         )
         assert self.backend is not None
@@ -245,9 +353,14 @@ class AdaptiveAttacker:
                 raise ValueError(
                     "Provider response failed schema validation: weights values must be numbers"
                 )
-            parsed_weights[k] = float(v)
+            if k in avail:
+                parsed_weights[k] = float(v)
         
         total = sum(parsed_weights.values())
         if total == 0:
-            return {"random": 1.0}
+            if "random" in avail:
+                return {"random": 1.0}
+            elif avail:
+                return {avail[0]: 1.0}
+            return {}
         return {k: v / total for k, v in parsed_weights.items()}

@@ -63,7 +63,7 @@ Add optional adapters for the user's model subscriptions without making any prov
 ## IMP-003 — Persistent experiment history
 
 **Priority:** P1  
-**Status:** Ready
+**Status:** In Progress
 
 Store completed experiments locally so users can compare runs instead of losing results after a dashboard session.
 
@@ -96,7 +96,16 @@ Allow two or more experiments to be compared using the same metrics and charts.
 ## IMP-005 — Strategy plugin system
 
 **Priority:** P1  
-**Status:** Ready
+**Status:** Done
+
+**Implementation note:**
+Refactored `attacker.py` to use an `AttackStrategy` protocol and a `StrategyRegistry`.
+Strategies declare `name`, `supported_inputs`, and return an iterator in `candidates(context)`.
+Existing strategies were migrated into classes (`CommonStrategy`, `MutationStrategy`, `PassphraseStrategy`, `RandomStrategy`).
+Tests were updated and passed.
+
+**Validation performed:**
+Ran `ruff check .`, `mypy src/password_arena`, and `pytest` locally and all passed.
 
 Replace the hard-coded strategy switch with registered strategy objects implementing a common interface.
 
@@ -129,7 +138,7 @@ Add educational Markov-chain and probabilistic context-free grammar strategies t
 ## IMP-007 — Held-out benchmark generator
 
 **Priority:** P1  
-**Status:** Ready
+**Status:** In Progress
 
 Separate defender generation patterns from attacker development data so evaluation measures generalization instead of memorizing one shared word list.
 
@@ -145,7 +154,7 @@ Separate defender generation patterns from attacker development data so evaluati
 ## IMP-008 — Repeated trials and confidence intervals
 
 **Priority:** P2  
-**Status:** Ready
+**Status:** In Progress
 
 Run each configuration across multiple seeds and summarize distributions rather than presenting one run as representative.
 
@@ -177,7 +186,7 @@ Support multiple defender objectives: human-memorable passphrases, maximum rando
 ## IMP-010 — Versioned metrics and event schema
 
 **Priority:** P1  
-**Status:** Ready
+**Status:** In Progress
 
 Introduce an event model that records decisions and measurements before reports are rendered.
 
@@ -193,7 +202,7 @@ Introduce an event model that records decisions and measurements before reports 
 ## IMP-011 — Improved dashboard visualization
 
 **Priority:** P2  
-**Status:** Ready
+**Status:** In Progress
 
 Make the dashboard easier to interpret by separating incompatible scales and exposing strategy-level results.
 

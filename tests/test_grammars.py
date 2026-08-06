@@ -1,6 +1,6 @@
 import random
 
-from password_arena.attacker import AdaptiveAttacker, passphrase_candidates
+from password_arena.attacker import AdaptiveAttacker, AttackContext, PassphraseStrategy
 from password_arena.grammars import HELD_OUT_WORDS, SHARED_WORDS
 
 
@@ -8,7 +8,10 @@ def test_passphrase_candidates_reachable():
     """Prove that benchmark cases (e.g. 4-word passphrases with 3-digit suffix) are reachable."""
     # We restrict the words to a small set so the iterator exhausts quickly
     words = ("tiger", "orbit", "cobalt", "harbor")
-    candidates = passphrase_candidates(words, max_words=4)
+    
+    ctx = AttackContext(password_length=30, known_words=words, rng=random.Random())
+    strat = PassphraseStrategy()
+    candidates = strat.candidates(ctx)
     
     target = "tiger-orbit-cobalt-harbor456"
     
