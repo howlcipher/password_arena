@@ -328,7 +328,7 @@ Create tagged releases with changelogs, build validation, and optional PyPI publ
 ## IMP-017 — Independent model selection by arena role
 
 **Priority:** P1  
-**Status:** In Progress
+**Status:** Done
 
 **Implementation note:**
 Added `RoleConfig`, `RoleMetadata`, `AgentBackend`, and `MockProvider`. Also added `ThinkingLevel` and `AvailabilityState` string enums. Added unit tests for thinking levels, availability states, and `MockProvider`. Modified `ArenaConfig`, `RoundReport`, and `ArenaEngine` to carry and pass metadata properly. Needs CLI and dashboard controls.
@@ -391,7 +391,7 @@ Implement an optional Anthropic backend with capability-aware thinking and effor
 ## IMP-020 — Gemini provider adapter
 
 **Priority:** P1  
-**Status:** Ready
+**Status:** Done
 
 Implement an optional Gemini backend with model-specific thinking translation.
 
@@ -408,7 +408,7 @@ Implement an optional Gemini backend with model-specific thinking translation.
 ## IMP-021 — Ollama and local-model adapter
 
 **Priority:** P1  
-**Status:** Ready
+**Status:** Done
 
 Add local execution through Ollama first, followed by a generic OpenAI-compatible local endpoint.
 
@@ -425,7 +425,7 @@ Add local execution through Ollama first, followed by a generic OpenAI-compatibl
 ## IMP-022 — Model capability registry and discovery
 
 **Priority:** P1  
-**Status:** Ready
+**Status:** Done
 
 Create a provider-neutral capability model used to populate valid UI options and validate configurations.
 
@@ -442,7 +442,7 @@ Create a provider-neutral capability model used to populate valid UI options and
 ## IMP-023 — Normalized thinking-level selector
 
 **Priority:** P1  
-**Status:** Ready
+**Status:** Done
 
 Expose `auto`, `minimal`, `low`, `medium`, `high`, and `maximum` as provider-neutral choices.
 
@@ -459,7 +459,7 @@ Expose `auto`, `minimal`, `low`, `medium`, `high`, and `maximum` as provider-neu
 ## IMP-024 — Availability and quota state normalization
 
 **Priority:** P0  
-**Status:** Ready
+**Status:** Done
 
 Normalize provider and local-runtime failures so users understand when a selected model cannot participate.
 
@@ -476,7 +476,7 @@ Normalize provider and local-runtime failures so users understand when a selecte
 ## IMP-025 — Pause, resume, and explicit fallback policy
 
 **Priority:** P0  
-**Status:** Ready
+**Status:** Done
 
 Preserve experiment integrity when a selected model becomes unavailable.
 
