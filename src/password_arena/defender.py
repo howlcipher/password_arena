@@ -5,6 +5,8 @@ import secrets
 import string
 from dataclasses import dataclass, field
 
+from password_arena.providers import AgentBackend, ProviderRequest
+
 WORDS = (
     "tiger",
     "orbit",
@@ -28,8 +30,12 @@ class AdaptiveDefender:
 
     rng: random.Random
     breached_families: set[str] = field(default_factory=set)
+    backend: AgentBackend | None = None
 
     def create_password(self, difficulty: int) -> tuple[str, str, str]:
+        if self.backend:
+            return self._create_password_backend(difficulty)
+        
         effective = min(max(difficulty, 1), 10)
 
         if effective == 1:
@@ -72,3 +78,40 @@ class AdaptiveDefender:
             self.breached_families.add(family)
             return f"Recorded {family} as breached and will harden it if reused."
         return f"Recorded {family} as surviving the current bounded attack."
+
+    def _create_password_backend(self, difficulty: int) -> tuple[str, str, str]:
+        schema = {
+            "type": "object",
+            "properties": {
+                "password": {"type": "string"},
+                "family": {"type": "string"},
+                "note": {"type": "string"}
+            },
+            "required": ["password", "family", "note"]
+        }
+        breached = ', '.join(self.breached_families) or 'None'
+        prompt = (
+            f"Generate a synthetic password for difficulty {difficulty} (1-10).\n"
+            f"Breached families you should avoid reusing in predictable ways: {breached}.\n"
+            "Respond strictly in the provided JSON schema."
+        )
+        assert self.backend is not None
+        request = ProviderRequest(prompt=prompt, structured_schema=schema)
+        response = self.backend.generate(request)
+        
+        data = response.parsed_structured_data
+        if not data or not isinstance(data, dict):
+            raise ValueError("Provider response missing valid structured data")
+            
+        password = data.get("password")
+        family = data.get("family")
+        note = data.get("note")
+        
+        valid = (
+            isinstance(password, str) 
+            and isinstance(family, str) 
+            and isinstance(note, str)
+        )
+        if not valid:
+            raise ValueError("Provider response failed schema validation")
+        return str(password), str(family), str(note)

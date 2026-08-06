@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 
 from password_arena.defender import SYMBOLS, WORDS
 from password_arena.models import AttackResult, StrategyBudget
+from password_arena.providers import AgentBackend, ProviderRequest
 
 COMMON = (
     "password",
@@ -84,8 +85,12 @@ class AdaptiveAttacker:
     strategy_scores: dict[str, float] = field(
         default_factory=lambda: {"common": 1.0, "mutation": 1.0, "passphrase": 1.0, "random": 0.1}
     )
+    backend: AgentBackend | None = None
 
-    def _strategy_weights(self, difficulty: int) -> dict[str, float]:
+    def _strategy_weights(self, difficulty: int, max_guesses: int) -> dict[str, float]:
+        if self.backend:
+            return self._strategy_weights_backend(difficulty, max_guesses)
+        
         if difficulty <= 1:
             base = {"common": 0.70, "mutation": 0.20, "passphrase": 0.08, "random": 0.02}
         elif difficulty <= 3:
@@ -114,7 +119,7 @@ class AdaptiveAttacker:
 
     def attack(self, password: str, difficulty: int, max_guesses: int) -> AttackResult:
         started = time.perf_counter()
-        weights = self._strategy_weights(difficulty)
+        weights = self._strategy_weights(difficulty, max_guesses)
         ordered = sorted(weights, key=lambda k: weights[k], reverse=True)
         raw_allocations = {name: max_guesses * weights[name] for name in ordered}
         allocations = {name: int(raw_allocations[name]) for name in ordered}
@@ -211,3 +216,49 @@ class AdaptiveAttacker:
             "Failure recorded; attacker retained synthetic token structure for later rounds."
             + learned_summary
         )
+
+    def _strategy_weights_backend(self, difficulty: int, max_guesses: int) -> dict[str, float]:
+        schema = {
+            "type": "object",
+            "properties": {
+                "weights": {
+                    "type": "object",
+                    "additionalProperties": {"type": "number"}
+                },
+                "reasoning": {"type": "string"}
+            },
+            "required": ["weights", "reasoning"]
+        }
+        prompt = (
+            f"Allocate strategy weights (sum to 1.0) for a password attack at "
+            f"difficulty {difficulty} (1-10).\n"
+            f"Current strategy scores: {self.strategy_scores}.\n"
+            f"Total guesses allowed: {max_guesses}.\n"
+            "Strategies typically available: common, mutation, passphrase, random.\n"
+            "Respond strictly in the provided JSON schema."
+        )
+        assert self.backend is not None
+        request = ProviderRequest(prompt=prompt, structured_schema=schema)
+        response = self.backend.generate(request)
+        data = response.parsed_structured_data
+        if not data or not isinstance(data, dict):
+            raise ValueError("Provider response missing valid structured data")
+        
+        weights = data.get("weights")
+        if not isinstance(weights, dict):
+            raise ValueError(
+                "Provider response failed schema validation: weights must be a dictionary"
+            )
+        
+        parsed_weights: dict[str, float] = {}
+        for k, v in weights.items():
+            if not isinstance(k, str) or not isinstance(v, (int, float)):
+                raise ValueError(
+                    "Provider response failed schema validation: weights values must be numbers"
+                )
+            parsed_weights[k] = float(v)
+        
+        total = sum(parsed_weights.values())
+        if total == 0:
+            return {"random": 1.0}
+        return {k: v / total for k, v in parsed_weights.items()}

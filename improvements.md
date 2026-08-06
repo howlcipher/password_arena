@@ -23,7 +23,13 @@ This file is the prioritized product and engineering backlog for Password Arena.
 ## IMP-001 — Provider-neutral agent interface
 
 **Priority:** P1  
-**Status:** Ready
+**Status:** Done
+
+**Implementation note:**
+Updated `AdaptiveDefender` and `AdaptiveAttacker` to optionally accept an `AgentBackend`. When provided, the agents generate structured requests according to JSON schemas, query the backend, and manually validate the response dictionary. Modified `ArenaEngine` to take optional defender and attacker backends. Added deterministic tests using `MockProvider`.
+
+**Validation performed:**
+`pytest`, `mypy src/password_arena`, and `ruff check .` were run locally and all passed.
 
 Create an `AgentBackend` protocol so rule-based, hosted-model, and future trainable policies can use the same structured request and response contracts.
 

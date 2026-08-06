@@ -13,19 +13,25 @@ from password_arena.models import (
     RoundReport,
     RoundResult,
 )
+from password_arena.providers import AgentBackend
 from password_arena.strength import evaluate_strength
 
 
 class ArenaEngine:
     """Coordinates defender, attacker, evaluation, adaptation, and audit reporting."""
 
-    def __init__(self, config: ArenaConfig) -> None:
+    def __init__(
+        self,
+        config: ArenaConfig,
+        defender_backend: AgentBackend | None = None,
+        attacker_backend: AgentBackend | None = None,
+    ) -> None:
         config.validate()
         self.config = config
         defender_rng = random.Random(config.seed)
         attacker_rng = random.Random(config.seed + 1)
-        self.defender = AdaptiveDefender(defender_rng)
-        self.attacker = AdaptiveAttacker(attacker_rng)
+        self.defender = AdaptiveDefender(defender_rng, backend=defender_backend)
+        self.attacker = AdaptiveAttacker(attacker_rng, backend=attacker_backend)
 
     def run(self) -> ExperimentResult:
         results: list[RoundResult] = []

@@ -37,3 +37,44 @@ def test_tiny_guess_budgets_are_valid_and_bounded() -> None:
         assert sum(entry.guess_budget for entry in attack.plan) == budget
         assert all(entry.guess_budget >= 0 for entry in attack.plan)
 
+
+def test_engine_with_mock_backend() -> None:
+    from password_arena.providers import MockProvider, ModelCapabilities, ThinkingLevel
+    
+    capabilities = ModelCapabilities(
+        model_id="mock",
+        thinking_supported=False,
+        accepted_thinking_levels=(ThinkingLevel.AUTO,),
+        structured_output_supported=True,
+        context_limit=1000,
+        output_limit=1000,
+        token_accounting=True,
+        cost_metadata=True,
+        local_execution=True,
+    )
+    defender_backend = MockProvider(
+        capabilities=capabilities,
+        canned_structured_data={
+            "password": "mocked-password-123",
+            "family": "mocked-family",
+            "note": "mocked note"
+        }
+    )
+    attacker_backend = MockProvider(
+        capabilities=capabilities,
+        canned_structured_data={
+            "weights": {"common": 0.5, "random": 0.5},
+            "reasoning": "mocked reasoning"
+        }
+    )
+    result = ArenaEngine(
+        ArenaConfig(rounds=1, max_guesses=10),
+        defender_backend=defender_backend,
+        attacker_backend=attacker_backend,
+    ).run()
+    
+    assert result.rounds[0].defender_strategy == "mocked-family"
+    
+    plan = result.rounds[0].attack.plan
+    assert any(p.strategy == "common" and p.weight == 0.5 for p in plan)
+
