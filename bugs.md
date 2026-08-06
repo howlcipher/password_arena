@@ -134,7 +134,8 @@ Choose and document one contract:
 ## BUG-006 — Invalid CLI configuration produces a Python traceback
 
 **Priority:** P2  
-**Status:** Open
+**Status:** Resolved
+**Resolved in:** CLI validation update
 
 ### Reproduction
 
@@ -147,6 +148,10 @@ The CLI exposes an implementation traceback instead of a concise usage error, wh
 ### Expected resolution
 
 Catch validation errors at the CLI boundary and pass them to `argparse.ArgumentParser.error()` or return a concise non-zero error message. Add subprocess-level CLI tests.
+
+### Resolution
+
+Added a call to `config.validate()` in `src/password_arena/cli.py` and caught the `ValueError`, passing the error message to `argparse.ArgumentParser.error()`. Added `test_cli_invalid_config` in `tests/test_cli.py` to assert the CLI outputs a concise error message without tracebacks.
 
 ---
 
