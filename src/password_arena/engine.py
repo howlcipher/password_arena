@@ -9,6 +9,7 @@ from password_arena.models import (
     AgentReport,
     ArenaConfig,
     ExperimentResult,
+    RoleMetadata,
     RoundReport,
     RoundResult,
 )
@@ -76,6 +77,21 @@ class ArenaEngine:
                     f"an estimated {strength.entropy_bits:.2f} bits after structural penalties."
                 ),
                 security_lesson=self._security_lesson(family, attack.solved),
+                defender_metadata=RoleMetadata(
+                    provider=self.config.defender_config.provider,
+                    model=self.config.defender_config.model,
+                    thinking_level=self.config.defender_config.thinking_level,
+                ),
+                attacker_metadata=RoleMetadata(
+                    provider=self.config.attacker_config.provider,
+                    model=self.config.attacker_config.model,
+                    thinking_level=self.config.attacker_config.thinking_level,
+                ),
+                evaluator_metadata=RoleMetadata(
+                    provider=self.config.evaluator_config.provider,
+                    model=self.config.evaluator_config.model,
+                    thinking_level=self.config.evaluator_config.thinking_level,
+                ),
             )
 
             results.append(

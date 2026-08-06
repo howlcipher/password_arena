@@ -4,8 +4,8 @@ import itertools
 import random
 import string
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Iterator
 
 from password_arena.defender import SYMBOLS, WORDS
 from password_arena.models import AttackResult, StrategyBudget
@@ -65,8 +65,8 @@ def passphrase_candidates(words: tuple[str, ...], max_words: int = 3) -> Iterato
                 yield base
                 for suffix in range(0, 100):
                     yield f"{base}{suffix:02d}"
-                for suffix in ("123", "2026"):
-                    yield base + suffix
+                for string_suffix in ("123", "2026"):
+                    yield base + string_suffix
 
 
 def random_candidates(rng: random.Random, length: int = 16) -> Iterator[str]:
@@ -115,7 +115,7 @@ class AdaptiveAttacker:
     def attack(self, password: str, difficulty: int, max_guesses: int) -> AttackResult:
         started = time.perf_counter()
         weights = self._strategy_weights(difficulty)
-        ordered = sorted(weights, key=weights.get, reverse=True)
+        ordered = sorted(weights, key=lambda k: weights[k], reverse=True)
         raw_allocations = {name: max_guesses * weights[name] for name in ordered}
         allocations = {name: int(raw_allocations[name]) for name in ordered}
         remaining = max_guesses - sum(allocations.values())

@@ -285,7 +285,13 @@ Create tagged releases with changelogs, build validation, and optional PyPI publ
 ## IMP-017 — Independent model selection by arena role
 
 **Priority:** P1  
-**Status:** Blocked by IMP-001
+**Status:** Done
+
+**Implementation note:**
+Added `RoleConfig`, `RoleMetadata`, `AgentBackend`, and `MockProvider`. Also added `ThinkingLevel` and `AvailabilityState` string enums. Added unit tests for thinking levels, availability states, and `MockProvider`. Modified `ArenaConfig`, `RoundReport`, and `ArenaEngine` to carry and pass metadata properly.
+
+**Validation performed:**
+`pytest`, `mypy src/password_arena`, and `ruff check .` were run locally and all passed.
 
 Allow the user to select a provider, model, and thinking level independently for the attacker, defender, and evaluator.
 

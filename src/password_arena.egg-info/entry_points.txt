@@ -1,0 +1,2 @@
+[console_scripts]
+password-arena = password_arena.cli:main

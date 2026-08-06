@@ -3,6 +3,18 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from password_arena.providers import ThinkingLevel
+
+
+@dataclass(frozen=True, slots=True)
+class RoleConfig:
+    provider: str = "rule_based"
+    model: str | None = None
+    thinking_level: ThinkingLevel = ThinkingLevel.AUTO
+    temperature: float | None = None
+    max_tokens: int | None = None
+    local_endpoint: str | None = None
+
 
 @dataclass(frozen=True, slots=True)
 class ArenaConfig:
@@ -14,6 +26,9 @@ class ArenaConfig:
     max_guesses: int = 5_000
     seed: int = 42
     reveal_passwords: bool = False
+    defender_config: RoleConfig = field(default_factory=RoleConfig)
+    attacker_config: RoleConfig = field(default_factory=RoleConfig)
+    evaluator_config: RoleConfig = field(default_factory=RoleConfig)
 
     def validate(self) -> None:
         if not 1 <= self.rounds <= 100:
@@ -66,11 +81,21 @@ class AgentReport:
 
 
 @dataclass(frozen=True, slots=True)
+class RoleMetadata:
+    provider: str
+    model: str | None
+    thinking_level: ThinkingLevel
+
+
+@dataclass(frozen=True, slots=True)
 class RoundReport:
     defender: AgentReport
     attacker: AgentReport
     evaluator_summary: str
     security_lesson: str
+    defender_metadata: RoleMetadata | None = None
+    attacker_metadata: RoleMetadata | None = None
+    evaluator_metadata: RoleMetadata | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,0 +1,151 @@
+Metadata-Version: 2.4
+Name: password-arena
+Version: 0.1.0
+Summary: A safe, local adversarial-learning sandbox where password attacker and defender agents adapt across rounds.
+Author: William Elias
+License: MIT
+Keywords: ai,cybersecurity,agents,passwords,simulation
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Topic :: Security
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: dashboard
+Requires-Dist: pandas>=2.2; extra == "dashboard"
+Requires-Dist: streamlit>=1.37; extra == "dashboard"
+Provides-Extra: dev
+Requires-Dist: pytest>=8.2; extra == "dev"
+Requires-Dist: ruff>=0.5; extra == "dev"
+Requires-Dist: mypy>=1.10; extra == "dev"
+Provides-Extra: all
+Requires-Dist: pandas>=2.2; extra == "all"
+Requires-Dist: streamlit>=1.37; extra == "all"
+Requires-Dist: pytest>=8.2; extra == "all"
+Requires-Dist: ruff>=0.5; extra == "all"
+Requires-Dist: mypy>=1.10; extra == "all"
+Dynamic: license-file
+
+# Password Arena
+
+A safe, local adversarial-learning sandbox where a defender creates increasingly difficult **synthetic** passwords and an attacker adapts its bounded guessing strategy across rounds.
+
+> Password Arena is an educational simulation. Never enter real credentials or connect it to a login system.
+
+## Why this project exists
+
+The project explores a practical question:
+
+> Can an attacker agent improve its strategy while a defender agent learns that predictable human-style passwords are weaker than cryptographically secure randomness?
+
+The MVP deliberately uses transparent, rule-based agents. That makes the experiment reproducible and establishes a trustworthy baseline before optional LLM or reinforcement-learning agents are added.
+
+## What it measures
+
+- Estimated entropy and structural penalties
+- Attacker success rate
+- Guesses used per round
+- Runtime per attack
+- Attacker strategy selection
+- Defender password-family progression
+- Agent observations across rounds
+- Two-sided audit reports showing defender decisions, attacker budget allocation, outcomes, and learning updates
+
+## Current architecture
+
+- **Adaptive defender:** escalates from dictionary words to passphrases and finally CSPRNG-generated passwords.
+- **Adaptive attacker:** ranks common-password, mutation, passphrase, and bounded-random strategies using prior synthetic results.
+- **Evaluator:** calculates strength indicators and captures experiment metrics.
+- **Dashboard:** visualizes learning curves and exports experiment JSON.
+
+The MVP performs persistent-state adaptation; it does not claim to retrain model weights.
+
+## Quick start
+
+Requires Python 3.11 or newer.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -e ".[all]"
+```
+
+Run the CLI:
+
+```bash
+password-arena --rounds 8 --max-guesses 5000 \
+  --output results/run.json \
+  --report results/run.md
+```
+
+Launch the dashboard:
+
+```bash
+streamlit run src/password_arena/dashboard.py
+```
+
+Or run the dashboard with Docker:
+
+```bash
+docker build -t password-arena .
+docker run --rm -p 8501:8501 password-arena
+```
+
+Run quality checks:
+
+```bash
+ruff check .
+mypy src/password_arena
+pytest
+```
+
+## Example experiment flow
+
+1. The defender generates a synthetic password for the current difficulty.
+2. The evaluator records strength characteristics.
+3. The attacker spends a fixed guess budget across ranked strategies.
+4. Both agents observe the synthetic result and update local state.
+5. The evaluator creates a factual two-sided arena report from the recorded actions.
+6. Difficulty increases and the next round begins.
+
+## Two-sided arena journal
+
+Every round documents the experiment from three views:
+
+- **Defender:** selected password family, concrete actions, observed outcome, and state update.
+- **Attacker:** ranked strategy, exact bounded guess allocation, attempted strategies, and adaptation.
+- **Evaluator:** measured result and a security lesson grounded in the round metrics.
+
+The journal is an audit log, not a request for private model chain-of-thought. Passwords and matched candidates remain redacted unless `reveal_passwords` is explicitly enabled. Export it from the dashboard or with `--report results/run.md`.
+
+## Configuration
+
+| Setting | Purpose | Default |
+|---|---|---:|
+| `rounds` | Number of attacker-versus-defender rounds | 8 |
+| `start_difficulty` | Initial defender level from 1–10 | 1 |
+| `difficulty_step` | Increase after each round | 1 |
+| `max_guesses` | Hard attack budget per round | 5,000 |
+| `seed` | Reproducible baseline behavior | 42 |
+| `reveal_passwords` | Display synthetic passwords | false |
+
+## Project planning
+
+- [blueprint.md](blueprint.md) defines the product vision, architecture, safety model, and delivery phases.
+- [improvements.md](improvements.md) is the prioritized feature and engineering backlog.
+- [bugs.md](bugs.md) tracks confirmed defects, reproduction steps, and acceptance criteria.
+- [AGENTS.md](AGENTS.md) defines the workflow coding agents must follow when changing the repository.
+- [docs/MODEL_PROVIDERS.md](docs/MODEL_PROVIDERS.md) specifies planned OpenAI, Anthropic, Gemini, Ollama/local, thinking-level, and availability behavior.
+
+## Safety boundaries
+
+- Synthetic passwords only
+- Local comparisons only
+- No login endpoints or credential datasets
+- Bounded guess budgets
+- Passwords hidden by default
+- Cryptographically secure generation at high defender levels
+
+See [SECURITY.md](SECURITY.md) for the full policy, [docs/REPORTING.md](docs/REPORTING.md) for journal semantics, [docs/MODEL_PROVIDERS.md](docs/MODEL_PROVIDERS.md) for multi-model design, and [docs/ROADMAP.md](docs/ROADMAP.md) for planned delivery phases.

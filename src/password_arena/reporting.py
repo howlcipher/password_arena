@@ -60,7 +60,8 @@ def experiment_report_markdown(experiment: ExperimentResult) -> str:
 - **Guess budget per round:** {experiment.config.max_guesses:,}
 - **Passwords revealed:** {experiment.config.reveal_passwords}
 
-> Reports are generated from recorded actions and metrics. They are not unverified agent chain-of-thought.
+> Reports are generated from recorded actions and metrics.
+> They are not unverified agent chain-of-thought.
 
 """
     return header + "\n---\n\n".join(round_report_markdown(item) for item in experiment.rounds)
