@@ -25,3 +25,7 @@ results/*.json
 results/*.csv
 results/*.html
 results/*.db
+
+.password_arena_history/
+*.json
+!config.example.json
