@@ -180,7 +180,8 @@ Added a call to `config.validate()` in `src/password_arena/cli.py` and caught th
 ## BUG-007 — Entropy and guess counts share one chart scale
 
 **Priority:** P2  
-**Status:** Open
+**Status:** Resolved  
+**Resolved in:** BUG-007 Fix
 
 ### Reproduction
 
@@ -193,6 +194,14 @@ The entropy line appears almost flat and the chart can imply that strength is no
 ### Expected resolution
 
 Render separate charts or use a clearly labeled dual-axis visualization. Add strategy efficiency and solve outcome overlays only when they remain readable.
+
+### Resolution
+
+- Updated `src/password_arena/dashboard.py` to display two separate line charts side-by-side using `st.columns(2)` for "Entropy bits" and "Guesses" to resolve the scale discrepancy.
+
+### Validation performed
+
+Ran `ruff check .`, `mypy src/password_arena`, and `pytest`. All tests passed successfully.
 
 ---
 

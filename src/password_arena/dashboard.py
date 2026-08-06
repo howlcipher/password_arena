@@ -65,7 +65,13 @@ col3.metric("Final entropy", f"{frame.iloc[-1]['Entropy bits']:.1f} bits")
 col4.metric("Total guesses", f"{int(frame['Guesses'].sum()):,}")
 
 st.subheader("Learning curves")
-st.line_chart(frame.set_index("Round")[["Entropy bits", "Guesses"]])
+chart_col1, chart_col2 = st.columns(2)
+with chart_col1:
+    st.caption("Entropy bits")
+    st.line_chart(frame.set_index("Round")[["Entropy bits"]])
+with chart_col2:
+    st.caption("Guesses")
+    st.line_chart(frame.set_index("Round")[["Guesses"]])
 
 st.subheader("Round results")
 st.dataframe(frame, use_container_width=True, hide_index=True)
