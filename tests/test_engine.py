@@ -31,12 +31,11 @@ def test_difficulty_is_capped() -> None:
 
 
 def test_default_demo_solves_early_patterns_then_hits_resistance() -> None:
-    result = ArenaEngine(
-        ArenaConfig(rounds=4, max_guesses=5_000, reveal_passwords=True)
-    ).run()
+    result = ArenaEngine(ArenaConfig(rounds=4, max_guesses=5_000, reveal_passwords=True)).run()
     assert result.rounds[0].attack.solved is True
     assert result.rounds[1].attack.solved is True
     assert result.rounds[3].strength.entropy_bits > result.rounds[0].strength.entropy_bits
+
 
 def test_tiny_guess_budgets_are_valid_and_bounded() -> None:
     for budget in range(1, 5):
@@ -49,7 +48,7 @@ def test_tiny_guess_budgets_are_valid_and_bounded() -> None:
 
 def test_engine_with_mock_backend() -> None:
     from password_arena.providers import MockProvider, ModelCapabilities, ThinkingLevel
-    
+
     capabilities = ModelCapabilities(
         model_id="mock",
         thinking_supported=False,
@@ -66,24 +65,24 @@ def test_engine_with_mock_backend() -> None:
         canned_structured_data={
             "password": "mocked-password-123",
             "family": "mocked-family",
-            "note": "mocked note"
-        }
+            "note": "mocked note",
+        },
     )
     attacker_backend = MockProvider(
         capabilities=capabilities,
         canned_structured_data={
             "weights": {"common": 0.5, "random": 0.5},
-            "reasoning": "mocked reasoning"
-        }
+            "reasoning": "mocked reasoning",
+        },
     )
     result = ArenaEngine(
         ArenaConfig(rounds=1, max_guesses=10),
         defender_backend=defender_backend,
         attacker_backend=attacker_backend,
     ).run()
-    
+
     assert result.rounds[0].defender_strategy == "mocked-family"
-    
+
     plan = result.rounds[0].attack.plan
     assert any(p.strategy == "common" and p.weight == 0.5 for p in plan)
 
@@ -99,8 +98,9 @@ def test_generator_mode_deterministic_test_reproducibility() -> None:
         rounds=1, start_difficulty=7, max_guesses=10, seed=123, generator_mode="deterministic-test"
     )
     result2 = ArenaEngine(config2).run()
-    
+
     assert result1.rounds[0].report.defender.actions == result2.rounds[0].report.defender.actions
+
 
 def test_generator_version_benchmark_regression() -> None:
     # Ensure the benchmark generator produces expected held-out passwords.
@@ -113,4 +113,3 @@ def test_generator_version_benchmark_regression() -> None:
     assert result.rounds[0].defender_strategy == "eval-substitution"
     # Also verify the attacker fails since it's a held-out vocabulary and different template
     assert not result.rounds[0].attack.solved
-

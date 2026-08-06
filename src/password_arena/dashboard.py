@@ -39,10 +39,10 @@ with st.sidebar:
     )
     seed = st.number_input("Seed", 0, 1_000_000, key="seed")
     reveal_passwords = st.toggle("Reveal synthetic passwords", key="reveal_passwords")
-    
+
     st.divider()
     st.header("Profiles")
-    
+
     uploaded_file = st.file_uploader("Load profile", type=["json"])
     if uploaded_file is not None:
         try:
@@ -53,7 +53,7 @@ with st.sidebar:
             st.success("Profile loaded! Settings applied.")
         except Exception as e:
             st.error(f"Failed to load profile: {e}")
-            
+
     profile_name = st.text_input("Save profile as", "my_profile")
     if st.button("Save profile"):
         config_obj = ArenaConfig(
@@ -67,7 +67,7 @@ with st.sidebar:
         profile_path = Path(f"{profile_name}.json")
         profile_path.write_text(json.dumps(asdict(config_obj), indent=2), encoding="utf-8")
         st.success(f"Saved to {profile_path.name}")
-        
+
     st.divider()
     run = st.button("Run arena", type="primary", use_container_width=True)
 

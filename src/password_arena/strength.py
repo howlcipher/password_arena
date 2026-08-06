@@ -38,10 +38,7 @@ def _contains_sequence(password: str, sequences: Iterable[str] = SEQUENCES) -> b
     lowered = password.lower()
     for sequence in sequences:
         for size in range(3, min(6, len(sequence) + 1)):
-            windows = (
-                sequence[index : index + size]
-                for index in range(len(sequence) - size + 1)
-            )
+            windows = (sequence[index : index + size] for index in range(len(sequence) - size + 1))
             if any(window in lowered for window in windows):
                 return True
     return False

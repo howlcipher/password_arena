@@ -22,7 +22,7 @@ class AdaptiveDefender:
     def create_password(self, difficulty: int) -> tuple[str, str, str]:
         if self.backend:
             return self._create_password_backend(difficulty)
-        
+
         effective = min(max(difficulty, 1), 10)
 
         if effective > 6:
@@ -45,10 +45,9 @@ class AdaptiveDefender:
             elif effective == 3:
                 family = "eval-substitution"
                 word = self.rng.choice(words)
-                password = (
-                    self.rng.choice(SYMBOLS)
-                    + word.title().replace("o", "0").replace("i", "1").replace("e", "3")
-                )
+                password = self.rng.choice(SYMBOLS) + word.title().replace("o", "0").replace(
+                    "i", "1"
+                ).replace("e", "3")
             elif effective == 4:
                 family = "eval-two-word"
                 first = self.rng.choice(words)
@@ -70,9 +69,8 @@ class AdaptiveDefender:
             elif effective == 3:
                 family = "substitution-pattern"
                 word = self.rng.choice(words)
-                password = (
-                    word.title().replace("a", "@").replace("e", "3")
-                    + self.rng.choice(SYMBOLS)
+                password = word.title().replace("a", "@").replace("e", "3") + self.rng.choice(
+                    SYMBOLS
                 )
             elif effective == 4:
                 family = "two-word-passphrase"
@@ -105,11 +103,11 @@ class AdaptiveDefender:
             "properties": {
                 "password": {"type": "string"},
                 "family": {"type": "string"},
-                "note": {"type": "string"}
+                "note": {"type": "string"},
             },
-            "required": ["password", "family", "note"]
+            "required": ["password", "family", "note"],
         }
-        breached = ', '.join(self.breached_families) or 'None'
+        breached = ", ".join(self.breached_families) or "None"
         prompt = (
             f"Generate a synthetic password for difficulty {difficulty} (1-10).\n"
             f"Breached families you should avoid reusing in predictable ways: {breached}.\n"
@@ -118,20 +116,16 @@ class AdaptiveDefender:
         assert self.backend is not None
         request = ProviderRequest(prompt=prompt, structured_schema=schema)
         response = self.backend.generate(request)
-        
+
         data = response.parsed_structured_data
         if not data or not isinstance(data, dict):
             raise ValueError("Provider response missing valid structured data")
-            
+
         password = data.get("password")
         family = data.get("family")
         note = data.get("note")
-        
-        valid = (
-            isinstance(password, str) 
-            and isinstance(family, str) 
-            and isinstance(note, str)
-        )
+
+        valid = isinstance(password, str) and isinstance(family, str) and isinstance(note, str)
         if not valid:
             raise ValueError("Provider response failed schema validation")
         return str(password), str(family), str(note)

@@ -8,7 +8,7 @@ def test_cli_invalid_config():
     result = subprocess.run(
         [sys.executable, "-m", "password_arena.cli", "--rounds", "0"],
         capture_output=True,
-        text=True
+        text=True,
     )
     assert result.returncode != 0
     assert "error" in result.stderr.lower()

@@ -76,21 +76,31 @@ def experiment_export_csv(experiment: ExperimentResult) -> str:
     """Render a CSV of normalized round and strategy data."""
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow([
-        "round_number", "difficulty", "password_length", "entropy_bits",
-        "solved", "guesses_used", "winning_strategy", "elapsed_ms"
-    ])
+    writer.writerow(
+        [
+            "round_number",
+            "difficulty",
+            "password_length",
+            "entropy_bits",
+            "solved",
+            "guesses_used",
+            "winning_strategy",
+            "elapsed_ms",
+        ]
+    )
     for item in experiment.rounds:
-        writer.writerow([
-            item.round_number,
-            item.difficulty,
-            item.password_length,
-            f"{item.strength.entropy_bits:.2f}",
-            item.attack.solved,
-            item.attack.guesses_used,
-            item.attack.winning_strategy or "",
-            f"{item.attack.elapsed_ms:.3f}"
-        ])
+        writer.writerow(
+            [
+                item.round_number,
+                item.difficulty,
+                item.password_length,
+                f"{item.strength.entropy_bits:.2f}",
+                item.attack.solved,
+                item.attack.guesses_used,
+                item.attack.winning_strategy or "",
+                f"{item.attack.elapsed_ms:.3f}",
+            ]
+        )
     return output.getvalue()
 
 

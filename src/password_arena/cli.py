@@ -48,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    
+
     config_dict = {}
     if hasattr(args, "config") and args.config is not None:
         try:
@@ -74,12 +74,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if "defender_config" in config_dict and isinstance(config_dict["defender_config"], dict):
         from password_arena.models import RoleConfig
+
         config_dict["defender_config"] = RoleConfig(**config_dict["defender_config"])
     if "attacker_config" in config_dict and isinstance(config_dict["attacker_config"], dict):
         from password_arena.models import RoleConfig
+
         config_dict["attacker_config"] = RoleConfig(**config_dict["attacker_config"])
     if "evaluator_config" in config_dict and isinstance(config_dict["evaluator_config"], dict):
         from password_arena.models import RoleConfig
+
         config_dict["evaluator_config"] = RoleConfig(**config_dict["evaluator_config"])
 
     try:
@@ -91,7 +94,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         config.validate()
     except ValueError as e:
         parser.error(str(e))
-    
+
     experiment = ArenaEngine(config).run()
 
     print("\nPassword Arena")
@@ -123,12 +126,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.export_csv:
         from password_arena.reporting import experiment_export_csv
+
         args.export_csv.parent.mkdir(parents=True, exist_ok=True)
         args.export_csv.write_text(experiment_export_csv(experiment), encoding="utf-8")
         print(f"Arena CSV written to {args.export_csv}")
 
     if args.export_html:
         from password_arena.reporting import experiment_export_html
+
         args.export_html.parent.mkdir(parents=True, exist_ok=True)
         args.export_html.write_text(experiment_export_html(experiment), encoding="utf-8")
         print(f"Arena HTML written to {args.export_html}")

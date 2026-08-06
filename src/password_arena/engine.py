@@ -31,10 +31,10 @@ class ArenaEngine:
         defender_rng = random.Random(config.seed)
         attacker_rng = random.Random(config.seed + 1)
         self.defender = AdaptiveDefender(
-            defender_rng, 
-            backend=defender_backend, 
+            defender_rng,
+            backend=defender_backend,
             generator_mode=config.generator_mode,
-            generator_version=config.generator_version
+            generator_version=config.generator_version,
         )
         self.attacker = AdaptiveAttacker(attacker_rng, backend=attacker_backend)
         self._has_run = False
@@ -42,8 +42,7 @@ class ArenaEngine:
     def run(self) -> ExperimentResult:
         if self._has_run:
             raise RuntimeError(
-                "ArenaEngine instances are single-use. "
-                "Create a new instance for a new run."
+                "ArenaEngine instances are single-use. Create a new instance for a new run."
             )
         self._has_run = True
 

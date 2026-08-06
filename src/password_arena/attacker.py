@@ -41,11 +41,11 @@ class CommonStrategy:
     @property
     def name(self) -> str:
         return "common"
-    
+
     @property
     def supported_inputs(self) -> str:
         return "common passwords list"
-        
+
     def candidates(self, context: AttackContext) -> Iterator[str]:
         yield from COMMON
 
@@ -54,11 +54,11 @@ class MutationStrategy:
     @property
     def name(self) -> str:
         return "mutation"
-        
+
     @property
     def supported_inputs(self) -> str:
         return "known words"
-        
+
     def candidates(self, context: AttackContext) -> Iterator[str]:
         substitutions = {"a": "@", "e": "3", "i": "1", "o": "0", "s": "$"}
         for word in context.known_words:
@@ -79,11 +79,11 @@ class PassphraseStrategy:
     @property
     def name(self) -> str:
         return "passphrase"
-        
+
     @property
     def supported_inputs(self) -> str:
         return "known words"
-        
+
     def candidates(self, context: AttackContext) -> Iterator[str]:
         limited = context.known_words[: min(len(context.known_words), 12)]
         for count in range(2, 5):
@@ -108,11 +108,11 @@ class RandomStrategy:
     @property
     def name(self) -> str:
         return "random"
-        
+
     @property
     def supported_inputs(self) -> str:
         return "password length"
-        
+
     def candidates(self, context: AttackContext) -> Iterator[str]:
         alphabet = string.ascii_letters + string.digits + SYMBOLS
         while True:
@@ -161,7 +161,7 @@ class AdaptiveAttacker:
     def _strategy_weights(self, difficulty: int, max_guesses: int) -> dict[str, float]:
         if self.backend:
             return self._strategy_weights_backend(difficulty, max_guesses)
-        
+
         if difficulty <= 1:
             base = {"common": 0.70, "mutation": 0.20, "passphrase": 0.08, "random": 0.02}
         elif difficulty <= 3:
@@ -173,12 +173,13 @@ class AdaptiveAttacker:
 
         # Filter out disabled strategies
         base = {
-            k: v for k, v in base.items() 
+            k: v
+            for k, v in base.items()
             if k in self.enabled_strategies and k in self.strategy_registry
         }
         if not base:
-             # Fallback if nothing enabled
-             return {}
+            # Fallback if nothing enabled
+            return {}
 
         weighted = {
             name: weight * min(1.75, max(0.75, 0.75 + 0.25 * self.strategy_scores.get(name, 1.0)))
@@ -302,8 +303,7 @@ class AdaptiveAttacker:
         )
         if solved:
             return (
-                "Successful strategy received a higher future selection weight."
-                + learned_summary
+                "Successful strategy received a higher future selection weight." + learned_summary
             )
         return (
             "Failure recorded; attacker retained synthetic token structure for later rounds."
@@ -314,18 +314,15 @@ class AdaptiveAttacker:
         schema = {
             "type": "object",
             "properties": {
-                "weights": {
-                    "type": "object",
-                    "additionalProperties": {"type": "number"}
-                },
-                "reasoning": {"type": "string"}
+                "weights": {"type": "object", "additionalProperties": {"type": "number"}},
+                "reasoning": {"type": "string"},
             },
-            "required": ["weights", "reasoning"]
+            "required": ["weights", "reasoning"],
         }
-        
+
         # Build list of available strategies
         avail = [s for s in self.strategy_registry._strategies if s in self.enabled_strategies]
-        
+
         prompt = (
             f"Allocate strategy weights (sum to 1.0) for a password attack at "
             f"difficulty {difficulty} (1-10).\n"
@@ -340,13 +337,13 @@ class AdaptiveAttacker:
         data = response.parsed_structured_data
         if not data or not isinstance(data, dict):
             raise ValueError("Provider response missing valid structured data")
-        
+
         weights = data.get("weights")
         if not isinstance(weights, dict):
             raise ValueError(
                 "Provider response failed schema validation: weights must be a dictionary"
             )
-        
+
         parsed_weights: dict[str, float] = {}
         for k, v in weights.items():
             if not isinstance(k, str) or not isinstance(v, (int, float)):
@@ -355,7 +352,7 @@ class AdaptiveAttacker:
                 )
             if k in avail:
                 parsed_weights[k] = float(v)
-        
+
         total = sum(parsed_weights.values())
         if total == 0:
             if "random" in avail:

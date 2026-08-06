@@ -18,7 +18,7 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Topic :: Security",
 ]
-dependencies = []
+dependencies = ["openai>=1.10.0"]
 
 [project.optional-dependencies]
 dashboard = ["pandas>=2.2", "streamlit>=1.37"]
@@ -43,7 +43,7 @@ target-version = "py311"
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 packages = ["password_arena"]
-exclude = ["src/password_arena/dashboard.py"]
+exclude = ["dashboard\\.py"]
