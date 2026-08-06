@@ -33,6 +33,18 @@ class ArenaConfig:
     generator_version: str = "1.0"
 
     def validate(self) -> None:
+        # Check for secrets in config (prevent saving/loading them)
+        for key in asdict(self).keys():
+            k_lower = key.lower()
+            if "key" in k_lower or "token" in k_lower or "secret" in k_lower:
+                raise ValueError(f"Profile configuration must not contain secret-like field: {key}")
+        for role_config in [self.defender_config, self.attacker_config, self.evaluator_config]:
+            for key in asdict(role_config).keys():
+                k_lower = key.lower()
+                if "key" in k_lower or "token" in k_lower or "secret" in k_lower:
+                    if k_lower != "max_tokens":  # max_tokens is allowed
+                        raise ValueError(f"Profile configuration must not contain secret-like field: {key}")
+
         if not 1 <= self.rounds <= 100:
             raise ValueError("rounds must be between 1 and 100")
         if not 1 <= self.start_difficulty <= 10:

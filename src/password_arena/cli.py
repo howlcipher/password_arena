@@ -106,6 +106,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             try:
                 config_content = args.config.read_text(encoding="utf-8")
                 config_dict = json.loads(config_content)
+                # Validation that rejects secret-like fields in profile files
+                for k in config_dict:
+                    if any(s in k.lower() for s in ("api_key", "token", "secret", "auth")) and k.lower() != "max_tokens":
+                        parser.error(f"Configuration file contains forbidden secret-like field: {k}")
             except Exception as e:
                 parser.error(f"Failed to load config file: {e}")
 
