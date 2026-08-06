@@ -87,6 +87,7 @@ class ProviderRequest:
     structured_schema: dict[str, Any] | None = None
     temperature: float | None = None
     max_tokens: int | None = None
+    thinking_level: ThinkingLevel = ThinkingLevel.AUTO
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,5 +181,11 @@ class ProviderRegistry:
         elif role_config.provider == "openai":
             from password_arena.openai_provider import OpenAIProvider
             return OpenAIProvider(model=role_config.model or "gpt-4o")
+        elif role_config.provider == "gemini":
+            from password_arena.gemini_provider import GeminiProvider
+            return GeminiProvider(model=role_config.model or "gemini-2.5-pro")
+        elif role_config.provider == "ollama":
+            from password_arena.ollama_provider import OllamaProvider
+            return OllamaProvider(model=role_config.model or "llama3")
         else:
             raise ValueError(f"Unknown provider: {role_config.provider}")
