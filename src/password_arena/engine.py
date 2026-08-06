@@ -32,8 +32,16 @@ class ArenaEngine:
         attacker_rng = random.Random(config.seed + 1)
         self.defender = AdaptiveDefender(defender_rng, backend=defender_backend)
         self.attacker = AdaptiveAttacker(attacker_rng, backend=attacker_backend)
+        self._has_run = False
 
     def run(self) -> ExperimentResult:
+        if self._has_run:
+            raise RuntimeError(
+                "ArenaEngine instances are single-use. "
+                "Create a new instance for a new run."
+            )
+        self._has_run = True
+
         results: list[RoundResult] = []
 
         for index in range(self.config.rounds):

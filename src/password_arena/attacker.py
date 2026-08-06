@@ -135,7 +135,7 @@ class AdaptiveAttacker:
         plan = tuple(
             StrategyBudget(
                 strategy=name,
-                weight=round(weights[name], 4),
+                weight=weights[name],
                 guess_budget=allocations[name],
             )
             for name in ordered

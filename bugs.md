@@ -109,7 +109,8 @@ Run `ruff check .`, `mypy src/password_arena`, and `pytest`. All passed.
 ## BUG-005 — Reusing one ArenaEngine instance carries state into a second run
 
 **Priority:** P2  
-**Status:** Open
+**Status:** Resolved  
+**Resolved in:** BUG-005 Fix
 
 ### Reproduction
 
@@ -128,6 +129,16 @@ Choose and document one contract:
 - make `run()` single-use and raise on a second call;
 - reset agents at the start of each run; or
 - rename the operation to make continued training explicit and introduce a separate fresh-run API.
+
+### Resolution
+
+- Initialized a `_has_run` boolean to `False` in the `ArenaEngine.__init__` method.
+- Updated the `run()` method to check this boolean. If `_has_run` is `True`, it now raises a `RuntimeError`.
+- Set `_has_run = True` immediately after the check to prevent any subsequent runs.
+
+### Validation performed
+
+Added `test_engine_single_use` in `tests/test_engine.py`. Ran `ruff check .`, `mypy src/password_arena`, and `pytest`. All tests passed successfully.
 
 ---
 
@@ -177,7 +188,8 @@ Render separate charts or use a clearly labeled dual-axis visualization. Add str
 ## BUG-008 — Rounded strategy weights may not display as exactly 100 percent
 
 **Priority:** P3  
-**Status:** Open
+**Status:** Resolved  
+**Resolved in:** BUG-008 Fix
 
 ### Reproduction
 
@@ -190,3 +202,11 @@ The exact integer guess budgets remain authoritative, but the report can look in
 ### Expected resolution
 
 Store full-precision normalized weights and round only in presentation layers, or derive displayed percentages directly from integer allocations.
+
+### Resolution
+
+- Updated `src/password_arena/attacker.py` to store exact, full-precision weight for `StrategyBudget` without rounding to 4 decimal places.
+
+### Validation performed
+
+Ran `ruff check .`, `mypy src/password_arena`, and `pytest`. All tests passed successfully.

@@ -1,3 +1,5 @@
+import pytest
+
 from password_arena import ArenaConfig, ArenaEngine
 
 
@@ -6,6 +8,13 @@ def test_engine_runs_requested_rounds() -> None:
     assert len(result.rounds) == 4
     assert result.rounds[0].round_number == 1
     assert result.rounds[-1].round_number == 4
+
+
+def test_engine_single_use() -> None:
+    engine = ArenaEngine(ArenaConfig(rounds=1, max_guesses=10))
+    engine.run()
+    with pytest.raises(RuntimeError, match="single-use"):
+        engine.run()
 
 
 def test_passwords_are_hidden_by_default() -> None:
