@@ -80,7 +80,17 @@ class GeminiProvider:
                 state=AvailabilityState.AUTHENTICATION_FAILED,
                 message="GEMINI_API_KEY environment variable is not set."
             )
-        return AvailabilityResult(state=AvailabilityState.AVAILABLE, message="available")
+            
+        try:
+            client = self._get_client()
+            # Verify the model exists and is accessible
+            client.models.get(name=f"models/{self.model}")
+            return AvailabilityResult(state=AvailabilityState.AVAILABLE, message="available")
+        except Exception as e:
+            return AvailabilityResult(
+                state=AvailabilityState.AUTHENTICATION_FAILED, 
+                message=f"Failed to access model {self.model}: {e}"
+            )
 
     def generate(self, request: ProviderRequest) -> ProviderResponse:
         client = self._get_client()
