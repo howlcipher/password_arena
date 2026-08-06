@@ -48,84 +48,94 @@ class ArenaEngine:
 
         results: list[RoundResult] = []
 
+        from password_arena.providers import ProviderError
         for index in range(self.config.rounds):
-            difficulty = min(10, self.config.start_difficulty + index * self.config.difficulty_step)
-            password, family, defender_note = self.defender.create_password(difficulty)
-            strength = evaluate_strength(password)
-            raw_attack = self.attacker.attack(password, difficulty, self.config.max_guesses)
+            try:
+                difficulty = min(10, self.config.start_difficulty + index * self.config.difficulty_step)
+                password, family, defender_note = self.defender.create_password(difficulty)
+                strength = evaluate_strength(password)
+                raw_attack = self.attacker.attack(password, difficulty, self.config.max_guesses)
 
-            defender_learning = self.defender.observe(family, raw_attack.solved)
-            attacker_learning = self.attacker.observe(password, raw_attack.solved)
-            display = password if self.config.reveal_passwords else "•" * len(password)
-            candidate_display = raw_attack.candidate if self.config.reveal_passwords else None
-            attack = replace(raw_attack, candidate=candidate_display)
+                defender_learning = self.defender.observe(family, raw_attack.solved)
+                attacker_learning = self.attacker.observe(password, raw_attack.solved)
+                display = password if self.config.reveal_passwords else "•" * len(password)
+                candidate_display = raw_attack.candidate if self.config.reveal_passwords else None
+                attack = replace(raw_attack, candidate=candidate_display)
 
-            outcome = "solved" if attack.solved else "resisted the bounded guess budget"
-            findings = "; ".join(strength.findings)
-            attack_actions = tuple(
+                outcome = "solved" if attack.solved else "resisted the bounded guess budget"
+                findings = "; ".join(strength.findings)
+                attack_actions = tuple(
                 f"Allocated {entry.guess_budget:,} guesses to {entry.strategy} "
                 f"({entry.weight:.1%} of the plan)."
                 for entry in attack.plan
-            )
-            report = RoundReport(
+                )
+                report = RoundReport(
                 defender=AgentReport(
-                    decision=defender_note,
-                    actions=(
-                        f"Generated a synthetic {family} password.",
-                        f"Set length to {len(password)} characters.",
-                    ),
-                    observation=f"The password {outcome}. Evaluator findings: {findings}.",
-                    learning_update=defender_learning,
+                decision=defender_note,
+                actions=(
+                f"Generated a synthetic {family} password.",
+                f"Set length to {len(password)} characters.",
+                ),
+                observation=f"The password {outcome}. Evaluator findings: {findings}.",
+                learning_update=defender_learning,
                 ),
                 attacker=AgentReport(
-                    decision=(
-                        f"Ranked {attack.plan[0].strategy} as the highest-priority strategy "
-                        f"for difficulty {difficulty}."
-                    ),
-                    actions=attack_actions,
-                    observation=(
-                        f"{'Found a match' if attack.solved else 'Found no match'} after "
-                        f"{attack.guesses_used:,} guesses; attempted "
-                        f"{', '.join(attack.attempted_strategies)}."
-                    ),
-                    learning_update=attacker_learning,
+                decision=(
+                f"Ranked {attack.plan[0].strategy} as the highest-priority strategy "
+                f"for difficulty {difficulty}."
+                ),
+                actions=attack_actions,
+                observation=(
+                f"{'Found a match' if attack.solved else 'Found no match'} after "
+                f"{attack.guesses_used:,} guesses; attempted "
+                f"{', '.join(attack.attempted_strategies)}."
+                ),
+                learning_update=attacker_learning,
                 ),
                 evaluator_summary=(
-                    f"Round {index + 1} {outcome}. Strength score was {strength.score}/4 with "
-                    f"an estimated {strength.entropy_bits:.2f} bits after structural penalties."
+                f"Round {index + 1} {outcome}. Strength score was {strength.score}/4 with "
+                f"an estimated {strength.entropy_bits:.2f} bits after structural penalties."
                 ),
                 security_lesson=self._security_lesson(family, attack.solved),
                 defender_metadata=RoleMetadata(
-                    provider=self.config.defender_config.provider,
-                    model=self.config.defender_config.model,
-                    thinking_level=self.config.defender_config.thinking_level,
+                provider=self.config.defender_config.provider,
+                model=self.config.defender_config.model,
+                thinking_level=self.config.defender_config.thinking_level,
                 ),
                 attacker_metadata=RoleMetadata(
-                    provider=self.config.attacker_config.provider,
-                    model=self.config.attacker_config.model,
-                    thinking_level=self.config.attacker_config.thinking_level,
+                provider=self.config.attacker_config.provider,
+                model=self.config.attacker_config.model,
+                thinking_level=self.config.attacker_config.thinking_level,
                 ),
                 evaluator_metadata=RoleMetadata(
-                    provider=self.config.evaluator_config.provider,
-                    model=self.config.evaluator_config.model,
-                    thinking_level=self.config.evaluator_config.thinking_level,
+                provider=self.config.evaluator_config.provider,
+                model=self.config.evaluator_config.model,
+                thinking_level=self.config.evaluator_config.thinking_level,
                 ),
-            )
-
-            results.append(
-                RoundResult(
-                    round_number=index + 1,
-                    difficulty=difficulty,
-                    password_display=display,
-                    password_length=len(password),
-                    strength=strength,
-                    attack=attack,
-                    defender_strategy=family,
-                    attacker_note=attacker_learning,
-                    defender_note=defender_note,
-                    report=report,
                 )
-            )
+
+                results.append(
+                RoundResult(
+                round_number=index + 1,
+                difficulty=difficulty,
+                password_display=display,
+                password_length=len(password),
+                strength=strength,
+                attack=attack,
+                defender_strategy=family,
+                attacker_note=attacker_learning,
+                defender_note=defender_note,
+                report=report,
+                )
+                )
+
+            except ProviderError as e:
+                return ExperimentResult(
+                    config=self.config,
+                    rounds=tuple(results),
+                    interruption_reason=str(e),
+                    interruption_state=e.state.value,
+                )
 
         return ExperimentResult(config=self.config, rounds=tuple(results))
 

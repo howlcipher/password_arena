@@ -16,8 +16,8 @@ from openai import (
 
 from password_arena.providers import (
     AgentBackend,
-    AvailabilityState,
     AvailabilityResult,
+    AvailabilityState,
     ModelCapabilities,
     ProviderError,
     ProviderRequest,

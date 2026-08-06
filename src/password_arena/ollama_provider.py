@@ -1,7 +1,5 @@
 import os
-import json
 from typing import Any
-import datetime
 
 try:
     import httpx
@@ -9,7 +7,6 @@ except ImportError:
     httpx = None  # type: ignore
 
 from password_arena.providers import (
-    AgentBackend,
     AvailabilityResult,
     AvailabilityState,
     ModelCapabilities,
@@ -19,6 +16,7 @@ from password_arena.providers import (
     ThinkingLevel,
     UsageMetrics,
 )
+
 
 class OllamaProvider:
     def __init__(self, model: str = "llama3", base_url: str | None = None) -> None:

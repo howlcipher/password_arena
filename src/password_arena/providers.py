@@ -1,7 +1,7 @@
+import datetime
 import enum
 from dataclasses import dataclass, field
 from typing import Any, Protocol
-import datetime
 
 
 class ThinkingLevel(enum.StrEnum):

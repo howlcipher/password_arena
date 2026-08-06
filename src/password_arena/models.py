@@ -141,6 +141,8 @@ class ExperimentResult:
     timestamp: str = field(default_factory=lambda: __import__("datetime").datetime.now(
         __import__("datetime").timezone.utc
     ).isoformat())
+    interruption_reason: str | None = None
+    interruption_state: str | None = None
 
     @property
     def solved_rounds(self) -> int:

@@ -1,6 +1,5 @@
 import os
 from typing import Any
-import datetime
 
 try:
     from google import genai
@@ -10,7 +9,6 @@ except ImportError:
     types = None  # type: ignore
 
 from password_arena.providers import (
-    AgentBackend,
     AvailabilityResult,
     AvailabilityState,
     ModelCapabilities,
@@ -20,6 +18,7 @@ from password_arena.providers import (
     ThinkingLevel,
     UsageMetrics,
 )
+
 
 class GeminiProvider:
     def __init__(self, model: str = "gemini-2.5-pro", client: Any = None) -> None:
