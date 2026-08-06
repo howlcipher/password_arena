@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from password_arena.engine import ArenaEngine
+from password_arena.history import HistoryManager
 from password_arena.models import ArenaConfig
 from password_arena.reporting import experiment_report_markdown
 
@@ -42,57 +43,110 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--export-html", type=Path, help="Write a standalone HTML report for portfolio sharing."
     )
+    parser.add_argument("--history-list", action="store_true", help="List saved experiments.")
+    parser.add_argument(
+        "--history-load", type=str, metavar="ID",
+        help="Load and display a saved experiment."
+    )
+    parser.add_argument(
+        "--history-delete", type=str, metavar="ID",
+        help="Delete a saved experiment."
+    )
+    parser.add_argument(
+        "--history-export", nargs=2, metavar=("ID", "PATH"),
+        help="Export a saved experiment to a file."
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    
-    config_dict = {}
-    if hasattr(args, "config") and args.config is not None:
+
+    hm = HistoryManager()
+    if args.history_list:
+        runs = hm.list_runs()
+        print(f"{'Experiment ID':<36}  {'Timestamp':<25}  {'Rounds':<6}  {'Solve Rate':<10}")
+        print("=" * 86)
+        for r in runs:
+            print(f"{r['experiment_id']:<36}  {r['timestamp']:<25}  " \
+                  f"{r['total_rounds']:<6}  {r['solve_rate']:.1%}")
+        return 0
+
+    if args.history_delete:
         try:
-            config_content = args.config.read_text(encoding="utf-8")
-            config_dict = json.loads(config_content)
-        except Exception as e:
-            parser.error(f"Failed to load config file: {e}")
+            hm.delete(args.history_delete)
+            print(f"Deleted experiment {args.history_delete}.")
+        except FileNotFoundError:
+            print(f"Experiment {args.history_delete} not found.")
+            return 1
+        return 0
 
-    cli_args = vars(args)
-    cli_keys = [
-        "rounds",
-        "start_difficulty",
-        "difficulty_step",
-        "max_guesses",
-        "seed",
-        "reveal_passwords",
-        "generator_mode",
-        "generator_version",
-    ]
-    for key in cli_keys:
-        if key in cli_args:
-            config_dict[key] = cli_args[key]
+    if args.history_export:
+        exp_id, out_path = args.history_export
+        try:
+            hm.export(exp_id, Path(out_path))
+            print(f"Exported {exp_id} to {out_path}.")
+        except FileNotFoundError:
+            print(f"Experiment {exp_id} not found.")
+            return 1
+        return 0
 
-    if "defender_config" in config_dict and isinstance(config_dict["defender_config"], dict):
-        from password_arena.models import RoleConfig
-        config_dict["defender_config"] = RoleConfig(**config_dict["defender_config"])
-    if "attacker_config" in config_dict and isinstance(config_dict["attacker_config"], dict):
-        from password_arena.models import RoleConfig
-        config_dict["attacker_config"] = RoleConfig(**config_dict["attacker_config"])
-    if "evaluator_config" in config_dict and isinstance(config_dict["evaluator_config"], dict):
-        from password_arena.models import RoleConfig
-        config_dict["evaluator_config"] = RoleConfig(**config_dict["evaluator_config"])
-
-    try:
-        config = ArenaConfig(**config_dict)
-    except TypeError as e:
-        parser.error(f"Invalid configuration: {e}")
-
-    try:
-        config.validate()
-    except ValueError as e:
-        parser.error(str(e))
+    experiment = None
+    if args.history_load:
+        try:
+            experiment = hm.load(args.history_load)
+            print(f"Loaded experiment {args.history_load}.")
+        except FileNotFoundError:
+            print(f"Experiment {args.history_load} not found.")
+            return 1
+    else:
     
-    experiment = ArenaEngine(config).run()
+        config_dict = {}
+        if hasattr(args, "config") and args.config is not None:
+            try:
+                config_content = args.config.read_text(encoding="utf-8")
+                config_dict = json.loads(config_content)
+            except Exception as e:
+                parser.error(f"Failed to load config file: {e}")
+
+        cli_args = vars(args)
+        cli_keys = [
+            "rounds",
+            "start_difficulty",
+            "difficulty_step",
+            "max_guesses",
+            "seed",
+            "reveal_passwords",
+            "generator_mode",
+            "generator_version",
+        ]
+        for key in cli_keys:
+            if key in cli_args:
+                config_dict[key] = cli_args[key]
+
+        if "defender_config" in config_dict and isinstance(config_dict["defender_config"], dict):
+            from password_arena.models import RoleConfig
+            config_dict["defender_config"] = RoleConfig(**config_dict["defender_config"])
+        if "attacker_config" in config_dict and isinstance(config_dict["attacker_config"], dict):
+            from password_arena.models import RoleConfig
+            config_dict["attacker_config"] = RoleConfig(**config_dict["attacker_config"])
+        if "evaluator_config" in config_dict and isinstance(config_dict["evaluator_config"], dict):
+            from password_arena.models import RoleConfig
+            config_dict["evaluator_config"] = RoleConfig(**config_dict["evaluator_config"])
+
+        try:
+            config = ArenaConfig(**config_dict)
+        except TypeError as e:
+            parser.error(f"Invalid configuration: {e}")
+
+        try:
+            config.validate()
+        except ValueError as e:
+            parser.error(str(e))
+
+        experiment = ArenaEngine(config).run()
+        hm.save(experiment)
 
     print("\nPassword Arena")
     print("=" * 86)

@@ -125,6 +125,10 @@ class RoundResult:
 class ExperimentResult:
     config: ArenaConfig
     rounds: tuple[RoundResult, ...] = field(default_factory=tuple)
+    experiment_id: str = field(default_factory=lambda: __import__("uuid").uuid4().hex)
+    timestamp: str = field(default_factory=lambda: __import__("datetime").datetime.now(
+        __import__("datetime").timezone.utc
+    ).isoformat())
 
     @property
     def solved_rounds(self) -> int:
@@ -136,6 +140,9 @@ class ExperimentResult:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "experiment_id": self.experiment_id,
+            "timestamp": self.timestamp,
+            "schema_version": "1.0",
             "config": asdict(self.config),
             "summary": {
                 "solved_rounds": self.solved_rounds,
@@ -144,3 +151,45 @@ class ExperimentResult:
             },
             "rounds": [item.to_dict() for item in self.rounds],
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ExperimentResult:
+        config_data = data["config"].copy()
+        for role in ["defender_config", "attacker_config", "evaluator_config"]:
+            if role in config_data and isinstance(config_data[role], dict):
+                config_data[role] = RoleConfig(**config_data[role])
+        config = ArenaConfig(**config_data)
+
+        rounds = []
+        for r_data in data.get("rounds", []):
+            strength = StrengthReport(**r_data["strength"])
+            plan = []
+            for p_data in r_data["attack"].get("plan", []):
+                plan.append(StrategyBudget(**p_data))
+            attack_data = r_data["attack"].copy()
+            attack_data["plan"] = tuple(plan)
+            attack_data["attempted_strategies"] = tuple(attack_data.get("attempted_strategies", []))
+            attack = AttackResult(**attack_data)
+
+            report_data = r_data["report"].copy()
+            report_data["defender"] = AgentReport(**report_data["defender"])
+            report_data["attacker"] = AgentReport(**report_data["attacker"])
+            for meta_key in ["defender_metadata", "attacker_metadata", "evaluator_metadata"]:
+                if report_data.get(meta_key):
+                    report_data[meta_key] = RoleMetadata(**report_data[meta_key])
+            report = RoundReport(**report_data)
+
+            round_data = r_data.copy()
+            round_data["strength"] = strength
+            round_data["attack"] = attack
+            round_data["report"] = report
+            rounds.append(RoundResult(**round_data))
+
+        return cls(
+            config=config,
+            rounds=tuple(rounds),
+            experiment_id=data.get("experiment_id", __import__("uuid").uuid4().hex),
+            timestamp=data.get("timestamp", __import__("datetime").datetime.now(
+        __import__("datetime").timezone.utc
+    ).isoformat())
+        )

@@ -63,7 +63,17 @@ Add optional adapters for the user's model subscriptions without making any prov
 ## IMP-003 — Persistent experiment history
 
 **Priority:** P1  
-**Status:** In Progress
+**Status:** Done
+
+**Implementation note:**
+Added `experiment_id` and `timestamp` fields to `ExperimentResult`.
+Created `password_arena.history.HistoryManager` to store runs in a versioned JSON directory (`.password_arena_history`).
+Added commands to `cli.py` to support `--history-list`, `--history-load`, `--history-delete`, and `--history-export`.
+`ArenaEngine.run()` results are now automatically saved to history.
+Added `test_history.py` to ensure save, list, load, export, and delete functionality works properly.
+
+**Validation performed:**
+`ruff check .`, `mypy src/password_arena`, and `pytest` were run locally and all passed.
 
 Store completed experiments locally so users can compare runs instead of losing results after a dashboard session.
 
