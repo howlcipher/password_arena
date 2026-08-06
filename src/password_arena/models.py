@@ -30,6 +30,7 @@ class ArenaConfig:
     attacker_config: RoleConfig = field(default_factory=RoleConfig)
     evaluator_config: RoleConfig = field(default_factory=RoleConfig)
     generator_mode: str = "secure"
+    generator_version: str = "1.0"
 
     def validate(self) -> None:
         if not 1 <= self.rounds <= 100:
@@ -42,6 +43,8 @@ class ArenaConfig:
             raise ValueError("max_guesses must be between 1 and 1,000,000")
         if self.generator_mode not in ("secure", "deterministic-test"):
             raise ValueError("generator_mode must be 'secure' or 'deterministic-test'")
+        if self.generator_version not in ("1.0", "benchmark"):
+            raise ValueError("generator_version must be '1.0' or 'benchmark'")
 
 
 @dataclass(frozen=True, slots=True)

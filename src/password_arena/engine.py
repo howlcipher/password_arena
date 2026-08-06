@@ -33,7 +33,8 @@ class ArenaEngine:
         self.defender = AdaptiveDefender(
             defender_rng, 
             backend=defender_backend, 
-            generator_mode=config.generator_mode
+            generator_mode=config.generator_mode,
+            generator_version=config.generator_version
         )
         self.attacker = AdaptiveAttacker(attacker_rng, backend=attacker_backend)
         self._has_run = False

@@ -129,7 +129,13 @@ Add educational Markov-chain and probabilistic context-free grammar strategies t
 ## IMP-007 — Held-out benchmark generator
 
 **Priority:** P1  
-**Status:** Ready
+**Status:** Done
+
+**Implementation note:**
+Updated `ArenaConfig` and CLI to accept `generator_version` (`1.0` or `benchmark`). Split `AdaptiveDefender` generation into disjoint vocabularies (`SHARED_WORDS` vs `HELD_OUT_WORDS`) and structural templates depending on the requested generator version. Added a deterministic test to ensure benchmark template integrity.
+
+**Validation performed:**
+`ruff check .`, `mypy src/password_arena`, and `pytest` were run locally and all passed.
 
 Separate defender generation patterns from attacker development data so evaluation measures generalization instead of memorizing one shared word list.
 

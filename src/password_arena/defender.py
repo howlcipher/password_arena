@@ -8,8 +8,6 @@ from dataclasses import dataclass, field
 from password_arena.grammars import HELD_OUT_WORDS, SHARED_WORDS, SYMBOLS
 from password_arena.providers import AgentBackend, ProviderRequest
 
-WORDS = SHARED_WORDS + HELD_OUT_WORDS
-
 
 @dataclass(slots=True)
 class AdaptiveDefender:
@@ -19,6 +17,7 @@ class AdaptiveDefender:
     breached_families: set[str] = field(default_factory=set)
     backend: AgentBackend | None = None
     generator_mode: str = "secure"
+    generator_version: str = "1.0"
 
     def create_password(self, difficulty: int) -> tuple[str, str, str]:
         if self.backend:
@@ -26,27 +25,7 @@ class AdaptiveDefender:
         
         effective = min(max(difficulty, 1), 10)
 
-        if effective == 1:
-            family = "dictionary-word"
-            password = self.rng.choice(WORDS[:4])
-        elif effective == 2:
-            family = "capitalized-word-number"
-            password = f"{self.rng.choice(WORDS).title()}{self.rng.randint(10, 99)}"
-        elif effective == 3:
-            family = "substitution-pattern"
-            word = self.rng.choice(WORDS)
-            password = word.title().replace("a", "@").replace("e", "3") + self.rng.choice(SYMBOLS)
-        elif effective == 4:
-            family = "two-word-passphrase"
-            first = self.rng.choice(WORDS).title()
-            second = self.rng.choice(WORDS)
-            password = f"{first}-{second}-{self.rng.randint(10, 99)}"
-        elif effective <= 6:
-            family = "multi-word-passphrase"
-            count = 3 if effective == 5 else 4
-            password = "-".join(self.rng.sample(WORDS, count))
-            password += str(self.rng.randint(100, 999))
-        else:
+        if effective > 6:
             family = "cryptographic-random"
             length = 14 + (effective - 7) * 2
             alphabet = string.ascii_letters + string.digits + SYMBOLS
@@ -55,6 +34,56 @@ class AdaptiveDefender:
             else:
                 # secrets is intentionally used here: the secure endpoint of defender learning.
                 password = "".join(secrets.choice(alphabet) for _ in range(length))
+        elif self.generator_version == "benchmark":
+            words: tuple[str, ...] = HELD_OUT_WORDS
+            if effective == 1:
+                family = "eval-word"
+                password = self.rng.choice(words)
+            elif effective == 2:
+                family = "eval-number-prefix"
+                password = f"{self.rng.randint(10, 99)}{self.rng.choice(words).title()}"
+            elif effective == 3:
+                family = "eval-substitution"
+                word = self.rng.choice(words)
+                password = (
+                    self.rng.choice(SYMBOLS)
+                    + word.title().replace("o", "0").replace("i", "1").replace("e", "3")
+                )
+            elif effective == 4:
+                family = "eval-two-word"
+                first = self.rng.choice(words)
+                second = self.rng.choice(words).title()
+                password = f"{first}.{second}.{self.rng.randint(10, 99)}"
+            else:
+                family = "eval-multi-word"
+                count = 3 if effective == 5 else 4
+                password = ".".join(self.rng.sample(words, count))
+                password += self.rng.choice(SYMBOLS)
+        else:
+            words = SHARED_WORDS
+            if effective == 1:
+                family = "dictionary-word"
+                password = self.rng.choice(words[:4])
+            elif effective == 2:
+                family = "capitalized-word-number"
+                password = f"{self.rng.choice(words).title()}{self.rng.randint(10, 99)}"
+            elif effective == 3:
+                family = "substitution-pattern"
+                word = self.rng.choice(words)
+                password = (
+                    word.title().replace("a", "@").replace("e", "3")
+                    + self.rng.choice(SYMBOLS)
+                )
+            elif effective == 4:
+                family = "two-word-passphrase"
+                first = self.rng.choice(words).title()
+                second = self.rng.choice(words)
+                password = f"{first}-{second}-{self.rng.randint(10, 99)}"
+            else:
+                family = "multi-word-passphrase"
+                count = 3 if effective == 5 else 4
+                password = "-".join(self.rng.sample(words, count))
+                password += str(self.rng.randint(100, 999))
 
         if family in self.breached_families and effective < 7:
             password += self.rng.choice(SYMBOLS) + str(self.rng.randint(100, 999))

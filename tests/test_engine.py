@@ -101,3 +101,16 @@ def test_generator_mode_deterministic_test_reproducibility() -> None:
     result2 = ArenaEngine(config2).run()
     
     assert result1.rounds[0].report.defender.actions == result2.rounds[0].report.defender.actions
+
+def test_generator_version_benchmark_regression() -> None:
+    # Ensure the benchmark generator produces expected held-out passwords.
+    config = ArenaConfig(
+        rounds=1, start_difficulty=3, max_guesses=10, seed=42, generator_version="benchmark"
+    )
+    result = ArenaEngine(config).run()
+    # The benchmark template for difficulty 3 should be eval-substitution
+    # using HELD_OUT_WORDS. Let's just verify it uses 'eval-substitution' family.
+    assert result.rounds[0].defender_strategy == "eval-substitution"
+    # Also verify the attacker fails since it's a held-out vocabulary and different template
+    assert not result.rounds[0].attack.solved
+

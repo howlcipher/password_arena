@@ -28,6 +28,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=argparse.SUPPRESS,
         help="Generator mode for cryptographic passwords.",
     )
+    parser.add_argument(
+        "--generator-version",
+        choices=["1.0", "benchmark"],
+        default=argparse.SUPPRESS,
+        help="Generator version for vocabularies and templates.",
+    )
     parser.add_argument("--output", type=Path, help="Write the complete experiment JSON.")
     parser.add_argument("--report", type=Path, help="Write a two-sided Markdown arena report.")
     return parser
@@ -54,6 +60,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "seed",
         "reveal_passwords",
         "generator_mode",
+        "generator_version",
     ]
     for key in cli_keys:
         if key in cli_args:
