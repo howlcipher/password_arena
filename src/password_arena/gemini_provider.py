@@ -27,7 +27,12 @@ class GeminiProvider:
         self._capabilities = ModelCapabilities(
             model_id=model,
             thinking_supported="pro" in model or "thinking" in model,
-            accepted_thinking_levels=(ThinkingLevel.AUTO, ThinkingLevel.LOW, ThinkingLevel.MEDIUM, ThinkingLevel.HIGH),
+            accepted_thinking_levels=(
+                ThinkingLevel.AUTO,
+                ThinkingLevel.LOW,
+                ThinkingLevel.MEDIUM,
+                ThinkingLevel.HIGH,
+            ),
             structured_output_supported=True,
             context_limit=1048576,
             output_limit=8192,
@@ -51,17 +56,29 @@ class GeminiProvider:
         if self._client:
             return self._client
         if genai is None:
-            raise ProviderError(AvailabilityState.PROVIDER_UNAVAILABLE, "google-genai package is not installed.")
+            raise ProviderError(
+                AvailabilityState.PROVIDER_UNAVAILABLE,
+                "google-genai package is not installed."
+            )
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
-            raise ProviderError(AvailabilityState.AUTHENTICATION_FAILED, "GEMINI_API_KEY environment variable is not set.")
+            raise ProviderError(
+                AvailabilityState.AUTHENTICATION_FAILED,
+                "GEMINI_API_KEY environment variable is not set."
+            )
         return genai.Client(api_key=api_key)
 
     def check_availability(self) -> AvailabilityResult:
         if genai is None:
-            return AvailabilityResult(state=AvailabilityState.PROVIDER_UNAVAILABLE, message="google-genai package is not installed.")
+            return AvailabilityResult(
+                state=AvailabilityState.PROVIDER_UNAVAILABLE,
+                message="google-genai package is not installed."
+            )
         if not os.environ.get("GEMINI_API_KEY") and self._client is None:
-            return AvailabilityResult(state=AvailabilityState.AUTHENTICATION_FAILED, message="GEMINI_API_KEY environment variable is not set.")
+            return AvailabilityResult(
+                state=AvailabilityState.AUTHENTICATION_FAILED,
+                message="GEMINI_API_KEY environment variable is not set."
+            )
         return AvailabilityResult(state=AvailabilityState.AVAILABLE, message="available")
 
     def generate(self, request: ProviderRequest) -> ProviderResponse:
@@ -91,10 +108,18 @@ class GeminiProvider:
             raise ProviderError(AvailabilityState.UNKNOWN_ERROR, str(e)) from e
             
         metrics = UsageMetrics(
-            input_tokens=response.usage_metadata.prompt_token_count if response.usage_metadata else 0,
-            output_tokens=response.usage_metadata.candidates_token_count if response.usage_metadata else 0,
+            input_tokens=(
+                response.usage_metadata.prompt_token_count if response.usage_metadata else 0
+            ),
+            output_tokens=(
+                response.usage_metadata.candidates_token_count if response.usage_metadata else 0
+            ),
             requested_thinking_level=request.thinking_level,
-            effective_thinking_level=request.thinking_level if self._capabilities.thinking_supported else ThinkingLevel.AUTO,
+            effective_thinking_level=(
+                request.thinking_level 
+                if self._capabilities.thinking_supported 
+                else ThinkingLevel.AUTO
+            ),
         )
 
         return ProviderResponse(

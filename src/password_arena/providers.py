@@ -124,7 +124,10 @@ class MockProvider:
         effective_thinking: ThinkingLevel = ThinkingLevel.AUTO,
     ) -> None:
         self._capabilities = capabilities
-        self._availability = AvailabilityResult(state=availability, message=f"State is {availability.value}")
+        self._availability = AvailabilityResult(
+            state=availability,
+            message=f"State is {availability.value}"
+        )
         if isinstance(availability, AvailabilityResult):
             self._availability = availability
         self._canned_response = canned_response
@@ -171,12 +174,18 @@ class MockProvider:
 
 class ProviderRegistry:
     @classmethod
-    def create(cls, role_config: Any, secrets_config: dict[str, str] | None = None) -> AgentBackend | None:
+    def create(
+        cls,
+        role_config: Any,
+        secrets_config: dict[str, str] | None = None
+    ) -> AgentBackend | None:
         if role_config.provider == "rule_based":
             return None
         elif role_config.provider == "mock":
             return MockProvider(
-                ModelCapabilities("mock-model", False, (ThinkingLevel.AUTO,), True, 8192, 4096, True, False, False)
+                ModelCapabilities(
+                    "mock-model", False, (ThinkingLevel.AUTO,), True, 8192, 4096, True, False, False
+                )
             )
         elif role_config.provider == "openai":
             from password_arena.openai_provider import OpenAIProvider

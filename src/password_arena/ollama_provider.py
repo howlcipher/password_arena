@@ -47,27 +47,42 @@ class OllamaProvider:
 
     def check_availability(self) -> AvailabilityResult:
         if httpx is None:
-            return AvailabilityResult(state=AvailabilityState.PROVIDER_UNAVAILABLE, message="httpx package is not installed.")
+            return AvailabilityResult(
+                state=AvailabilityState.PROVIDER_UNAVAILABLE,
+                message="httpx package is not installed."
+            )
         try:
             with httpx.Client() as client:
                 response = client.get(f"{self.base_url}/api/tags", timeout=2.0)
                 if response.status_code != 200:
-                    return AvailabilityResult(state=AvailabilityState.LOCAL_SERVER_OFFLINE, message="Ollama server returned non-200 status.")
+                    return AvailabilityResult(
+                        state=AvailabilityState.LOCAL_SERVER_OFFLINE,
+                        message="Ollama server returned non-200 status."
+                    )
                 
                 data = response.json()
                 models = [m["name"] for m in data.get("models", [])]
                 if self.model not in models and f"{self.model}:latest" not in models:
-                    return AvailabilityResult(state=AvailabilityState.LOCAL_MODEL_NOT_INSTALLED, message=f"Model {self.model} not installed.")
+                    return AvailabilityResult(
+                        state=AvailabilityState.LOCAL_MODEL_NOT_INSTALLED,
+                        message=f"Model {self.model} not installed."
+                    )
                     
                 return AvailabilityResult(state=AvailabilityState.AVAILABLE, message="available")
         except httpx.RequestError:
-            return AvailabilityResult(state=AvailabilityState.LOCAL_SERVER_OFFLINE, message="Ollama server is offline or unreachable.")
+            return AvailabilityResult(
+                state=AvailabilityState.LOCAL_SERVER_OFFLINE,
+                message="Ollama server is offline or unreachable."
+            )
         except Exception as e:
             return AvailabilityResult(state=AvailabilityState.UNKNOWN_ERROR, message=str(e))
 
     def generate(self, request: ProviderRequest) -> ProviderResponse:
         if httpx is None:
-            raise ProviderError(AvailabilityState.PROVIDER_UNAVAILABLE, "httpx package is not installed.")
+            raise ProviderError(
+                AvailabilityState.PROVIDER_UNAVAILABLE,
+                "httpx package is not installed."
+            )
             
         payload: dict[str, Any] = {
             "model": self.model,
@@ -84,8 +99,14 @@ class OllamaProvider:
         if self._capabilities.structured_output_supported and request.structured_schema is not None:
             payload["format"] = request.structured_schema
             
-        if request.thinking_level != ThinkingLevel.AUTO and not self._capabilities.thinking_supported:
-            payload["prompt"] = f"Please think step-by-step and write out your reasoning before providing the final answer.\n\n{request.prompt}"
+        if (
+            request.thinking_level != ThinkingLevel.AUTO 
+            and not self._capabilities.thinking_supported
+        ):
+            payload["prompt"] = (
+                "Please think step-by-step and write out your reasoning before "
+                f"providing the final answer.\n\n{request.prompt}"
+            )
             
         try:
             with httpx.Client() as client:
@@ -97,7 +118,11 @@ class OllamaProvider:
                     input_tokens=data.get("prompt_eval_count", 0),
                     output_tokens=data.get("eval_count", 0),
                     requested_thinking_level=request.thinking_level,
-                    effective_thinking_level=request.thinking_level if self._capabilities.thinking_supported else ThinkingLevel.AUTO,
+                    effective_thinking_level=(
+                        request.thinking_level
+                        if self._capabilities.thinking_supported
+                        else ThinkingLevel.AUTO
+                    ),
                 )
                 
                 return ProviderResponse(

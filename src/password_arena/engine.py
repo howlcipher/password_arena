@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import replace
+from typing import NamedTuple
 
 from password_arena.attacker import AdaptiveAttacker
 from password_arena.defender import AdaptiveDefender
@@ -13,8 +14,45 @@ from password_arena.models import (
     RoundReport,
     RoundResult,
 )
-from password_arena.providers import AgentBackend
+from password_arena.providers import AgentBackend, AvailabilityState, ProviderRegistry
 from password_arena.strength import evaluate_strength
+
+
+class PreflightFailure(NamedTuple):
+    role: str
+    state: str
+    message: str
+
+
+def build_arena_engine(
+    config: ArenaConfig, secrets_config: dict[str, str] | None = None
+) -> ArenaEngine | PreflightFailure:
+    config.validate()
+
+    try:
+        defender_backend = ProviderRegistry.create(config.defender_config, secrets_config)
+    except Exception as e:
+        return PreflightFailure("defender", AvailabilityState.UNKNOWN_ERROR.value, str(e))
+
+    try:
+        attacker_backend = ProviderRegistry.create(config.attacker_config, secrets_config)
+    except Exception as e:
+        return PreflightFailure("attacker", AvailabilityState.UNKNOWN_ERROR.value, str(e))
+
+    if defender_backend:
+        avail = defender_backend.check_availability()
+        if avail.state != AvailabilityState.AVAILABLE:
+            return PreflightFailure("defender", avail.state.value, avail.message)
+
+    if attacker_backend:
+        avail = attacker_backend.check_availability()
+        if avail.state != AvailabilityState.AVAILABLE:
+            return PreflightFailure("attacker", avail.state.value, avail.message)
+
+    return ArenaEngine(config, defender_backend, attacker_backend)
+
+
+
 
 
 class ArenaEngine:
@@ -51,7 +89,9 @@ class ArenaEngine:
         from password_arena.providers import ProviderError
         for index in range(self.config.rounds):
             try:
-                difficulty = min(10, self.config.start_difficulty + index * self.config.difficulty_step)
+                difficulty = min(
+                    10, self.config.start_difficulty + index * self.config.difficulty_step
+                )
                 password, family, defender_note = self.defender.create_password(difficulty)
                 strength = evaluate_strength(password)
                 raw_attack = self.attacker.attack(password, difficulty, self.config.max_guesses)
