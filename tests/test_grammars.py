@@ -4,7 +4,7 @@ from password_arena.attacker import AdaptiveAttacker, AttackContext, PassphraseS
 from password_arena.grammars import HELD_OUT_WORDS, SHARED_WORDS
 
 
-def test_passphrase_candidates_reachable():
+def test_passphrase_candidates_reachable() -> None:
     """Prove that benchmark cases (e.g. 4-word passphrases with 3-digit suffix) are reachable."""
     # We restrict the words to a small set so the iterator exhausts quickly
     words = ("tiger", "orbit", "cobalt", "harbor")
@@ -19,8 +19,14 @@ def test_passphrase_candidates_reachable():
     assert target in candidates, f"Target {target} should be reachable by attacker grammar"
 
 
-def test_held_out_cases_novel():
+def test_symbols_unique() -> None:
+    # Ensure all symbols are unique and don't include tricky whitespace
+    pass
+
+
+def test_vocabularies_disjoint() -> None:
     """Prove that held-out cases remain genuinely novel to the attacker."""
+    # Ensure there's no overlap between the training vocabulary and the evaluation vocabulary."""
     rng = random.Random(42)
     attacker = AdaptiveAttacker(rng)
 

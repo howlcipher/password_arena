@@ -66,28 +66,23 @@ class ArenaEngine:
     ) -> None:
         config.validate()
         self.config = config
-        defender_rng = random.Random(config.seed)
-        attacker_rng = random.Random(config.seed + 1)
+        self.defender_rng = random.Random(config.seed)
+        self.attacker_rng = random.Random(config.seed + 1)
         self.defender = AdaptiveDefender(
-            defender_rng,
+            self.defender_rng,
             backend=defender_backend,
             generator_mode=config.generator_mode,
             generator_version=config.generator_version,
         )
-        self.attacker = AdaptiveAttacker(attacker_rng, backend=attacker_backend)
-        self._has_run = False
+        self.attacker = AdaptiveAttacker(self.attacker_rng, backend=attacker_backend)
+        self.completed_rounds: list[RoundResult] = []
+        self._experiment_id = __import__("uuid").uuid4().hex
 
     def run(self) -> ExperimentResult:
-        if self._has_run:
-            raise RuntimeError(
-                "ArenaEngine instances are single-use. Create a new instance for a new run."
-            )
-        self._has_run = True
-
-        results: list[RoundResult] = []
-
         from password_arena.providers import ProviderError
-        for index in range(self.config.rounds):
+        
+        start_index = len(self.completed_rounds)
+        for index in range(start_index, self.config.rounds):
             try:
                 difficulty = min(
                     10, self.config.start_difficulty + index * self.config.difficulty_step
@@ -154,30 +149,35 @@ class ArenaEngine:
                 ),
                 )
 
-                results.append(
-                RoundResult(
-                round_number=index + 1,
-                difficulty=difficulty,
-                password_display=display,
-                password_length=len(password),
-                strength=strength,
-                attack=attack,
-                defender_strategy=family,
-                attacker_note=attacker_learning,
-                defender_note=defender_note,
-                report=report,
-                )
+                self.completed_rounds.append(
+                    RoundResult(
+                        round_number=index + 1,
+                        difficulty=difficulty,
+                        password_display=display,
+                        password_length=len(password),
+                        strength=strength,
+                        attack=attack,
+                        defender_strategy=family,
+                        attacker_note=attacker_learning,
+                        defender_note=defender_note,
+                        report=report,
+                    )
                 )
 
             except ProviderError as e:
                 return ExperimentResult(
                     config=self.config,
-                    rounds=tuple(results),
+                    rounds=tuple(self.completed_rounds),
+                    experiment_id=self._experiment_id,
                     interruption_reason=str(e),
                     interruption_state=e.state.value,
                 )
 
-        return ExperimentResult(config=self.config, rounds=tuple(results))
+        return ExperimentResult(
+            config=self.config, 
+            rounds=tuple(self.completed_rounds),
+            experiment_id=self._experiment_id,
+        )
 
     @staticmethod
     def _security_lesson(family: str, solved: bool) -> str:
