@@ -17,6 +17,7 @@ from password_arena.providers import (
     ProviderResponse,
     ThinkingLevel,
     UsageMetrics,
+    parse_and_validate_json,
 )
 
 
@@ -107,6 +108,11 @@ class GeminiProvider:
         except Exception as e:
             raise ProviderError(AvailabilityState.UNKNOWN_ERROR, str(e)) from e
             
+        content = response.text or ""
+        parsed_data, success, error_msg = parse_and_validate_json(
+            content, request.structured_schema
+        )
+
         metrics = UsageMetrics(
             input_tokens=(
                 response.usage_metadata.prompt_token_count if response.usage_metadata else 0
@@ -120,11 +126,13 @@ class GeminiProvider:
                 if self._capabilities.thinking_supported 
                 else ThinkingLevel.AUTO
             ),
+            structured_validation_success=success,
         )
 
         return ProviderResponse(
-            content=response.text or "",
+            content=content,
             provider_name=self.provider_name,
             model_id=self.model_id,
+            parsed_structured_data=parsed_data,
             metrics=metrics,
         )

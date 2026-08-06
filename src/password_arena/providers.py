@@ -1,5 +1,7 @@
 import datetime
 import enum
+import json
+import math
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -111,6 +113,63 @@ class AgentBackend(Protocol):
     def check_availability(self) -> AvailabilityResult: ...
 
     def generate(self, request: ProviderRequest) -> ProviderResponse: ...
+
+
+def parse_and_validate_json(
+    content: str, schema: dict[str, Any] | None
+) -> tuple[dict[str, Any] | None, bool, str | None]:
+    if not schema:
+        return None, True, None
+
+    content = content.strip()
+    if content.startswith("```json"):
+        content = content[7:]
+    if content.startswith("```"):
+        content = content[3:]
+    if content.endswith("```"):
+        content = content[:-3]
+    content = content.strip()
+
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError as e:
+        return None, False, f"Malformed JSON: {e}"
+
+    if not isinstance(data, dict):
+        return None, False, "JSON root must be an object"
+
+    required = schema.get("required", [])
+    for key in required:
+        if key not in data:
+            return None, False, f"Missing required key: {key}"
+
+    properties = schema.get("properties", {})
+    for key, value in data.items():
+        if key in properties:
+            expected_type = properties[key].get("type")
+            if expected_type == "string" and not isinstance(value, str):
+                return None, False, f"Key {key} must be a string"
+            elif expected_type == "number":
+                if type(value) is bool or not isinstance(value, (int, float)):
+                    return None, False, f"Key {key} must be a number"
+            elif expected_type == "object" and not isinstance(value, dict):
+                return None, False, f"Key {key} must be an object"
+
+    if "weights" in data and isinstance(data["weights"], dict):
+        weights = data["weights"]
+        total = 0.0
+        for strat, w in weights.items():
+            if type(w) is bool or not isinstance(w, (int, float)):
+                return None, False, f"Weight for {strat} must be a number"
+            if math.isnan(w) or math.isinf(w):
+                return None, False, f"Weight for {strat} cannot be NaN or infinity"
+            if w < 0:
+                return None, False, f"Weight for {strat} cannot be negative"
+            total += float(w)
+        if total <= 0:
+            return None, False, "Total weight must be positive"
+
+    return data, True, None
 
 
 class MockProvider:

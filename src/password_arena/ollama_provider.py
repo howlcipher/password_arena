@@ -15,6 +15,7 @@ from password_arena.providers import (
     ProviderResponse,
     ThinkingLevel,
     UsageMetrics,
+    parse_and_validate_json,
 )
 
 
@@ -114,6 +115,11 @@ class OllamaProvider:
                 response.raise_for_status()
                 data = response.json()
                 
+                content = data.get("response", "")
+                parsed_data, success, error_msg = parse_and_validate_json(
+                    content, request.structured_schema
+                )
+
                 metrics = UsageMetrics(
                     input_tokens=data.get("prompt_eval_count", 0),
                     output_tokens=data.get("eval_count", 0),
@@ -123,12 +129,14 @@ class OllamaProvider:
                         if self._capabilities.thinking_supported
                         else ThinkingLevel.AUTO
                     ),
+                    structured_validation_success=success,
                 )
                 
                 return ProviderResponse(
-                    content=data.get("response", ""),
+                    content=content,
                     provider_name=self.provider_name,
                     model_id=self.model_id,
+                    parsed_structured_data=parsed_data,
                     metrics=metrics,
                 )
         except httpx.TimeoutException as e:

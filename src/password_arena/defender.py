@@ -117,9 +117,19 @@ class AdaptiveDefender:
         request = ProviderRequest(prompt=prompt, structured_schema=schema)
         response = self.backend.generate(request)
 
+        if not response.metrics.structured_validation_success:
+            from password_arena.providers import AvailabilityState, ProviderError
+            raise ProviderError(
+                AvailabilityState.INVALID_RESPONSE, "Provider response failed schema validation"
+            )
+
         data = response.parsed_structured_data
         if not data or not isinstance(data, dict):
-            raise ValueError("Provider response missing valid structured data")
+            from password_arena.providers import AvailabilityState, ProviderError
+            raise ProviderError(
+                AvailabilityState.INVALID_RESPONSE, 
+                "Provider response missing valid structured data"
+            )
 
         password = data.get("password")
         family = data.get("family")
@@ -127,5 +137,8 @@ class AdaptiveDefender:
 
         valid = isinstance(password, str) and isinstance(family, str) and isinstance(note, str)
         if not valid:
-            raise ValueError("Provider response failed schema validation")
+            from password_arena.providers import AvailabilityState, ProviderError
+            raise ProviderError(
+                AvailabilityState.INVALID_RESPONSE, "Provider response failed schema validation"
+            )
         return str(password), str(family), str(note)

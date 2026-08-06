@@ -1,4 +1,3 @@
-import contextlib
 import json
 import os
 import time
@@ -24,6 +23,7 @@ from password_arena.providers import (
     ProviderResponse,
     ThinkingLevel,
     UsageMetrics,
+    parse_and_validate_json,
 )
 
 # Registry of supported OpenAI models
@@ -200,10 +200,9 @@ class OpenAIProvider(AgentBackend):
 
         content = response.choices[0].message.content or ""
 
-        parsed_structured_data = None
-        if request.structured_schema:
-            with contextlib.suppress(json.JSONDecodeError):
-                parsed_structured_data = json.loads(content)
+        parsed_structured_data, success, error_msg = parse_and_validate_json(
+            content, request.structured_schema
+        )
 
         input_tokens = 0
         output_tokens = 0
@@ -227,6 +226,7 @@ class OpenAIProvider(AgentBackend):
             retries=0,
             requested_thinking_level=ThinkingLevel.AUTO,
             effective_thinking_level=ThinkingLevel.AUTO,
+            structured_validation_success=success,
         )
 
         return ProviderResponse(
