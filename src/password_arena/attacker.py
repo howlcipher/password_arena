@@ -7,24 +7,10 @@ import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 
-from password_arena.defender import SYMBOLS, WORDS
+from password_arena.grammars import COMMON_PASSWORDS as COMMON
+from password_arena.grammars import SHARED_WORDS, SYMBOLS
 from password_arena.models import AttackResult, StrategyBudget
 from password_arena.providers import AgentBackend, ProviderRequest
-
-COMMON = (
-    "password",
-    "123456",
-    "qwerty",
-    "admin",
-    "welcome",
-    "letmein",
-    "dragon",
-    "tiger",
-    "orbit",
-    "cobalt",
-    "harbor",
-    "ember",
-)
 
 
 def _dedupe(candidates: Iterator[str]) -> Iterator[str]:
@@ -53,7 +39,7 @@ def mutation_candidates(words: tuple[str, ...]) -> Iterator[str]:
                 yield f"{form}{symbol}"
 
 
-def passphrase_candidates(words: tuple[str, ...], max_words: int = 3) -> Iterator[str]:
+def passphrase_candidates(words: tuple[str, ...], max_words: int = 4) -> Iterator[str]:
     limited = words[: min(len(words), 12)]
     for count in range(2, max_words + 1):
         for parts in itertools.permutations(limited, count):
@@ -64,8 +50,11 @@ def passphrase_candidates(words: tuple[str, ...], max_words: int = 3) -> Iterato
             )
             for base in dict.fromkeys(variants):
                 yield base
-                for suffix in range(0, 100):
-                    yield f"{base}{suffix:02d}"
+                for suffix in range(0, 1000):
+                    if suffix < 100:
+                        yield f"{base}{suffix:02d}"
+                    else:
+                        yield f"{base}{suffix}"
                 for string_suffix in ("123", "2026"):
                     yield base + string_suffix
 
@@ -108,7 +97,7 @@ class AdaptiveAttacker:
         return {name: weight / total for name, weight in weighted.items()}
 
     def _candidates(self, strategy: str, password_length: int) -> Iterator[str]:
-        known = tuple(dict.fromkeys((*self.learned_words, *WORDS, *COMMON)))
+        known = tuple(dict.fromkeys((*self.learned_words, *SHARED_WORDS, *COMMON)))
         if strategy == "common":
             return common_candidates()
         if strategy == "mutation":

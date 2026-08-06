@@ -5,23 +5,10 @@ import secrets
 import string
 from dataclasses import dataclass, field
 
+from password_arena.grammars import HELD_OUT_WORDS, SHARED_WORDS, SYMBOLS
 from password_arena.providers import AgentBackend, ProviderRequest
 
-WORDS = (
-    "tiger",
-    "orbit",
-    "cobalt",
-    "harbor",
-    "ember",
-    "signal",
-    "vector",
-    "comet",
-    "meadow",
-    "lantern",
-    "quartz",
-    "falcon",
-)
-SYMBOLS = "!@#$%&*?"
+WORDS = SHARED_WORDS + HELD_OUT_WORDS
 
 
 @dataclass(slots=True)

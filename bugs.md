@@ -71,7 +71,8 @@ Run `ruff check .`, `mypy src/password_arena`, and `pytest`. All passed.
 ## BUG-003 — Attacker passphrase grammar does not match all defender passphrases
 
 **Priority:** P1  
-**Status:** Open
+**Status:** Resolved
+**Resolved in:** BUG-003 Fix
 
 ### Reproduction
 
@@ -81,12 +82,17 @@ Run difficulty five or six rounds. The defender emits three- or four-word passph
 
 Some rounds are structurally unreachable by the intended passphrase strategy regardless of a reasonable budget. The experiment can therefore measure grammar mismatch rather than adaptive strategy quality.
 
-### Expected resolution
+### Resolution
 
-- Move password grammars into versioned, testable components.
-- Decide which patterns are shared training data and which are held out.
-- Add four-word generation and configurable suffix distributions where appropriate.
-- Add tests proving benchmark cases are reachable while held-out cases remain genuinely novel.
+- Created `src/password_arena/grammars.py` to separate password grammar and training data.
+- Split words into `SHARED_WORDS` (known to attacker and defender) and `HELD_OUT_WORDS` (known only to defender).
+- Added up to four-word passphrases generation for the attacker.
+- Modified suffix generation for the attacker to include 0-999.
+- Added `tests/test_grammars.py` to prove benchmark cases are reachable, while held-out cases remain genuinely novel.
+
+### Validation performed
+
+Run `ruff check .`, `mypy src/password_arena`, and `pytest`. All passed.
 
 ---
 
