@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -15,14 +17,58 @@ st.caption(
     "A safe, local attacker-versus-defender learning sandbox using synthetic passwords only."
 )
 
+default_values = {
+    "rounds": 8,
+    "start_difficulty": 1,
+    "difficulty_step": 1,
+    "max_guesses": 5000,
+    "seed": 42,
+    "reveal_passwords": False,
+}
+for k, v in default_values.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
 with st.sidebar:
     st.header("Experiment")
-    rounds = st.slider("Rounds", 1, 30, 8)
-    start_difficulty = st.slider("Starting difficulty", 1, 10, 1)
-    difficulty_step = st.slider("Difficulty increase per round", 0, 3, 1)
-    max_guesses = st.number_input("Maximum guesses per round", 10, 100_000, 5_000, 100)
-    seed = st.number_input("Seed", 0, 1_000_000, 42)
-    reveal_passwords = st.toggle("Reveal synthetic passwords", value=False)
+    rounds = st.slider("Rounds", 1, 30, key="rounds")
+    start_difficulty = st.slider("Starting difficulty", 1, 10, key="start_difficulty")
+    difficulty_step = st.slider("Difficulty increase per round", 0, 3, key="difficulty_step")
+    max_guesses = st.number_input(
+        "Maximum guesses per round", 10, 100_000, key="max_guesses", step=100
+    )
+    seed = st.number_input("Seed", 0, 1_000_000, key="seed")
+    reveal_passwords = st.toggle("Reveal synthetic passwords", key="reveal_passwords")
+    
+    st.divider()
+    st.header("Profiles")
+    
+    uploaded_file = st.file_uploader("Load profile", type=["json"])
+    if uploaded_file is not None:
+        try:
+            profile_data = json.load(uploaded_file)
+            for k in default_values:
+                if k in profile_data:
+                    st.session_state[k] = profile_data[k]
+            st.success("Profile loaded! Settings applied.")
+        except Exception as e:
+            st.error(f"Failed to load profile: {e}")
+            
+    profile_name = st.text_input("Save profile as", "my_profile")
+    if st.button("Save profile"):
+        config_obj = ArenaConfig(
+            rounds=int(st.session_state["rounds"]),
+            start_difficulty=int(st.session_state["start_difficulty"]),
+            difficulty_step=int(st.session_state["difficulty_step"]),
+            max_guesses=int(st.session_state["max_guesses"]),
+            seed=int(st.session_state["seed"]),
+            reveal_passwords=bool(st.session_state["reveal_passwords"]),
+        )
+        profile_path = Path(f"{profile_name}.json")
+        profile_path.write_text(json.dumps(asdict(config_obj), indent=2), encoding="utf-8")
+        st.success(f"Saved to {profile_path.name}")
+        
+    st.divider()
     run = st.button("Run arena", type="primary", use_container_width=True)
 
 if not run:

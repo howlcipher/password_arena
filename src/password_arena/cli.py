@@ -15,16 +15,17 @@ def build_parser() -> argparse.ArgumentParser:
         prog="password-arena",
         description="Run a safe local attacker-versus-defender password simulation.",
     )
-    parser.add_argument("--rounds", type=int, default=8)
-    parser.add_argument("--start-difficulty", type=int, default=1)
-    parser.add_argument("--difficulty-step", type=int, default=1)
-    parser.add_argument("--max-guesses", type=int, default=5_000)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--reveal-passwords", action="store_true")
+    parser.add_argument("--config", type=Path, help="Path to JSON configuration file.")
+    parser.add_argument("--rounds", type=int, default=argparse.SUPPRESS)
+    parser.add_argument("--start-difficulty", type=int, default=argparse.SUPPRESS)
+    parser.add_argument("--difficulty-step", type=int, default=argparse.SUPPRESS)
+    parser.add_argument("--max-guesses", type=int, default=argparse.SUPPRESS)
+    parser.add_argument("--seed", type=int, default=argparse.SUPPRESS)
+    parser.add_argument("--reveal-passwords", action="store_true", default=argparse.SUPPRESS)
     parser.add_argument(
         "--generator-mode",
         choices=["secure", "deterministic-test"],
-        default="secure",
+        default=argparse.SUPPRESS,
         help="Generator mode for cryptographic passwords.",
     )
     parser.add_argument("--output", type=Path, help="Write the complete experiment JSON.")
@@ -35,15 +36,44 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    config = ArenaConfig(
-        rounds=args.rounds,
-        start_difficulty=args.start_difficulty,
-        difficulty_step=args.difficulty_step,
-        max_guesses=args.max_guesses,
-        seed=args.seed,
-        reveal_passwords=args.reveal_passwords,
-        generator_mode=args.generator_mode,
-    )
+    
+    config_dict = {}
+    if hasattr(args, "config") and args.config is not None:
+        try:
+            config_content = args.config.read_text(encoding="utf-8")
+            config_dict = json.loads(config_content)
+        except Exception as e:
+            parser.error(f"Failed to load config file: {e}")
+
+    cli_args = vars(args)
+    cli_keys = [
+        "rounds",
+        "start_difficulty",
+        "difficulty_step",
+        "max_guesses",
+        "seed",
+        "reveal_passwords",
+        "generator_mode",
+    ]
+    for key in cli_keys:
+        if key in cli_args:
+            config_dict[key] = cli_args[key]
+
+    if "defender_config" in config_dict and isinstance(config_dict["defender_config"], dict):
+        from password_arena.models import RoleConfig
+        config_dict["defender_config"] = RoleConfig(**config_dict["defender_config"])
+    if "attacker_config" in config_dict and isinstance(config_dict["attacker_config"], dict):
+        from password_arena.models import RoleConfig
+        config_dict["attacker_config"] = RoleConfig(**config_dict["attacker_config"])
+    if "evaluator_config" in config_dict and isinstance(config_dict["evaluator_config"], dict):
+        from password_arena.models import RoleConfig
+        config_dict["evaluator_config"] = RoleConfig(**config_dict["evaluator_config"])
+
+    try:
+        config = ArenaConfig(**config_dict)
+    except TypeError as e:
+        parser.error(f"Invalid configuration: {e}")
+
     try:
         config.validate()
     except ValueError as e:

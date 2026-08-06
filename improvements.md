@@ -210,7 +210,13 @@ Make the dashboard easier to interpret by separating incompatible scales and exp
 ## IMP-012 — Configuration files and named profiles
 
 **Priority:** P2  
-**Status:** Ready
+**Status:** Done
+
+**Implementation note:**
+Updated `cli.py` to parse an optional `--config path.json` file before applying command line arguments, allowing for predictably overridden configurations. Validation errors are now bubbled up and presented with `parser.error`. Added support to `dashboard.py` in the sidebar to save the current configuration to a named JSON profile, and load an existing profile into the Streamlit session state.
+
+**Validation performed:**
+`pytest tests/test_cli.py`, `mypy src/password_arena`, and `ruff check .` were run locally and all passed.
 
 Make `config.example.json` executable rather than documentation-only.
 
