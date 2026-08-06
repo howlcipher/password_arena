@@ -27,7 +27,7 @@ def mock_client():
 
 def test_openai_provider_initialization(mock_client):
     provider = OpenAIProvider(model="gpt-4o", client=mock_client)
-    assert provider.check_availability() == AvailabilityState.AVAILABLE
+    assert provider.check_availability().state == AvailabilityState.AVAILABLE
     caps = provider.get_capabilities()
     assert caps.model_id == "gpt-4o"
     assert caps.structured_output_supported is True
@@ -36,7 +36,7 @@ def test_openai_provider_initialization(mock_client):
 def test_openai_provider_no_credentials():
     with patch.dict(os.environ, {}, clear=True):
         provider = OpenAIProvider(model="gpt-4o")
-        assert provider.check_availability() == AvailabilityState.AUTHENTICATION_FAILED
+        assert provider.check_availability().state == AvailabilityState.AUTHENTICATION_FAILED
 
 
 def test_openai_provider_generate(mock_client):

@@ -17,6 +17,7 @@ from openai import (
 from password_arena.providers import (
     AgentBackend,
     AvailabilityState,
+    AvailabilityResult,
     ModelCapabilities,
     ProviderError,
     ProviderRequest,
@@ -108,11 +109,19 @@ class OpenAIProvider(AgentBackend):
         else:
             self._availability = AvailabilityState.AUTHENTICATION_FAILED
 
+    @property
+    def provider_name(self) -> str:
+        return "openai"
+
+    @property
+    def model_id(self) -> str:
+        return self.model
+
     def get_capabilities(self) -> ModelCapabilities:
         return self._capabilities
 
-    def check_availability(self) -> AvailabilityState:
-        return self._availability
+    def check_availability(self) -> AvailabilityResult:
+        return AvailabilityResult(state=self._availability, message=self._availability.value)
 
     def _map_error(self, e: Exception) -> ProviderError:
         if isinstance(e, AuthenticationError):
@@ -221,5 +230,9 @@ class OpenAIProvider(AgentBackend):
         )
 
         return ProviderResponse(
-            content=content, parsed_structured_data=parsed_structured_data, metrics=metrics
+            content=content,
+            provider_name=self.provider_name,
+            model_id=self.model_id,
+            parsed_structured_data=parsed_structured_data,
+            metrics=metrics
         )

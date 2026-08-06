@@ -36,8 +36,10 @@ def test_availability_states() -> None:
         AvailabilityState.LOCAL_SERVER_OFFLINE,
         AvailabilityState.LOCAL_MODEL_NOT_INSTALLED,
         AvailabilityState.UNKNOWN_ERROR,
+        AvailabilityState.TIMEOUT,
+        AvailabilityState.INVALID_RESPONSE,
     ]
-    assert len(states) == 10
+    assert len(states) == 12
     assert AvailabilityState("rate_limited") == AvailabilityState.RATE_LIMITED
 
 
@@ -61,7 +63,7 @@ def test_mock_provider_success() -> None:
     )
 
     assert provider.get_capabilities() == capabilities
-    assert provider.check_availability() == AvailabilityState.AVAILABLE
+    assert provider.check_availability().state == AvailabilityState.AVAILABLE
 
     request = ProviderRequest(prompt="hello")
     response = provider.generate(request)
@@ -81,6 +83,8 @@ def test_mock_provider_success() -> None:
         AvailabilityState.LOCAL_SERVER_OFFLINE,
         AvailabilityState.LOCAL_MODEL_NOT_INSTALLED,
         AvailabilityState.UNKNOWN_ERROR,
+        AvailabilityState.TIMEOUT,
+        AvailabilityState.INVALID_RESPONSE,
     ],
 )
 def test_mock_provider_unavailable(state: AvailabilityState) -> None:
@@ -96,7 +100,7 @@ def test_mock_provider_unavailable(state: AvailabilityState) -> None:
         local_execution=False,
     )
     provider = MockProvider(capabilities=capabilities, availability=state)
-    assert provider.check_availability() == state
+    assert provider.check_availability().state == state
 
     with pytest.raises(ProviderError) as exc:
         provider.generate(ProviderRequest(prompt="test"))
