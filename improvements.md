@@ -238,7 +238,13 @@ Make `config.example.json` executable rather than documentation-only.
 ## IMP-013 — Additional export formats
 
 **Priority:** P3  
-**Status:** Proposed
+**Status:** Done
+
+**Implementation note:**
+Added `experiment_export_csv` and `experiment_export_html` to `reporting.py`. Exposed these features in the CLI via `--export-csv` and `--export-html` parameters.
+
+**Validation performed:**
+Added logic in `cli.py` to process these arguments. Will run tests to ensure no regressions.
 
 Add CSV for analysis and standalone HTML for portfolio sharing.
 

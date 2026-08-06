@@ -36,6 +36,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--output", type=Path, help="Write the complete experiment JSON.")
     parser.add_argument("--report", type=Path, help="Write a two-sided Markdown arena report.")
+    parser.add_argument(
+        "--export-csv", type=Path, help="Write a CSV of normalized round and strategy data."
+    )
+    parser.add_argument(
+        "--export-html", type=Path, help="Write a standalone HTML report for portfolio sharing."
+    )
     return parser
 
 
@@ -114,6 +120,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(experiment_report_markdown(experiment), encoding="utf-8")
         print(f"Arena report written to {args.report}")
+
+    if args.export_csv:
+        from password_arena.reporting import experiment_export_csv
+        args.export_csv.parent.mkdir(parents=True, exist_ok=True)
+        args.export_csv.write_text(experiment_export_csv(experiment), encoding="utf-8")
+        print(f"Arena CSV written to {args.export_csv}")
+
+    if args.export_html:
+        from password_arena.reporting import experiment_export_html
+        args.export_html.parent.mkdir(parents=True, exist_ok=True)
+        args.export_html.write_text(experiment_export_html(experiment), encoding="utf-8")
+        print(f"Arena HTML written to {args.export_html}")
 
     return 0
 
