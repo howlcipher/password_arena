@@ -42,7 +42,8 @@ The allocator now uses largest-remainder distribution. Allocations are non-negat
 ## BUG-002 — Seeded high-difficulty runs are not fully reproducible
 
 **Priority:** P1  
-**Status:** Open
+**Status:** Resolved  
+**Resolved in:** BUG-002 Fix
 
 ### Reproduction
 
@@ -54,12 +55,16 @@ The allocator now uses largest-remainder distribution. Allocations are non-negat
 
 The README describes the baseline as reproducible, but secure-random defender rounds are intentionally nondeterministic. This also prevents exact replay of complete experiments.
 
-### Expected resolution
+### Resolution
 
-- Add explicit generator modes such as `secure` and `deterministic-test`.
-- Record the generator mode in results.
-- Keep `secure` as the default for the password-manager endpoint.
-- Update replay and reproducibility claims to distinguish the modes.
+- Added `generator_mode` to `ArenaConfig` and `AdaptiveDefender` with `"secure"` and `"deterministic-test"` as valid options.
+- The `generator_mode` defaults to `"secure"` to maintain secure generation for the password-manager endpoint.
+- Updated `AdaptiveDefender` to use `self.rng.choice` when `generator_mode` is `"deterministic-test"`, ensuring full reproducibility, while continuing to use `secrets.choice` for `"secure"` mode.
+- Exposed `--generator-mode` parameter in the CLI.
+
+### Validation performed
+
+Run `ruff check .`, `mypy src/password_arena`, and `pytest`. All passed.
 
 ---
 

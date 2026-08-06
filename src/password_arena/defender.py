@@ -31,6 +31,7 @@ class AdaptiveDefender:
     rng: random.Random
     breached_families: set[str] = field(default_factory=set)
     backend: AgentBackend | None = None
+    generator_mode: str = "secure"
 
     def create_password(self, difficulty: int) -> tuple[str, str, str]:
         if self.backend:
@@ -62,8 +63,11 @@ class AdaptiveDefender:
             family = "cryptographic-random"
             length = 14 + (effective - 7) * 2
             alphabet = string.ascii_letters + string.digits + SYMBOLS
-            # secrets is intentionally used here: the secure endpoint of defender learning.
-            password = "".join(secrets.choice(alphabet) for _ in range(length))
+            if self.generator_mode == "deterministic-test":
+                password = "".join(self.rng.choice(alphabet) for _ in range(length))
+            else:
+                # secrets is intentionally used here: the secure endpoint of defender learning.
+                password = "".join(secrets.choice(alphabet) for _ in range(length))
 
         if family in self.breached_families and effective < 7:
             password += self.rng.choice(SYMBOLS) + str(self.rng.randint(100, 999))

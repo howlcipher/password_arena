@@ -21,6 +21,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-guesses", type=int, default=5_000)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--reveal-passwords", action="store_true")
+    parser.add_argument(
+        "--generator-mode",
+        choices=["secure", "deterministic-test"],
+        default="secure",
+        help="Generator mode for cryptographic passwords.",
+    )
     parser.add_argument("--output", type=Path, help="Write the complete experiment JSON.")
     parser.add_argument("--report", type=Path, help="Write a two-sided Markdown arena report.")
     return parser
@@ -36,6 +42,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         max_guesses=args.max_guesses,
         seed=args.seed,
         reveal_passwords=args.reveal_passwords,
+        generator_mode=args.generator_mode,
     )
     try:
         config.validate()

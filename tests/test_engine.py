@@ -87,3 +87,17 @@ def test_engine_with_mock_backend() -> None:
     plan = result.rounds[0].attack.plan
     assert any(p.strategy == "common" and p.weight == 0.5 for p in plan)
 
+
+def test_generator_mode_deterministic_test_reproducibility() -> None:
+    # Deterministic mode should produce identical results.
+    config1 = ArenaConfig(
+        rounds=1, start_difficulty=7, max_guesses=10, seed=123, generator_mode="deterministic-test"
+    )
+    result1 = ArenaEngine(config1).run()
+
+    config2 = ArenaConfig(
+        rounds=1, start_difficulty=7, max_guesses=10, seed=123, generator_mode="deterministic-test"
+    )
+    result2 = ArenaEngine(config2).run()
+    
+    assert result1.rounds[0].report.defender.actions == result2.rounds[0].report.defender.actions

@@ -10,7 +10,7 @@ The project explores a practical question:
 
 > Can an attacker agent improve its strategy while a defender agent learns that predictable human-style passwords are weaker than cryptographically secure randomness?
 
-The MVP deliberately uses transparent, rule-based agents. That makes the experiment reproducible and establishes a trustworthy baseline before optional LLM or reinforcement-learning agents are added.
+The MVP deliberately uses transparent, rule-based agents. That makes the experiment reproducible (when using `deterministic-test` generator mode) and establishes a trustworthy baseline before optional LLM or reinforcement-learning agents are added.
 
 ## What it measures
 
@@ -100,6 +100,7 @@ The journal is an audit log, not a request for private model chain-of-thought. P
 | `max_guesses` | Hard attack budget per round | 5,000 |
 | `seed` | Reproducible baseline behavior | 42 |
 | `reveal_passwords` | Display synthetic passwords | false |
+| `generator_mode` | `secure` (CSPRNG) or `deterministic-test` (PRNG) | `secure` |
 
 ## Project planning
 

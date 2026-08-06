@@ -30,7 +30,11 @@ class ArenaEngine:
         self.config = config
         defender_rng = random.Random(config.seed)
         attacker_rng = random.Random(config.seed + 1)
-        self.defender = AdaptiveDefender(defender_rng, backend=defender_backend)
+        self.defender = AdaptiveDefender(
+            defender_rng, 
+            backend=defender_backend, 
+            generator_mode=config.generator_mode
+        )
         self.attacker = AdaptiveAttacker(attacker_rng, backend=attacker_backend)
         self._has_run = False
 
