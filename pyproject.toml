@@ -18,7 +18,7 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Topic :: Security",
 ]
-dependencies = ["openai>=1.10.0"]
+dependencies = []
 
 [project.optional-dependencies]
 dashboard = ["pandas>=2.2", "streamlit>=1.37"]

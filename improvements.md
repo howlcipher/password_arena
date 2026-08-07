@@ -46,7 +46,13 @@ Create an `AgentBackend` protocol so rule-based, hosted-model, and future traina
 ## IMP-002 — OpenAI, Anthropic, and Gemini adapters
 
 **Priority:** P1  
-**Status:** Ready
+**Status:** Done
+
+**Implementation note:**
+Made openai an optional dependency in pyproject.toml.
+
+**Validation performed:**
+Ran pytest, mypy, and ruff.
 
 Add optional adapters for the user's model subscriptions without making any provider a hard dependency.
 
