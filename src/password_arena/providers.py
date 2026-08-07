@@ -252,6 +252,9 @@ class ProviderRegistry:
         elif role_config.provider == "gemini":
             from password_arena.gemini_provider import GeminiProvider
             return GeminiProvider(model=role_config.model or "gemini-2.5-pro")
+        elif role_config.provider == "anthropic":
+            from password_arena.anthropic_provider import AnthropicProvider
+            return AnthropicProvider(model=role_config.model or "claude-3-5-sonnet-20241022")
         elif role_config.provider == "ollama":
             from password_arena.ollama_provider import OllamaProvider
             return OllamaProvider(model=role_config.model or "llama3")
