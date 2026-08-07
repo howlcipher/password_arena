@@ -1,11 +1,12 @@
-import time
 
 import pandas as pd
 import streamlit as st
 
+from password_arena.history import HistoryManager
 from password_arena.models import RoleConfig, TournamentConfig
 from password_arena.providers import ThinkingLevel
 from password_arena.tournament import build_tournament_matrix, run_matchup
+from password_arena.tournament_history import TournamentHistoryManager
 
 
 def _build_role(provider: str, model: str | None = None) -> RoleConfig:
@@ -89,9 +90,16 @@ def render_tournament_tab() -> None:
             res = run_matchup(matchup)
             results.append(res)
             progress_bar.progress((i + 1) / len(matrix))
-            time.sleep(0.1)
+        status_text.text("Tournament complete. Saving history...")
 
-        status_text.text("Tournament complete.")
+        history_mgr = HistoryManager()
+        tourney_mgr = TournamentHistoryManager()
+        for r in results:
+            for exp in r.experiments:
+                history_mgr.save(exp)
+        t_id = tourney_mgr.save(config, results)
+
+        status_text.text(f"Tournament complete. Saved as {t_id}.")
 
         # Build Results DataFrame
         data = []
