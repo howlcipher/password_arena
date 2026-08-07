@@ -224,7 +224,13 @@ Introduce an event model that records decisions and measurements before reports 
 ## IMP-011 — Improved dashboard visualization
 
 **Priority:** P2  
-**Status:** In Progress
+**Status:** Done
+
+**Implementation note:**
+Updated `dashboard.py` to persist `experiment` in `st.session_state` so results remain across Streamlit interactions. Added outcome field extraction. Added result filters for Round, Defender Family, Outcome, and Winning Strategy. Used Altair to render the learning curves, displaying entropy progression and guesses consumed with a symlog scale to cleanly support both small and large guess budgets. Added a new Strategy Allocation (area chart) and Efficiency (line chart) visualization over time.
+
+**Validation performed:**
+Ran `ruff check .`, `mypy src/password_arena`, and `pytest` locally. All checks passed.
 
 Make the dashboard easier to interpret by separating incompatible scales and exposing strategy-level results.
 

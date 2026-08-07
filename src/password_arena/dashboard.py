@@ -4,6 +4,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -158,14 +159,18 @@ with st.sidebar:
 
     run = st.button("Run arena", type="primary", use_container_width=True, disabled=run_disabled)
 
-if not run:
+if run and not isinstance(result, PreflightFailure):
+    st.session_state.experiment = result.run()
+
+if "experiment" not in st.session_state or st.session_state.experiment is None:
     if not run_disabled:
         st.info("Choose the experiment controls and run the arena.")
     st.stop()
 
-if isinstance(result, PreflightFailure):
+if isinstance(result, PreflightFailure) and run:
     st.stop() # sanity check
-experiment = result.run()
+
+experiment = st.session_state.experiment
 if experiment.interruption_reason:
     st.error(
         f"Experiment paused early due to provider error ({experiment.interruption_state}): "
@@ -187,31 +192,139 @@ for item in experiment.rounds:
             "Entropy bits": item.strength.entropy_bits,
             "Strength score": item.strength.score,
             "Solved": item.attack.solved,
+            "Outcome": item.attack.outcome.value,
             "Guesses": item.attack.guesses_used,
-            "Attack strategy": item.attack.winning_strategy,
+            "Winning strategy": item.attack.winning_strategy,
             "Defender strategy": item.defender_strategy,
             "Elapsed ms": round(item.attack.elapsed_ms, 3),
         }
     )
 frame = pd.DataFrame(rows)
 
+allocation_rows = []
+for item in experiment.rounds:
+    for plan in item.attack.plan:
+        allocation_rows.append({
+            "Round": item.round_number,
+            "Strategy": plan.strategy,
+            "Budget allocation (%)": plan.weight * 100,
+            "Guesses budgeted": plan.guess_budget,
+            "Efficiency": (
+                (item.strength.entropy_bits / max(1, item.attack.guesses_used)) * 1000
+                if item.attack.solved and item.attack.winning_strategy == plan.strategy
+                else 0.0
+            )
+        })
+allocation_frame = pd.DataFrame(allocation_rows) if allocation_rows else pd.DataFrame()
+
+st.subheader("Results Filter")
+filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+with filter_col1:
+    if not frame.empty:
+        min_round, max_round = int(frame["Round"].min()), int(frame["Round"].max())
+        if min_round < max_round:
+            selected_rounds = st.slider("Round range", min_round, max_round, (min_round, max_round))
+        else:
+            selected_rounds = (min_round, max_round)
+            st.write(f"Round: {min_round}")
+    else:
+        selected_rounds = (0, 0)
+        
+with filter_col2:
+    if not frame.empty:
+        families = ["All"] + sorted(list(frame["Defender strategy"].unique()))
+    else:
+        families = ["All"]
+    selected_family = st.selectbox("Defender family", families)
+
+with filter_col3:
+    outcomes = ["All"] + sorted(list(frame["Outcome"].unique())) if not frame.empty else ["All"]
+    selected_outcome = st.selectbox("Outcome", outcomes)
+
+with filter_col4:
+    if not frame.empty:
+        strategies_list = [s for s in frame["Winning strategy"].unique() if s is not None]
+        strategies = ["All"] + sorted(list(strategies_list))
+    else:
+        strategies = ["All"]
+    selected_strategy = st.selectbox("Winning strategy", strategies)
+
+# Apply filters
+if not frame.empty:
+    filtered_frame = frame[
+        (frame["Round"] >= selected_rounds[0]) & 
+        (frame["Round"] <= selected_rounds[1])
+    ]
+    if selected_family != "All":
+        filtered_frame = filtered_frame[filtered_frame["Defender strategy"] == selected_family]
+    if selected_outcome != "All":
+        filtered_frame = filtered_frame[filtered_frame["Outcome"] == selected_outcome]
+    if selected_strategy != "All":
+        filtered_frame = filtered_frame[filtered_frame["Winning strategy"] == selected_strategy]
+else:
+    filtered_frame = frame
+
+st.subheader("Summary")
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Solve rate", f"{experiment.solve_rate:.0%}")
-col2.metric("Rounds solved", f"{experiment.solved_rounds}/{len(experiment.rounds)}")
-col3.metric("Final entropy", f"{frame.iloc[-1]['Entropy bits']:.1f} bits")
-col4.metric("Total guesses", f"{int(frame['Guesses'].sum()):,}")
+solve_rate = filtered_frame["Solved"].mean() if not filtered_frame.empty else 0.0
+solved_count = filtered_frame["Solved"].sum() if not filtered_frame.empty else 0
+col1.metric("Solve rate", f"{solve_rate:.0%}")
+total_count = len(filtered_frame) if not filtered_frame.empty else 0
+col2.metric("Rounds solved", f"{solved_count}/{total_count}")
+final_entropy = filtered_frame.iloc[-1]['Entropy bits'] if not filtered_frame.empty else 0.0
+col3.metric("Final entropy", f"{final_entropy:.1f} bits")
+total_guesses = int(filtered_frame['Guesses'].sum()) if not filtered_frame.empty else 0
+col4.metric("Total guesses", f"{total_guesses:,}")
 
 st.subheader("Learning curves")
-chart_col1, chart_col2 = st.columns(2)
-with chart_col1:
-    st.caption("Entropy bits")
-    st.line_chart(frame.set_index("Round")[["Entropy bits"]])
-with chart_col2:
-    st.caption("Guesses")
-    st.line_chart(frame.set_index("Round")[["Guesses"]])
+if not filtered_frame.empty:
+    chart_col1, chart_col2 = st.columns(2)
+    with chart_col1:
+        st.caption("Entropy progression")
+        entropy_chart = alt.Chart(filtered_frame).mark_line(point=True).encode(
+            x='Round:O',
+            y='Entropy bits:Q',
+            tooltip=['Round', 'Entropy bits', 'Defender strategy']
+        ).interactive()
+        st.altair_chart(entropy_chart, use_container_width=True)
+    with chart_col2:
+        st.caption("Guesses consumed")
+        # Use symlog to handle zero and small values cleanly while scaling nicely for large budgets
+        guess_chart = alt.Chart(filtered_frame).mark_line(point=True, color='red').encode(
+            x='Round:O',
+            y=alt.Y('Guesses:Q', scale=alt.Scale(type='symlog')),
+            tooltip=['Round', 'Guesses', 'Winning strategy']
+        ).interactive()
+        st.altair_chart(guess_chart, use_container_width=True)
+
+if not allocation_frame.empty:
+    st.subheader("Strategy Allocation & Efficiency")
+    alloc_col1, alloc_col2 = st.columns(2)
+    filtered_alloc = allocation_frame[
+        (allocation_frame["Round"] >= selected_rounds[0]) & 
+        (allocation_frame["Round"] <= selected_rounds[1])
+    ]
+    with alloc_col1:
+        st.caption("Strategy Allocation (%)")
+        alloc_chart = alt.Chart(filtered_alloc).mark_area().encode(
+            x='Round:O',
+            y='Budget allocation (%):Q',
+            color='Strategy:N',
+            tooltip=['Round', 'Strategy', 'Budget allocation (%)']
+        ).interactive()
+        st.altair_chart(alloc_chart, use_container_width=True)
+    with alloc_col2:
+        st.caption("Efficiency (Bits solved per 1,000 actual guesses)")
+        eff_chart = alt.Chart(filtered_alloc).mark_line(point=True).encode(
+            x='Round:O',
+            y='Efficiency:Q',
+            color='Strategy:N',
+            tooltip=['Round', 'Strategy', 'Efficiency']
+        ).interactive()
+        st.altair_chart(eff_chart, use_container_width=True)
 
 st.subheader("Round results")
-st.dataframe(frame, use_container_width=True, hide_index=True)
+st.dataframe(filtered_frame, use_container_width=True, hide_index=True)
 
 st.subheader("Arena journal")
 st.caption(
