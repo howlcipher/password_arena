@@ -1,8 +1,6 @@
-import pytest
 
-from password_arena.models import ArenaConfig, RoleConfig, ThinkingLevel
-from password_arena.engine import build_arena_engine, PreflightFailure
-from password_arena.openai_provider import OpenAIProvider
+from password_arena.engine import PreflightFailure, build_arena_engine
+from password_arena.models import ArenaConfig, RoleConfig
 
 
 def test_build_arena_engine_rule_based() -> None:

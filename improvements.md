@@ -374,8 +374,13 @@ Implement an optional OpenAI backend using schema-validated role requests and re
 ## IMP-019 — Anthropic provider adapter
 
 **Priority:** P1  
-**Status:** Ready
+**Status:** Done
 
+**Implementation note:**
+Added `AnthropicProvider` in `src/password_arena/anthropic_provider.py` which implements `AgentBackend`. Updated `ANTHROPIC_MODEL_REGISTRY` to include Claude models with explicit translation for token-based thinking support. Mapped Anthropic exceptions to `AvailabilityState`.
+
+**Validation performed:**
+Added fake-client tests in `tests/test_anthropic_provider.py`. Ran `ruff check .`, `mypy src/password_arena tests`, and `pytest`. All tests passed.
 Implement an optional Anthropic backend with capability-aware thinking and effort translation.
 
 **Acceptance criteria**
