@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import time
 from dataclasses import replace
 from typing import NamedTuple
 
@@ -11,10 +12,21 @@ from password_arena.models import (
     ArenaConfig,
     ExperimentResult,
     RoleMetadata,
+    RoundOutcome,
     RoundReport,
     RoundResult,
 )
-from password_arena.providers import AgentBackend, AvailabilityState, ProviderRegistry
+from password_arena.providers import (
+    AgentBackend,
+    AvailabilityResult,
+    AvailabilityState,
+    ModelCapabilities,
+    ProviderError,
+    ProviderRegistry,
+    ProviderRequest,
+    ProviderResponse,
+    UsageMetrics,
+)
 from password_arena.strength import evaluate_strength
 
 
@@ -49,10 +61,90 @@ def build_arena_engine(
         if avail.state != AvailabilityState.AVAILABLE:
             return PreflightFailure("attacker", avail.state.value, avail.message)
 
-    return ArenaEngine(config, defender_backend, attacker_backend)
+    tracker = BudgetTracker(config)
+    if defender_backend:
+        defender_backend = BoundBackend(defender_backend, tracker)
+    if attacker_backend:
+        attacker_backend = BoundBackend(attacker_backend, tracker)
+
+    return ArenaEngine(config, defender_backend, attacker_backend, tracker)
 
 
+class BudgetExhaustedError(Exception):
+    def __init__(self, reason: str, outcome_type: RoundOutcome = RoundOutcome.BUDGET_EXHAUSTED):
+        super().__init__(reason)
+        self.reason = reason
+        self.outcome_type = outcome_type
 
+
+class BudgetTracker:
+    def __init__(self, config: ArenaConfig) -> None:
+        self.config = config
+        self.start_time = time.monotonic()
+        self.total_tokens = 0
+        self.total_cost = 0.0
+        self.retries = 0
+
+    def check_limits(self) -> None:
+        if (
+            self.config.max_wall_time_s is not None
+            and (time.monotonic() - self.start_time) > self.config.max_wall_time_s
+        ):
+            raise BudgetExhaustedError("Time limit exceeded.", RoundOutcome.TIMED_OUT)
+        if self.config.max_tokens is not None and self.total_tokens > self.config.max_tokens:
+            raise BudgetExhaustedError("Token limit exceeded.", RoundOutcome.BUDGET_EXHAUSTED)
+        if self.config.max_api_cost is not None and self.total_cost > self.config.max_api_cost:
+            raise BudgetExhaustedError("API cost limit exceeded.", RoundOutcome.BUDGET_EXHAUSTED)
+        if self.config.max_retries is not None and self.retries > self.config.max_retries:
+            raise BudgetExhaustedError("Retries limit exceeded.", RoundOutcome.ERROR)
+
+    def add_metrics(self, metrics: UsageMetrics) -> None:
+        self.total_tokens += metrics.input_tokens + metrics.output_tokens
+        self.total_cost += metrics.estimated_cost
+        self.retries += metrics.retries
+        self.check_limits()
+    
+    def add_error_retry(self) -> None:
+        self.retries += 1
+        self.check_limits()
+
+
+class BoundBackend(AgentBackend):
+    def __init__(self, delegate: AgentBackend, tracker: BudgetTracker) -> None:
+        self.delegate = delegate
+        self.tracker = tracker
+
+    @property
+    def provider_name(self) -> str:
+        return self.delegate.provider_name
+
+    @property
+    def model_id(self) -> str:
+        return self.delegate.model_id
+
+    def get_capabilities(self) -> ModelCapabilities:
+        return self.delegate.get_capabilities()
+
+    def check_availability(self) -> AvailabilityResult:
+        return self.delegate.check_availability()
+
+    def generate(self, request: ProviderRequest) -> ProviderResponse:
+        self.tracker.check_limits()
+        retries = 0
+        while True:
+            try:
+                response = self.delegate.generate(request)
+                self.tracker.add_metrics(response.metrics)
+                self.tracker.check_limits()
+                return response
+            except ProviderError as e:
+                self.tracker.add_error_retry()
+                self.tracker.check_limits()
+                if e.retryable:
+                    retries += 1
+                    time.sleep(min(e.retry_after or 1, 5))
+                else:
+                    raise e
 
 
 class ArenaEngine:
@@ -63,9 +155,11 @@ class ArenaEngine:
         config: ArenaConfig,
         defender_backend: AgentBackend | None = None,
         attacker_backend: AgentBackend | None = None,
+        tracker: BudgetTracker | None = None,
     ) -> None:
         config.validate()
         self.config = config
+        self.tracker = tracker or BudgetTracker(config)
         self.defender_rng = random.Random(config.seed)
         self.attacker_rng = random.Random(config.seed + 1)
         self.defender = AdaptiveDefender(
@@ -96,6 +190,12 @@ class ArenaEngine:
                 display = password if self.config.reveal_passwords else "•" * len(password)
                 candidate_display = raw_attack.candidate if self.config.reveal_passwords else None
                 attack = replace(raw_attack, candidate=candidate_display)
+
+                if self.tracker:
+                    self.tracker.check_limits()
+                
+                outcome_val = RoundOutcome.COMPLETED if attack.solved else RoundOutcome.RESISTED
+                attack = replace(attack, outcome=outcome_val)
 
                 outcome = "solved" if attack.solved else "resisted the bounded guess budget"
                 findings = "; ".join(strength.findings)
@@ -164,6 +264,14 @@ class ArenaEngine:
                     )
                 )
 
+            except BudgetExhaustedError as e:
+                return ExperimentResult(
+                    config=self.config,
+                    rounds=tuple(self.completed_rounds),
+                    experiment_id=self._experiment_id,
+                    interruption_reason=e.reason,
+                    interruption_state=e.outcome_type.value,
+                )
             except ProviderError as e:
                 return ExperimentResult(
                     config=self.config,

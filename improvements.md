@@ -285,7 +285,13 @@ Add CSV for analysis and standalone HTML for portfolio sharing.
 ## IMP-014 — Resource and cost budgets
 
 **Priority:** P1  
-**Status:** Ready
+**Status:** Done
+
+**Implementation note:**
+Generalized the guess budget into enforceable limits for guesses, wall-clock time, tokens, API cost, and retries. Limits are checked before and during execution, stopping the arena safely when any hard limit is reached. Reports distinguish completed, resisted, timed-out, and budget-exhausted rounds.
+
+**Validation performed:**
+Ran pytest, mypy, and ruff.
 
 Generalize the guess budget into enforceable limits for guesses, wall-clock time, tokens, API cost, and retries.
 

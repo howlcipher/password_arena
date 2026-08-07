@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+import enum
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from password_arena.providers import ThinkingLevel
+
+
+class RoundOutcome(enum.StrEnum):
+    COMPLETED = "completed"
+    RESISTED = "resisted"
+    TIMED_OUT = "timed_out"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+    ERROR = "error"
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +33,10 @@ class ArenaConfig:
     start_difficulty: int = 1
     difficulty_step: int = 1
     max_guesses: int = 5_000
+    max_wall_time_s: float | None = None
+    max_tokens: int | None = None
+    max_api_cost: float | None = None
+    max_retries: int | None = None
     seed: int = 42
     reveal_passwords: bool = False
     defender_config: RoleConfig = field(default_factory=RoleConfig)
@@ -36,7 +49,10 @@ class ArenaConfig:
         # Check for secrets in config (prevent saving/loading them)
         for key in asdict(self):
             k_lower = key.lower()
-            if "key" in k_lower or "token" in k_lower or "secret" in k_lower:
+            if (
+                ("key" in k_lower or "token" in k_lower or "secret" in k_lower)
+                and k_lower != "max_tokens"
+            ):
                 raise ValueError(f"Profile configuration must not contain secret-like field: {key}")
         for role_config in [self.defender_config, self.attacker_config, self.evaluator_config]:
             for key in asdict(role_config):
@@ -57,6 +73,14 @@ class ArenaConfig:
             raise ValueError("difficulty_step must be between 0 and 5")
         if not 1 <= self.max_guesses <= 1_000_000:
             raise ValueError("max_guesses must be between 1 and 1,000,000")
+        if self.max_wall_time_s is not None and self.max_wall_time_s <= 0:
+            raise ValueError("max_wall_time_s must be positive")
+        if self.max_tokens is not None and self.max_tokens <= 0:
+            raise ValueError("max_tokens must be positive")
+        if self.max_api_cost is not None and self.max_api_cost < 0:
+            raise ValueError("max_api_cost cannot be negative")
+        if self.max_retries is not None and self.max_retries < 0:
+            raise ValueError("max_retries cannot be negative")
         if self.generator_mode not in ("secure", "deterministic-test"):
             raise ValueError("generator_mode must be 'secure' or 'deterministic-test'")
         if self.generator_version not in ("1.0", "benchmark"):
@@ -90,6 +114,7 @@ class AttackResult:
     candidate: str | None = None
     plan: tuple[StrategyBudget, ...] = ()
     attempted_strategies: tuple[str, ...] = ()
+    outcome: RoundOutcome = RoundOutcome.COMPLETED
 
 
 @dataclass(frozen=True, slots=True)
