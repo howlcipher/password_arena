@@ -15,9 +15,63 @@ def round_report_markdown(item: RoundResult) -> str:
         f"{entry.strategy}: {entry.guess_budget:,} ({entry.weight:.1%})"
         for entry in item.attack.plan
     )
-    defender_actions = "\n".join(f"- {action}" for action in item.report.defender.actions)
-    attacker_actions = "\n".join(f"- {action}" for action in item.report.attacker.actions)
+    outcome = "solved" if item.attack.solved else "resisted the bounded guess budget"
+    findings = "; ".join(item.strength.findings)
+
+    defender_actions = [
+        f"- Generated a synthetic {item.defender_strategy} password.",
+        f"- Set length to {item.password_length} characters.",
+    ]
+    defender_actions_str = "\n".join(defender_actions)
+
+    attack_actions = [
+        f"- Allocated {entry.guess_budget:,} guesses to {entry.strategy} "
+        f"({entry.weight:.1%} of the plan)."
+        for entry in item.attack.plan
+    ]
+    attacker_actions_str = "\n".join(attack_actions)
+
     winning_str = f" using `{item.attack.winning_strategy}`" if item.attack.winning_strategy else ""
+
+    defender_observation = f"The password {outcome}. Evaluator findings: {findings}."
+
+    attacker_observation = (
+        f"{'Found a match' if item.attack.solved else 'Found no match'} after "
+        f"{item.attack.guesses_used:,} guesses; attempted "
+        f"{', '.join(item.attack.attempted_strategies)}."
+    )
+
+    evaluator_summary = (
+        f"Round {item.round_number} {outcome}. Strength score was {item.strength.score}/4 with "
+        f"an estimated {item.strength.entropy_bits:.2f} bits after structural penalties."
+    )
+
+    def get_security_lesson(family: str, solved: bool) -> str:
+        if solved:
+            return (
+                f"The {family} structure remained predictable inside the current attack model; "
+                "cosmetic complexity should not be treated as randomness."
+            )
+        if family == "cryptographic-random":
+            return (
+                "Cryptographically secure randomness removed the human patterns targeted by the "
+                "bounded attacker; password-manager generation is the safer real-world endpoint."
+            )
+        return (
+            "This structure survived this bounded experiment, but that is not proof of real-world "
+            "security against larger or different attack models."
+        )
+
+    security_lesson = get_security_lesson(item.defender_strategy, item.attack.solved)
+
+    attacker_note = (
+        (
+            f"Ranked {item.attack.plan[0].strategy} as the highest-priority strategy "
+            f"for difficulty {item.difficulty}."
+        )
+        if not item.attacker_note
+        else item.attacker_note
+    )
 
     return f"""## Round {item.round_number} — {status}
 
@@ -29,28 +83,28 @@ def round_report_markdown(item: RoundResult) -> str:
 
 ### Defender side
 
-**Decision:** {item.report.defender.decision}
+**Decision:** {item.defender_note}
 
-{defender_actions}
+{defender_actions_str}
 
-**Observed:** {item.report.defender.observation}  
-**Learning update:** {item.report.defender.learning_update}
+**Observed:** {defender_observation}  
+**Learning update:** {item.defender_learning}
 
 ### Attacker side
 
-**Decision:** {item.report.attacker.decision}  
+**Decision:** {attacker_note}  
 **Budget plan:** {plan}
 
-{attacker_actions}
+{attacker_actions_str}
 
-**Observed:** {item.report.attacker.observation}  
-**Learning update:** {item.report.attacker.learning_update}
+**Observed:** {attacker_observation}  
+**Learning update:** {item.attacker_learning}
 
 ### Evaluator
 
-{item.report.evaluator_summary}
+{evaluator_summary}
 
-**Security lesson:** {item.report.security_lesson}
+**Security lesson:** {security_lesson}
 """
 
 

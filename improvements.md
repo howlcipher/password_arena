@@ -208,7 +208,13 @@ Support multiple defender objectives: human-memorable passphrases, maximum rando
 ## IMP-010 — Versioned metrics and event schema
 
 **Priority:** P1  
-**Status:** In Progress
+**Status:** Done
+
+**Implementation note:**
+Introduced an `ArenaEvent` model in `models.py` which records raw decisions, actions, and observations as domain results before reports are generated. `ArenaEngine` appends an event stream to `ExperimentResult`, separating metric collection from report rendering. `reporting.py` was rewritten to generate markdown only from domain results in `RoundResult` without text generation during engine execution. `docs/event_schema_v1.json` was added to document JSON expectations. Backward compatibility for older run logs was handled in `ExperimentResult.from_dict()`.
+
+**Validation performed:**
+Ran `ruff check .`, `mypy src/password_arena`, and `pytest`. All passed.
 
 Introduce an event model that records decisions and measurements before reports are rendered.
 

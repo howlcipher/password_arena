@@ -30,7 +30,6 @@ class AvailabilityState(enum.StrEnum):
     UNKNOWN_ERROR = "unknown_error"
 
 
-
 @dataclass(frozen=True, slots=True)
 class AvailabilityResult:
     state: AvailabilityState
@@ -184,8 +183,7 @@ class MockProvider:
     ) -> None:
         self._capabilities = capabilities
         self._availability = AvailabilityResult(
-            state=availability,
-            message=f"State is {availability.value}"
+            state=availability, message=f"State is {availability.value}"
         )
         if isinstance(availability, AvailabilityResult):
             self._availability = availability
@@ -234,9 +232,7 @@ class MockProvider:
 class ProviderRegistry:
     @classmethod
     def create(
-        cls,
-        role_config: Any,
-        secrets_config: dict[str, str] | None = None
+        cls, role_config: Any, secrets_config: dict[str, str] | None = None
     ) -> AgentBackend | None:
         if role_config.provider == "rule_based":
             return None
@@ -248,15 +244,19 @@ class ProviderRegistry:
             )
         elif role_config.provider == "openai":
             from password_arena.openai_provider import OpenAIProvider
+
             return OpenAIProvider(model=role_config.model or "gpt-4o")
         elif role_config.provider == "gemini":
             from password_arena.gemini_provider import GeminiProvider
+
             return GeminiProvider(model=role_config.model or "gemini-2.5-pro")
         elif role_config.provider == "anthropic":
             from password_arena.anthropic_provider import AnthropicProvider
+
             return AnthropicProvider(model=role_config.model or "claude-3-5-sonnet-20241022")
         elif role_config.provider == "ollama":
             from password_arena.ollama_provider import OllamaProvider
+
             return OllamaProvider(model=role_config.model or "llama3")
         else:
             raise ValueError(f"Unknown provider: {role_config.provider}")

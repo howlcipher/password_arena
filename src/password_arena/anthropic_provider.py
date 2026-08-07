@@ -77,9 +77,7 @@ ANTHROPIC_PRICING: dict[str, tuple[float, float]] = {
 
 class AnthropicProvider(AgentBackend):
     def __init__(
-        self,
-        model: str = "claude-3-5-sonnet-20241022",
-        client: Anthropic | None = None
+        self, model: str = "claude-3-5-sonnet-20241022", client: Anthropic | None = None
     ) -> None:
         self.model = model
 
@@ -150,12 +148,10 @@ class AnthropicProvider(AgentBackend):
         if self._availability != AvailabilityState.AVAILABLE or not self.client:
             raise ProviderError(self._availability, f"Provider is {self._availability.value}")
 
-        messages: list[dict[str, Any]] = [
-            {"role": "user", "content": request.prompt}
-        ]
-        
+        messages: list[dict[str, Any]] = [{"role": "user", "content": request.prompt}]
+
         system = request.system_prompt
-        
+
         if request.structured_schema:
             schema_str = json.dumps(request.structured_schema)
             instruction = f"You must output JSON matching this schema: {schema_str}"
@@ -168,7 +164,7 @@ class AnthropicProvider(AgentBackend):
         }
         if system:
             kwargs["system"] = system
-            
+
         if request.temperature is not None and not (
             self._capabilities.thinking_supported and request.thinking_level != ThinkingLevel.AUTO
         ):
@@ -180,17 +176,17 @@ class AnthropicProvider(AgentBackend):
             if not self._capabilities.thinking_supported:
                 raise ProviderError(
                     AvailabilityState.UNSUPPORTED_CONFIGURATION,
-                    f"Model {self.model} does not support explicit thinking levels."
+                    f"Model {self.model} does not support explicit thinking levels.",
                 )
             if request.thinking_level not in self._capabilities.accepted_thinking_levels:
                 raise ProviderError(
                     AvailabilityState.UNSUPPORTED_CONFIGURATION,
                     f"Model {self.model} does not support thinking level "
-                    f"{request.thinking_level.value}."
+                    f"{request.thinking_level.value}.",
                 )
-            
+
             effective_thinking = request.thinking_level
-            
+
             # Map thinking levels to token budgets
             budget_map = {
                 ThinkingLevel.MINIMAL: 1024,
@@ -200,13 +196,10 @@ class AnthropicProvider(AgentBackend):
                 ThinkingLevel.MAXIMUM: 16384,
             }
             budget = budget_map.get(request.thinking_level, 4096)
-            
+
             # Anthropic thinking parameter
-            kwargs["thinking"] = {
-                "type": "enabled",
-                "budget_tokens": budget
-            }
-            
+            kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
+
             # Need to bump max_tokens to accommodate the budget
             if kwargs["max_tokens"] <= budget:
                 kwargs["max_tokens"] = budget + 4096
@@ -259,5 +252,5 @@ class AnthropicProvider(AgentBackend):
             provider_name=self.provider_name,
             model_id=self.model_id,
             parsed_structured_data=parsed_structured_data,
-            metrics=metrics
+            metrics=metrics,
         )

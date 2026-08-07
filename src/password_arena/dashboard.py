@@ -50,7 +50,7 @@ with st.sidebar:
 
     st.divider()
     st.header("Roles")
-    
+
     providers = ["rule_based", "gemini", "ollama"]
     thinkings = ["auto", "minimal", "low", "medium", "high", "maximum"]
 
@@ -149,7 +149,7 @@ with st.sidebar:
         st.success(f"Saved to {profile_path.name}")
 
     st.divider()
-    
+
     # Preflight check
     result = build_arena_engine(config)
     run_disabled = False
@@ -168,7 +168,7 @@ if "experiment" not in st.session_state or st.session_state.experiment is None:
     st.stop()
 
 if isinstance(result, PreflightFailure) and run:
-    st.stop() # sanity check
+    st.stop()  # sanity check
 
 experiment = st.session_state.experiment
 if experiment.interruption_reason:
@@ -204,17 +204,19 @@ frame = pd.DataFrame(rows)
 allocation_rows = []
 for item in experiment.rounds:
     for plan in item.attack.plan:
-        allocation_rows.append({
-            "Round": item.round_number,
-            "Strategy": plan.strategy,
-            "Budget allocation (%)": plan.weight * 100,
-            "Guesses budgeted": plan.guess_budget,
-            "Efficiency": (
-                (item.strength.entropy_bits / max(1, item.attack.guesses_used)) * 1000
-                if item.attack.solved and item.attack.winning_strategy == plan.strategy
-                else 0.0
-            )
-        })
+        allocation_rows.append(
+            {
+                "Round": item.round_number,
+                "Strategy": plan.strategy,
+                "Budget allocation (%)": plan.weight * 100,
+                "Guesses budgeted": plan.guess_budget,
+                "Efficiency": (
+                    (item.strength.entropy_bits / max(1, item.attack.guesses_used)) * 1000
+                    if item.attack.solved and item.attack.winning_strategy == plan.strategy
+                    else 0.0
+                ),
+            }
+        )
 allocation_frame = pd.DataFrame(allocation_rows) if allocation_rows else pd.DataFrame()
 
 st.subheader("Results Filter")
@@ -229,7 +231,7 @@ with filter_col1:
             st.write(f"Round: {min_round}")
     else:
         selected_rounds = (0, 0)
-        
+
 with filter_col2:
     if not frame.empty:
         families = ["All"] + sorted(list(frame["Defender strategy"].unique()))
@@ -252,8 +254,7 @@ with filter_col4:
 # Apply filters
 if not frame.empty:
     filtered_frame = frame[
-        (frame["Round"] >= selected_rounds[0]) & 
-        (frame["Round"] <= selected_rounds[1])
+        (frame["Round"] >= selected_rounds[0]) & (frame["Round"] <= selected_rounds[1])
     ]
     if selected_family != "All":
         filtered_frame = filtered_frame[filtered_frame["Defender strategy"] == selected_family]
@@ -271,9 +272,9 @@ solved_count = filtered_frame["Solved"].sum() if not filtered_frame.empty else 0
 col1.metric("Solve rate", f"{solve_rate:.0%}")
 total_count = len(filtered_frame) if not filtered_frame.empty else 0
 col2.metric("Rounds solved", f"{solved_count}/{total_count}")
-final_entropy = filtered_frame.iloc[-1]['Entropy bits'] if not filtered_frame.empty else 0.0
+final_entropy = filtered_frame.iloc[-1]["Entropy bits"] if not filtered_frame.empty else 0.0
 col3.metric("Final entropy", f"{final_entropy:.1f} bits")
-total_guesses = int(filtered_frame['Guesses'].sum()) if not filtered_frame.empty else 0
+total_guesses = int(filtered_frame["Guesses"].sum()) if not filtered_frame.empty else 0
 col4.metric("Total guesses", f"{total_guesses:,}")
 
 st.subheader("Learning curves")
@@ -281,46 +282,66 @@ if not filtered_frame.empty:
     chart_col1, chart_col2 = st.columns(2)
     with chart_col1:
         st.caption("Entropy progression")
-        entropy_chart = alt.Chart(filtered_frame).mark_line(point=True).encode(
-            x='Round:O',
-            y='Entropy bits:Q',
-            tooltip=['Round', 'Entropy bits', 'Defender strategy']
-        ).interactive()
+        entropy_chart = (
+            alt.Chart(filtered_frame)
+            .mark_line(point=True)
+            .encode(
+                x="Round:O",
+                y="Entropy bits:Q",
+                tooltip=["Round", "Entropy bits", "Defender strategy"],
+            )
+            .interactive()
+        )
         st.altair_chart(entropy_chart, use_container_width=True)
     with chart_col2:
         st.caption("Guesses consumed")
         # Use symlog to handle zero and small values cleanly while scaling nicely for large budgets
-        guess_chart = alt.Chart(filtered_frame).mark_line(point=True, color='red').encode(
-            x='Round:O',
-            y=alt.Y('Guesses:Q', scale=alt.Scale(type='symlog')),
-            tooltip=['Round', 'Guesses', 'Winning strategy']
-        ).interactive()
+        guess_chart = (
+            alt.Chart(filtered_frame)
+            .mark_line(point=True, color="red")
+            .encode(
+                x="Round:O",
+                y=alt.Y("Guesses:Q", scale=alt.Scale(type="symlog")),
+                tooltip=["Round", "Guesses", "Winning strategy"],
+            )
+            .interactive()
+        )
         st.altair_chart(guess_chart, use_container_width=True)
 
 if not allocation_frame.empty:
     st.subheader("Strategy Allocation & Efficiency")
     alloc_col1, alloc_col2 = st.columns(2)
     filtered_alloc = allocation_frame[
-        (allocation_frame["Round"] >= selected_rounds[0]) & 
-        (allocation_frame["Round"] <= selected_rounds[1])
+        (allocation_frame["Round"] >= selected_rounds[0])
+        & (allocation_frame["Round"] <= selected_rounds[1])
     ]
     with alloc_col1:
         st.caption("Strategy Allocation (%)")
-        alloc_chart = alt.Chart(filtered_alloc).mark_area().encode(
-            x='Round:O',
-            y='Budget allocation (%):Q',
-            color='Strategy:N',
-            tooltip=['Round', 'Strategy', 'Budget allocation (%)']
-        ).interactive()
+        alloc_chart = (
+            alt.Chart(filtered_alloc)
+            .mark_area()
+            .encode(
+                x="Round:O",
+                y="Budget allocation (%):Q",
+                color="Strategy:N",
+                tooltip=["Round", "Strategy", "Budget allocation (%)"],
+            )
+            .interactive()
+        )
         st.altair_chart(alloc_chart, use_container_width=True)
     with alloc_col2:
         st.caption("Efficiency (Bits solved per 1,000 actual guesses)")
-        eff_chart = alt.Chart(filtered_alloc).mark_line(point=True).encode(
-            x='Round:O',
-            y='Efficiency:Q',
-            color='Strategy:N',
-            tooltip=['Round', 'Strategy', 'Efficiency']
-        ).interactive()
+        eff_chart = (
+            alt.Chart(filtered_alloc)
+            .mark_line(point=True)
+            .encode(
+                x="Round:O",
+                y="Efficiency:Q",
+                color="Strategy:N",
+                tooltip=["Round", "Strategy", "Efficiency"],
+            )
+            .interactive()
+        )
         st.altair_chart(eff_chart, use_container_width=True)
 
 st.subheader("Round results")

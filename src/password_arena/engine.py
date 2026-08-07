@@ -1,19 +1,20 @@
 from __future__ import annotations
 
+import datetime
 import random
 import time
 from dataclasses import replace
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
+import password_arena
 from password_arena.attacker import AdaptiveAttacker
 from password_arena.defender import AdaptiveDefender
 from password_arena.models import (
-    AgentReport,
     ArenaConfig,
+    ArenaEvent,
     ExperimentResult,
     RoleMetadata,
     RoundOutcome,
-    RoundReport,
     RoundResult,
 )
 from password_arena.providers import (
@@ -103,7 +104,7 @@ class BudgetTracker:
         self.total_cost += metrics.estimated_cost
         self.retries += metrics.retries
         self.check_limits()
-    
+
     def add_error_retry(self) -> None:
         self.retries += 1
         self.check_limits()
@@ -171,11 +172,36 @@ class ArenaEngine:
         self.attacker = AdaptiveAttacker(self.attacker_rng, backend=attacker_backend)
         self.completed_rounds: list[RoundResult] = []
         self._experiment_id = __import__("uuid").uuid4().hex
+        self.events: list[ArenaEvent] = []
+
+    def _record_event(self, event_type: str, round_id: int | None, payload: dict[str, Any]) -> None:
+        event = ArenaEvent(
+            event_id=__import__("uuid").uuid4().hex,
+            experiment_id=self._experiment_id,
+            timestamp=datetime.datetime.now(datetime.UTC).isoformat(),
+            application_version=password_arena.__version__,
+            schema_version="1.0",
+            event_type=event_type,
+            round_id=round_id,
+            payload=payload,
+        )
+        self.events.append(event)
 
     def run(self) -> ExperimentResult:
         from password_arena.providers import ProviderError
-        
+
         start_index = len(self.completed_rounds)
+        if start_index == 0:
+            self._record_event(
+                "experiment_started",
+                None,
+                {
+                    "config": self.config.to_dict()
+                    if hasattr(self.config, "to_dict")
+                    else __import__("dataclasses").asdict(self.config)
+                },
+            )
+
         for index in range(start_index, self.config.rounds):
             try:
                 difficulty = min(
@@ -193,113 +219,85 @@ class ArenaEngine:
 
                 if self.tracker:
                     self.tracker.check_limits()
-                
+
                 outcome_val = RoundOutcome.COMPLETED if attack.solved else RoundOutcome.RESISTED
                 attack = replace(attack, outcome=outcome_val)
 
-                outcome = "solved" if attack.solved else "resisted the bounded guess budget"
-                findings = "; ".join(strength.findings)
-                attack_actions = tuple(
-                f"Allocated {entry.guess_budget:,} guesses to {entry.strategy} "
-                f"({entry.weight:.1%} of the plan)."
-                for entry in attack.plan
+                defender_metadata = RoleMetadata(
+                    provider=self.config.defender_config.provider,
+                    model=self.config.defender_config.model,
+                    thinking_level=self.config.defender_config.thinking_level,
                 )
-                report = RoundReport(
-                defender=AgentReport(
-                decision=defender_note,
-                actions=(
-                f"Generated a synthetic {family} password.",
-                f"Set length to {len(password)} characters.",
-                ),
-                observation=f"The password {outcome}. Evaluator findings: {findings}.",
-                learning_update=defender_learning,
-                ),
-                attacker=AgentReport(
-                decision=(
-                f"Ranked {attack.plan[0].strategy} as the highest-priority strategy "
-                f"for difficulty {difficulty}."
-                ),
-                actions=attack_actions,
-                observation=(
-                f"{'Found a match' if attack.solved else 'Found no match'} after "
-                f"{attack.guesses_used:,} guesses; attempted "
-                f"{', '.join(attack.attempted_strategies)}."
-                ),
-                learning_update=attacker_learning,
-                ),
-                evaluator_summary=(
-                f"Round {index + 1} {outcome}. Strength score was {strength.score}/4 with "
-                f"an estimated {strength.entropy_bits:.2f} bits after structural penalties."
-                ),
-                security_lesson=self._security_lesson(family, attack.solved),
-                defender_metadata=RoleMetadata(
-                provider=self.config.defender_config.provider,
-                model=self.config.defender_config.model,
-                thinking_level=self.config.defender_config.thinking_level,
-                ),
-                attacker_metadata=RoleMetadata(
-                provider=self.config.attacker_config.provider,
-                model=self.config.attacker_config.model,
-                thinking_level=self.config.attacker_config.thinking_level,
-                ),
-                evaluator_metadata=RoleMetadata(
-                provider=self.config.evaluator_config.provider,
-                model=self.config.evaluator_config.model,
-                thinking_level=self.config.evaluator_config.thinking_level,
-                ),
+                attacker_metadata = RoleMetadata(
+                    provider=self.config.attacker_config.provider,
+                    model=self.config.attacker_config.model,
+                    thinking_level=self.config.attacker_config.thinking_level,
+                )
+                evaluator_metadata = RoleMetadata(
+                    provider=self.config.evaluator_config.provider,
+                    model=self.config.evaluator_config.model,
+                    thinking_level=self.config.evaluator_config.thinking_level,
                 )
 
-                self.completed_rounds.append(
-                    RoundResult(
-                        round_number=index + 1,
-                        difficulty=difficulty,
-                        password_display=display,
-                        password_length=len(password),
-                        strength=strength,
-                        attack=attack,
-                        defender_strategy=family,
-                        attacker_note=attacker_learning,
-                        defender_note=defender_note,
-                        report=report,
+                attacker_note = (
+                    (
+                        f"Ranked {attack.plan[0].strategy} as the highest-priority strategy "
+                        f"for difficulty {difficulty}."
                     )
+                    if attack.plan
+                    else ""
                 )
+
+                round_res = RoundResult(
+                    round_number=index + 1,
+                    difficulty=difficulty,
+                    password_display=display,
+                    password_length=len(password),
+                    strength=strength,
+                    attack=attack,
+                    defender_strategy=family,
+                    attacker_note=attacker_note,
+                    defender_note=defender_note,
+                    defender_learning=defender_learning,
+                    attacker_learning=attacker_learning,
+                    defender_metadata=defender_metadata,
+                    attacker_metadata=attacker_metadata,
+                    evaluator_metadata=evaluator_metadata,
+                )
+                self.completed_rounds.append(round_res)
+                self._record_event("round_completed", index + 1, round_res.to_dict())
 
             except BudgetExhaustedError as e:
+                self._record_event(
+                    "experiment_interrupted",
+                    index + 1,
+                    {"reason": e.reason, "state": e.outcome_type.value},
+                )
                 return ExperimentResult(
                     config=self.config,
                     rounds=tuple(self.completed_rounds),
+                    events=tuple(self.events),
                     experiment_id=self._experiment_id,
                     interruption_reason=e.reason,
                     interruption_state=e.outcome_type.value,
                 )
             except ProviderError as e:
+                self._record_event(
+                    "experiment_interrupted", index + 1, {"reason": str(e), "state": e.state.value}
+                )
                 return ExperimentResult(
                     config=self.config,
                     rounds=tuple(self.completed_rounds),
+                    events=tuple(self.events),
                     experiment_id=self._experiment_id,
                     interruption_reason=str(e),
                     interruption_state=e.state.value,
                 )
 
+        self._record_event("experiment_completed", None, {})
         return ExperimentResult(
-            config=self.config, 
+            config=self.config,
             rounds=tuple(self.completed_rounds),
+            events=tuple(self.events),
             experiment_id=self._experiment_id,
-        )
-
-    @staticmethod
-    def _security_lesson(family: str, solved: bool) -> str:
-        if solved:
-            return (
-                f"The {family} structure remained predictable inside the current attack model; "
-                "cosmetic complexity should not be treated as randomness."
-            )
-        if family == "cryptographic-random":
-            return (
-                "Cryptographically secure randomness removed the human patterns targeted by the "
-                "bounded attacker; password-manager generation is the safer real-world endpoint."
-            )
-        return (
-            "This structure survived this bounded experiment, but that is not proof of real-world "
-            "security against larger or different attack models."
         )

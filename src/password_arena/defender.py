@@ -84,9 +84,7 @@ class AdaptiveDefender:
             password = f"{self.rng.choice(SHARED_WORDS).title()}{self.rng.randint(10, 99)}"
         elif family == "substitution-pattern":
             word = self.rng.choice(SHARED_WORDS)
-            password = word.title().replace("a", "@").replace("e", "3") + self.rng.choice(
-                SYMBOLS
-            )
+            password = word.title().replace("a", "@").replace("e", "3") + self.rng.choice(SYMBOLS)
         elif family == "two-word-passphrase":
             first = self.rng.choice(SHARED_WORDS).title()
             second = self.rng.choice(SHARED_WORDS)
@@ -150,6 +148,7 @@ class AdaptiveDefender:
 
         if not response.metrics.structured_validation_success:
             from password_arena.providers import AvailabilityState, ProviderError
+
             raise ProviderError(
                 AvailabilityState.INVALID_RESPONSE, "Provider response failed schema validation"
             )
@@ -157,9 +156,10 @@ class AdaptiveDefender:
         data = response.parsed_structured_data
         if not data or not isinstance(data, dict):
             from password_arena.providers import AvailabilityState, ProviderError
+
             raise ProviderError(
-                AvailabilityState.INVALID_RESPONSE, 
-                "Provider response missing valid structured data"
+                AvailabilityState.INVALID_RESPONSE,
+                "Provider response missing valid structured data",
             )
 
         family = data.get("family")
@@ -168,6 +168,7 @@ class AdaptiveDefender:
         valid = isinstance(family, str) and isinstance(note, str)
         if not valid or family not in available_families:
             from password_arena.providers import AvailabilityState, ProviderError
+
             raise ProviderError(
                 AvailabilityState.INVALID_RESPONSE, "Provider response failed schema validation"
             )

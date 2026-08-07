@@ -22,13 +22,15 @@ class HistoryManager:
         for file_path in self.storage_dir.glob("*.json"):
             try:
                 data = json.loads(file_path.read_text(encoding="utf-8"))
-                runs.append({
-                    "experiment_id": data.get("experiment_id", file_path.stem),
-                    "timestamp": data.get("timestamp", ""),
-                    "schema_version": data.get("schema_version", "1.0"),
-                    "solve_rate": data.get("summary", {}).get("solve_rate", 0.0),
-                    "total_rounds": data.get("summary", {}).get("total_rounds", 0)
-                })
+                runs.append(
+                    {
+                        "experiment_id": data.get("experiment_id", file_path.stem),
+                        "timestamp": data.get("timestamp", ""),
+                        "schema_version": data.get("schema_version", "1.0"),
+                        "solve_rate": data.get("summary", {}).get("solve_rate", 0.0),
+                        "total_rounds": data.get("summary", {}).get("total_rounds", 0),
+                    }
+                )
             except Exception:
                 continue
         runs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)

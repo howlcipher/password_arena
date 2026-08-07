@@ -45,16 +45,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--history-list", action="store_true", help="List saved experiments.")
     parser.add_argument(
-        "--history-load", type=str, metavar="ID",
-        help="Load and display a saved experiment."
+        "--history-load", type=str, metavar="ID", help="Load and display a saved experiment."
     )
     parser.add_argument(
-        "--history-delete", type=str, metavar="ID",
-        help="Delete a saved experiment."
+        "--history-delete", type=str, metavar="ID", help="Delete a saved experiment."
     )
     parser.add_argument(
-        "--history-export", nargs=2, metavar=("ID", "PATH"),
-        help="Export a saved experiment to a file."
+        "--history-export",
+        nargs=2,
+        metavar=("ID", "PATH"),
+        help="Export a saved experiment to a file.",
     )
     return parser
 
@@ -69,8 +69,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"{'Experiment ID':<36}  {'Timestamp':<25}  {'Rounds':<6}  {'Solve Rate':<10}")
         print("=" * 86)
         for r in runs:
-            print(f"{r['experiment_id']:<36}  {r['timestamp']:<25}  " \
-                  f"{r['total_rounds']:<6}  {r['solve_rate']:.1%}")
+            print(
+                f"{r['experiment_id']:<36}  {r['timestamp']:<25}  "
+                f"{r['total_rounds']:<6}  {r['solve_rate']:.1%}"
+            )
         return 0
 
     if args.history_delete:
@@ -110,7 +112,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 for k in config_dict:
                     k_lower = k.lower()
                     if (
-                        any(s in k_lower for s in ("api_key", "token", "secret", "auth")) 
+                        any(s in k_lower for s in ("api_key", "token", "secret", "auth"))
                         and k_lower != "max_tokens"
                     ):
                         parser.error(
@@ -136,12 +138,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         if "defender_config" in config_dict and isinstance(config_dict["defender_config"], dict):
             from password_arena.models import RoleConfig
+
             config_dict["defender_config"] = RoleConfig(**config_dict["defender_config"])
         if "attacker_config" in config_dict and isinstance(config_dict["attacker_config"], dict):
             from password_arena.models import RoleConfig
+
             config_dict["attacker_config"] = RoleConfig(**config_dict["attacker_config"])
         if "evaluator_config" in config_dict and isinstance(config_dict["evaluator_config"], dict):
             from password_arena.models import RoleConfig
+
             config_dict["evaluator_config"] = RoleConfig(**config_dict["evaluator_config"])
 
         try:

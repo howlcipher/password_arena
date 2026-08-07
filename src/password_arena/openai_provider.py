@@ -165,13 +165,13 @@ class OpenAIProvider(AgentBackend):
             if not self._capabilities.thinking_supported:
                 raise ProviderError(
                     AvailabilityState.UNSUPPORTED_CONFIGURATION,
-                    f"Model {self.model} does not support explicit thinking levels."
+                    f"Model {self.model} does not support explicit thinking levels.",
                 )
             if request.thinking_level not in self._capabilities.accepted_thinking_levels:
                 raise ProviderError(
                     AvailabilityState.UNSUPPORTED_CONFIGURATION,
                     f"Model {self.model} does not support thinking level "
-                    f"{request.thinking_level.value}."
+                    f"{request.thinking_level.value}.",
                 )
             kwargs["reasoning_effort"] = request.thinking_level.value
 
@@ -248,5 +248,5 @@ class OpenAIProvider(AgentBackend):
             provider_name=self.provider_name,
             model_id=self.model_id,
             parsed_structured_data=parsed_structured_data,
-            metrics=metrics
+            metrics=metrics,
         )

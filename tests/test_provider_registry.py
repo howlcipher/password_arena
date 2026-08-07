@@ -1,4 +1,3 @@
-
 from password_arena.engine import PreflightFailure, build_arena_engine
 from password_arena.models import ArenaConfig, RoleConfig
 
@@ -28,9 +27,7 @@ def test_build_arena_engine_provider_injection() -> None:
 
 
 def test_build_arena_engine_unknown_provider() -> None:
-    config = ArenaConfig(
-        defender_config=RoleConfig(provider="unknown_xyz")
-    )
+    config = ArenaConfig(defender_config=RoleConfig(provider="unknown_xyz"))
     result = build_arena_engine(config)
     assert isinstance(result, PreflightFailure)
     assert result.state == "unknown_error"

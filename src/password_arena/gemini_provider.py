@@ -58,14 +58,13 @@ class GeminiProvider:
             return self._client
         if genai is None:
             raise ProviderError(
-                AvailabilityState.PROVIDER_UNAVAILABLE,
-                "google-genai package is not installed."
+                AvailabilityState.PROVIDER_UNAVAILABLE, "google-genai package is not installed."
             )
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
             raise ProviderError(
                 AvailabilityState.AUTHENTICATION_FAILED,
-                "GEMINI_API_KEY environment variable is not set."
+                "GEMINI_API_KEY environment variable is not set.",
             )
         return genai.Client(api_key=api_key)
 
@@ -73,14 +72,14 @@ class GeminiProvider:
         if genai is None:
             return AvailabilityResult(
                 state=AvailabilityState.PROVIDER_UNAVAILABLE,
-                message="google-genai package is not installed."
+                message="google-genai package is not installed.",
             )
         if not os.environ.get("GEMINI_API_KEY") and self._client is None:
             return AvailabilityResult(
                 state=AvailabilityState.AUTHENTICATION_FAILED,
-                message="GEMINI_API_KEY environment variable is not set."
+                message="GEMINI_API_KEY environment variable is not set.",
             )
-            
+
         try:
             client = self._get_client()
             # Verify the model exists and is accessible
@@ -88,19 +87,19 @@ class GeminiProvider:
             return AvailabilityResult(state=AvailabilityState.AVAILABLE, message="available")
         except Exception as e:
             return AvailabilityResult(
-                state=AvailabilityState.AUTHENTICATION_FAILED, 
-                message=f"Failed to access model {self.model}: {e}"
+                state=AvailabilityState.AUTHENTICATION_FAILED,
+                message=f"Failed to access model {self.model}: {e}",
             )
 
     def generate(self, request: ProviderRequest) -> ProviderResponse:
         client = self._get_client()
-        
+
         config_kwargs: dict[str, Any] = {}
         if request.temperature is not None:
             config_kwargs["temperature"] = request.temperature
         if request.max_tokens is not None:
             config_kwargs["max_output_tokens"] = request.max_tokens
-            
+
         if self._capabilities.structured_output_supported and request.structured_schema is not None:
             config_kwargs["response_mime_type"] = "application/json"
             config_kwargs["response_schema"] = request.structured_schema
@@ -108,14 +107,14 @@ class GeminiProvider:
         if request.thinking_level != ThinkingLevel.AUTO:
             if not self._capabilities.thinking_supported:
                 raise ProviderError(
-                    AvailabilityState.UNSUPPORTED_CONFIGURATION, 
-                    f"Model {self.model} does not support explicit thinking levels."
+                    AvailabilityState.UNSUPPORTED_CONFIGURATION,
+                    f"Model {self.model} does not support explicit thinking levels.",
                 )
             if request.thinking_level not in self._capabilities.accepted_thinking_levels:
                 raise ProviderError(
                     AvailabilityState.UNSUPPORTED_CONFIGURATION,
                     f"Model {self.model} does not support thinking level "
-                    f"{request.thinking_level.value}."
+                    f"{request.thinking_level.value}.",
                 )
 
         try:
@@ -127,7 +126,7 @@ class GeminiProvider:
             )
         except Exception as e:
             raise ProviderError(AvailabilityState.UNKNOWN_ERROR, str(e)) from e
-            
+
         content = response.text or ""
         parsed_data, success, error_msg = parse_and_validate_json(
             content, request.structured_schema
@@ -142,8 +141,8 @@ class GeminiProvider:
             ),
             requested_thinking_level=request.thinking_level,
             effective_thinking_level=(
-                request.thinking_level 
-                if self._capabilities.thinking_supported 
+                request.thinking_level
+                if self._capabilities.thinking_supported
                 else ThinkingLevel.AUTO
             ),
             structured_validation_success=success,

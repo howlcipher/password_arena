@@ -336,6 +336,7 @@ class AdaptiveAttacker:
         response = self.backend.generate(request)
         if not response.metrics.structured_validation_success:
             from password_arena.providers import AvailabilityState, ProviderError
+
             raise ProviderError(
                 AvailabilityState.INVALID_RESPONSE, "Provider response failed schema validation"
             )
@@ -343,26 +344,29 @@ class AdaptiveAttacker:
         data = response.parsed_structured_data
         if not data or not isinstance(data, dict):
             from password_arena.providers import AvailabilityState, ProviderError
+
             raise ProviderError(
-                AvailabilityState.INVALID_RESPONSE, 
-                "Provider response missing valid structured data"
+                AvailabilityState.INVALID_RESPONSE,
+                "Provider response missing valid structured data",
             )
 
         weights = data.get("weights")
         if not isinstance(weights, dict):
             from password_arena.providers import AvailabilityState, ProviderError
+
             raise ProviderError(
                 AvailabilityState.INVALID_RESPONSE,
-                "Provider response failed schema validation: weights must be a dictionary"
+                "Provider response failed schema validation: weights must be a dictionary",
             )
 
         parsed_weights: dict[str, float] = {}
         for k, v in weights.items():
             if not isinstance(k, str) or not isinstance(v, (int, float)):
                 from password_arena.providers import AvailabilityState, ProviderError
+
                 raise ProviderError(
                     AvailabilityState.INVALID_RESPONSE,
-                    "Provider response failed schema validation: weights values must be numbers"
+                    "Provider response failed schema validation: weights values must be numbers",
                 )
             if k in avail:
                 parsed_weights[k] = float(v)

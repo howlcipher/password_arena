@@ -1,4 +1,3 @@
-
 from password_arena import ArenaConfig, ArenaEngine
 
 
@@ -31,29 +30,27 @@ def test_engine_resumption() -> None:
         cost_metadata=False,
         local_execution=True,
     )
-    
+
     class FailingMockProvider(MockProvider):
         def __init__(self) -> None:
             super().__init__(
-                capabilities, 
-                canned_structured_data={"family": "dictionary-word", "note": "x"}
+                capabilities, canned_structured_data={"family": "dictionary-word", "note": "x"}
             )
             self.calls = 0
-            
+
         def generate(self, request: ProviderRequest) -> ProviderResponse:
             self.calls += 1
             if self.calls == 1:
                 raise ProviderError(AvailabilityState.RATE_LIMITED, "Rate limited on round 1")
             return super().generate(request)
-            
+
     engine = ArenaEngine(
-        ArenaConfig(rounds=2, max_guesses=10), 
-        defender_backend=FailingMockProvider()
+        ArenaConfig(rounds=2, max_guesses=10), defender_backend=FailingMockProvider()
     )
     res1 = engine.run()
     assert res1.interruption_state == "rate_limited"
     assert len(res1.rounds) == 0
-    
+
     res2 = engine.run()
     assert res2.interruption_reason is None
     assert len(res2.rounds) == 2
@@ -141,7 +138,7 @@ def test_generator_mode_deterministic_test_reproducibility() -> None:
     )
     result2 = ArenaEngine(config2).run()
 
-    assert result1.rounds[0].report.defender.actions == result2.rounds[0].report.defender.actions
+    assert result1.rounds[0].password_display == result2.rounds[0].password_display
 
 
 def test_generator_version_benchmark_regression() -> None:
