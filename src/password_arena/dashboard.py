@@ -418,8 +418,6 @@ def render_arena_tab() -> None:
     )
 
 
-
-
 def render_dashboard() -> None:
     st.set_page_config(
         page_title="Password Arena", page_icon="🔐", layout="wide", initial_sidebar_state="expanded"
