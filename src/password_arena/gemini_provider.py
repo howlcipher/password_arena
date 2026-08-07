@@ -68,6 +68,44 @@ class GeminiProvider:
             )
         return genai.Client(api_key=api_key)
 
+    def _map_error(self, e: Exception) -> ProviderError:
+        if genai is None:
+            return ProviderError(
+                AvailabilityState.PROVIDER_UNAVAILABLE, "google-genai package is not installed."
+            )
+
+        if isinstance(e, genai.errors.APIError):
+            code = getattr(e, "code", 500)
+            msg = str(e).lower()
+            if code in (401, 403):
+                return ProviderError(
+                    AvailabilityState.AUTHENTICATION_FAILED, str(e), retryable=False
+                )
+            elif code == 404:
+                return ProviderError(AvailabilityState.MODEL_UNAVAILABLE, str(e), retryable=False)
+            elif code == 429:
+                if "quota" in msg:
+                    return ProviderError(AvailabilityState.QUOTA_EXHAUSTED, str(e), retryable=False)
+                return ProviderError(
+                    AvailabilityState.RATE_LIMITED, str(e), retryable=True, retry_after=5
+                )
+            elif code in (500, 502, 503, 504):
+                return ProviderError(
+                    AvailabilityState.PROVIDER_UNAVAILABLE, str(e), retryable=True, retry_after=5
+                )
+            elif code == 400:
+                return ProviderError(
+                    AvailabilityState.UNSUPPORTED_CONFIGURATION, str(e), retryable=False
+                )
+
+        msg = str(e).lower()
+        if "timeout" in msg or "deadline" in msg:
+            return ProviderError(AvailabilityState.TIMEOUT, str(e), retryable=True)
+        if "connection" in msg or "network" in msg:
+            return ProviderError(AvailabilityState.PROVIDER_UNAVAILABLE, str(e), retryable=True)
+
+        return ProviderError(AvailabilityState.UNKNOWN_ERROR, str(e), retryable=False)
+
     def check_availability(self) -> AvailabilityResult:
         if genai is None:
             return AvailabilityResult(
@@ -86,9 +124,12 @@ class GeminiProvider:
             client.models.get(name=f"models/{self.model}")
             return AvailabilityResult(state=AvailabilityState.AVAILABLE, message="available")
         except Exception as e:
+            err = self._map_error(e)
             return AvailabilityResult(
-                state=AvailabilityState.AUTHENTICATION_FAILED,
-                message=f"Failed to access model {self.model}: {e}",
+                state=err.state,
+                message=str(e),
+                retryable=err.retryable,
+                retry_after_seconds=err.retry_after,
             )
 
     def generate(self, request: ProviderRequest) -> ProviderResponse:
@@ -125,7 +166,7 @@ class GeminiProvider:
                 config=config,
             )
         except Exception as e:
-            raise ProviderError(AvailabilityState.UNKNOWN_ERROR, str(e)) from e
+            raise self._map_error(e) from e
 
         content = response.text or ""
         parsed_data, success, error_msg = parse_and_validate_json(

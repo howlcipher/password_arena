@@ -131,7 +131,8 @@ class BoundBackend(AgentBackend):
 
     def generate(self, request: ProviderRequest) -> ProviderResponse:
         self.tracker.check_limits()
-        retries = 0
+        request_retries = 0
+        ceiling = 3 if self.tracker.config.max_retries is None else self.tracker.config.max_retries
         while True:
             try:
                 response = self.delegate.generate(request)
@@ -140,10 +141,9 @@ class BoundBackend(AgentBackend):
                 return response
             except ProviderError as e:
                 self.tracker.add_error_retry()
-                self.tracker.check_limits()
-                if e.retryable:
-                    retries += 1
-                    time.sleep(min(e.retry_after or 1, 5))
+                if e.retryable and request_retries < ceiling:
+                    request_retries += 1
+                    time.sleep(min(e.retry_after or 1.0, 5.0))
                 else:
                     raise e
 

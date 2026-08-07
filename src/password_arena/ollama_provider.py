@@ -78,6 +78,25 @@ class OllamaProvider:
         except Exception as e:
             return AvailabilityResult(state=AvailabilityState.UNKNOWN_ERROR, message=str(e))
 
+    def _map_error(self, e: Exception) -> ProviderError:
+        if isinstance(e, httpx.TimeoutException):
+            return ProviderError(AvailabilityState.TIMEOUT, str(e), retryable=True)
+        if isinstance(e, httpx.NetworkError):
+            return ProviderError(AvailabilityState.LOCAL_SERVER_OFFLINE, str(e), retryable=True)
+        if isinstance(e, httpx.HTTPStatusError):
+            code = e.response.status_code
+            if code == 404:
+                return ProviderError(
+                    AvailabilityState.LOCAL_MODEL_NOT_INSTALLED, str(e), retryable=False
+                )
+            if code == 400:
+                return ProviderError(
+                    AvailabilityState.UNSUPPORTED_CONFIGURATION, str(e), retryable=False
+                )
+            if code in (429,):
+                return ProviderError(AvailabilityState.RATE_LIMITED, str(e), retryable=True)
+        return ProviderError(AvailabilityState.UNKNOWN_ERROR, str(e), retryable=False)
+
     def generate(self, request: ProviderRequest) -> ProviderResponse:
         if httpx is None:
             raise ProviderError(
@@ -142,7 +161,5 @@ class OllamaProvider:
                     parsed_structured_data=parsed_data,
                     metrics=metrics,
                 )
-        except httpx.TimeoutException as e:
-            raise ProviderError(AvailabilityState.TIMEOUT, "Ollama request timed out.") from e
         except Exception as e:
-            raise ProviderError(AvailabilityState.UNKNOWN_ERROR, str(e)) from e
+            raise self._map_error(e) from e

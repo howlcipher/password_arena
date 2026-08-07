@@ -138,7 +138,9 @@ class AnthropicProvider(AgentBackend):
             )
         if isinstance(e, NotFoundError):
             return ProviderError(AvailabilityState.MODEL_UNAVAILABLE, str(e), retryable=False)
-        if isinstance(e, (APITimeoutError, APIConnectionError)):
+        if isinstance(e, APITimeoutError):
+            return ProviderError(AvailabilityState.TIMEOUT, str(e), retryable=True)
+        if isinstance(e, APIConnectionError):
             return ProviderError(AvailabilityState.PROVIDER_UNAVAILABLE, str(e), retryable=True)
         if isinstance(e, APIError):
             return ProviderError(AvailabilityState.PROVIDER_UNAVAILABLE, str(e), retryable=True)
