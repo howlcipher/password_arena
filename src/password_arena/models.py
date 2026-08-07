@@ -255,3 +255,61 @@ class ExperimentResult:
                 .isoformat(),
             ),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class MatchupConfig:
+    attacker: RoleConfig
+    defender: RoleConfig
+    rounds: int
+    seeds: tuple[int, ...]
+    generator_version: str = "benchmark"
+    generator_mode: str = "deterministic-test"
+    max_guesses: int = 5000
+    max_wall_time_s: float | None = None
+    max_tokens: int | None = None
+    max_api_cost: float | None = None
+    max_retries: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MatchupSummary:
+    trials: int
+    completed_trials: int
+    interrupted_trials: int
+    attacker_wins: int
+    defender_survives: int
+    solve_rate: float
+    mean_guesses: float | None
+    median_guesses: float | None
+    std_guesses: float | None
+    mean_latency_ms: float | None
+    total_tokens: int
+    total_estimated_cost: float
+    confidence_interval_lower: float | None = None
+    confidence_interval_upper: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MatchupResult:
+    matchup_id: str
+    config: MatchupConfig
+    experiments: tuple[ExperimentResult, ...]
+    summary: MatchupSummary
+    is_comparable: bool = True
+    non_comparable_reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TournamentConfig:
+    attackers: tuple[RoleConfig, ...]
+    defenders: tuple[RoleConfig, ...]
+    seeds: tuple[int, ...]
+    rounds_per_match: int
+    generator_version: str = "benchmark"
+    generator_mode: str = "deterministic-test"
+    max_guesses: int = 5000
+    max_wall_time_s: float | None = None
+    max_tokens: int | None = None
+    max_api_cost: float | None = None
+    max_retries: int | None = None

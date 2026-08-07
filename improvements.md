@@ -96,7 +96,7 @@ Store completed experiments locally so users can compare runs instead of losing 
 ## IMP-004 — Replay and comparison mode
 
 **Priority:** P1  
-**Status:** Blocked by IMP-003
+**Status:** Ready
 
 Allow two or more experiments to be compared using the same metrics and charts.
 
@@ -540,7 +540,7 @@ Preserve experiment integrity when a selected model becomes unavailable.
 ## IMP-026 — Cross-model matchup reports
 
 **Priority:** P1  
-**Status:** Blocked by IMP-017 and IMP-010
+**Status:** Ready
 
 Add reports that compare cloud and local models across arena roles.
 
@@ -569,3 +569,15 @@ Visualize performance per token, second, and estimated cost.
 - Filters support role, model, provider, thinking level, and comparable-only rounds.
 - Charts do not mix incompatible scales without clear axes.
 
+
+## IMP-028 — Tournament and benchmark orchestration
+
+**Priority:** P1  
+**Status:** In Progress
+
+Run controlled matrices of attacker-versus-defender configurations across repeated seeds and aggregate the results.
+
+**Acceptance criteria**
+- Run controlled matrices of attacker-versus-defender configurations
+- Repeated trials per matchup
+- Aggregate metrics are correctly calculated

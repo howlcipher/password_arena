@@ -13,9 +13,10 @@ from password_arena.engine import PreflightFailure, build_arena_engine
 from password_arena.models import ArenaConfig, RoleConfig
 from password_arena.providers import ThinkingLevel
 from password_arena.reporting import experiment_report_markdown
+from password_arena.tournament_dashboard import render_tournament_tab
 
 
-def render_dashboard() -> None:
+def render_arena_tab() -> None:
     st.set_page_config(page_title="Password Arena", page_icon="🛡️", layout="wide")
     st.title("Password Arena")
     st.caption(
@@ -415,6 +416,21 @@ def render_dashboard() -> None:
         "Password Arena is an educational simulation. Never enter real credentials or connect "
         "the guessing engine to an authentication system."
     )
+
+
+
+
+def render_dashboard() -> None:
+    st.set_page_config(
+        page_title="Password Arena", page_icon="🔐", layout="wide", initial_sidebar_state="expanded"
+    )
+    st.title("Password Arena")
+
+    tab1, tab2 = st.tabs(["Arena", "Tournament"])
+    with tab1:
+        render_arena_tab()
+    with tab2:
+        render_tournament_tab()
 
 
 if __name__ == "__main__" or get_script_run_ctx() is not None:
