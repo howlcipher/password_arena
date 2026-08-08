@@ -27,8 +27,10 @@ The MVP deliberately uses transparent, rule-based agents. That makes the experim
 
 - **Adaptive defender:** escalates from dictionary words to passphrases and finally CSPRNG-generated passwords.
 - **Adaptive attacker:** ranks common-password, mutation, passphrase, and bounded-random strategies using prior synthetic results.
+- **Multi-Model Support:** Configure AI-vs-AI matchups using Gemini, OpenAI, Anthropic, Ollama, and Rule-Based agents. Support for advanced "Thinking" levels.
+- **Tournament Engine:** Build robust multi-model evaluation matrices, run repeated trials, check preflight capability, and enforce budget constraints (cost, time, tokens).
 - **Evaluator:** calculates strength indicators and captures experiment metrics.
-- **Dashboard:** visualizes learning curves and exports experiment JSON.
+- **Dashboard:** visualizes learning curves, generates leaderboards, plots efficiency, and exports experiment JSON.
 
 The MVP performs persistent-state adaptation; it does not claim to retrain model weights.
 
@@ -50,7 +52,7 @@ password-arena --rounds 8 --max-guesses 5000 \
   --report results/run.md
 ```
 
-Launch the dashboard:
+Launch the dashboard (Arena and Tournament modes):
 
 ```bash
 streamlit run src/password_arena/dashboard.py

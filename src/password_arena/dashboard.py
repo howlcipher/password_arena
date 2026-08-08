@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict
-from pathlib import Path
 
 import altair as alt
 import pandas as pd
@@ -10,10 +10,10 @@ import streamlit as st
 from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 from password_arena.engine import PreflightFailure, build_arena_engine
-from password_arena.models import ArenaConfig, RoleConfig
-from password_arena.providers import ThinkingLevel
+from password_arena.models import ArenaConfig
 from password_arena.reporting import experiment_report_markdown
 from password_arena.tournament_dashboard import render_tournament_tab
+from password_arena.ui_helpers import render_role_config
 
 
 def render_arena_tab() -> None:
@@ -55,46 +55,21 @@ def render_arena_tab() -> None:
         st.divider()
         st.header("Roles")
 
-        providers = ["rule_based", "openai", "anthropic", "gemini", "ollama"]
-        thinkings = ["auto", "minimal", "low", "medium", "high", "maximum"]
-
-        st.subheader("Defender")
-        def_prov = st.selectbox(
-            "Provider",
-            providers,
-            index=providers.index(st.session_state["defender_provider"]),
-            key="def_prov",
+        defender_config = render_role_config(
+            prefix="defender",
+            label="Defender",
+            default_provider=st.session_state.get("defender_provider", "rule_based"),
+            default_model=st.session_state.get("defender_model", ""),
+            default_thinking=st.session_state.get("defender_thinking", "auto"),
         )
-        st.session_state["defender_provider"] = def_prov
-        if def_prov != "rule_based":
-            st.session_state["defender_model"] = st.text_input(
-                "Model ID", st.session_state["defender_model"], key="def_mod"
-            )
-            st.session_state["defender_thinking"] = st.selectbox(
-                "Thinking level",
-                thinkings,
-                index=thinkings.index(st.session_state["defender_thinking"]),
-                key="def_think",
-            )
-
-        st.subheader("Attacker")
-        att_prov = st.selectbox(
-            "Provider",
-            providers,
-            index=providers.index(st.session_state["attacker_provider"]),
-            key="att_prov",
+        
+        attacker_config = render_role_config(
+            prefix="attacker",
+            label="Attacker",
+            default_provider=st.session_state.get("attacker_provider", "rule_based"),
+            default_model=st.session_state.get("attacker_model", ""),
+            default_thinking=st.session_state.get("attacker_thinking", "auto"),
         )
-        st.session_state["attacker_provider"] = att_prov
-        if att_prov != "rule_based":
-            st.session_state["attacker_model"] = st.text_input(
-                "Model ID", st.session_state["attacker_model"], key="att_mod"
-            )
-            st.session_state["attacker_thinking"] = st.selectbox(
-                "Thinking level",
-                thinkings,
-                index=thinkings.index(st.session_state["attacker_thinking"]),
-                key="att_think",
-            )
 
         st.divider()
         st.header("Profiles")
@@ -106,6 +81,17 @@ def render_arena_tab() -> None:
                 for k in default_values:
                     if k in profile_data:
                         st.session_state[k] = profile_data[k]
+                
+                # Delete internal UI helper keys so they re-initialize from default_values
+                for k in list(st.session_state.keys()):
+                    is_ui_key = (
+                        k.endswith("_model_select")
+                        or k.endswith("_model_input")
+                        or k.endswith("_thinking")
+                    )
+                    if is_ui_key and k not in ["defender_thinking", "attacker_thinking"]:
+                        del st.session_state[k]
+                            
                 st.success("Profile loaded! Settings applied.")
             except Exception as e:
                 st.error(f"Failed to load profile: {e}")
@@ -119,38 +105,17 @@ def render_arena_tab() -> None:
             max_guesses=int(max_guesses),
             seed=int(seed),
             reveal_passwords=reveal_passwords,
-            defender_config=RoleConfig(
-                provider=st.session_state["defender_provider"],
-                model=(
-                    st.session_state["defender_model"]
-                    if st.session_state["defender_provider"] != "rule_based"
-                    else None
-                ),
-                thinking_level=(
-                    ThinkingLevel(st.session_state["defender_thinking"])
-                    if st.session_state["defender_provider"] != "rule_based"
-                    else ThinkingLevel.AUTO
-                ),
-            ),
-            attacker_config=RoleConfig(
-                provider=st.session_state["attacker_provider"],
-                model=(
-                    st.session_state["attacker_model"]
-                    if st.session_state["attacker_provider"] != "rule_based"
-                    else None
-                ),
-                thinking_level=(
-                    ThinkingLevel(st.session_state["attacker_thinking"])
-                    if st.session_state["attacker_provider"] != "rule_based"
-                    else ThinkingLevel.AUTO
-                ),
-            ),
+            defender_config=defender_config,
+            attacker_config=attacker_config,
         )
 
-        if st.button("Save profile"):
-            profile_path = Path(f"{profile_name}.json")
-            profile_path.write_text(json.dumps(asdict(config), indent=2), encoding="utf-8")
-            st.success(f"Saved to {profile_path.name}")
+        safe_name = re.sub(r"[^A-Za-z0-9_-]", "", profile_name) or "profile"
+        st.download_button(
+            "Save profile",
+            data=json.dumps(asdict(config), indent=2),
+            file_name=f"{safe_name}.json",
+            mime="application/json",
+        )
 
         st.divider()
 
