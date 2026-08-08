@@ -77,6 +77,41 @@ def test_run_tournament_renders_all_result_tabs_without_error(
     assert "Thinking-Level Comparison" in subheader_texts
 
 
+def test_thinking_level_selector_is_capability_aware() -> None:
+    """Regression for the audit finding that ui_helpers.py used to expose all
+    six normalized thinking levels regardless of the selected model's actual
+    capabilities. Selecting a narrow-capability model (o1-preview, which only
+    accepts LOW/MEDIUM/HIGH) must restrict the selectbox to exactly that set,
+    and a previously-valid selection that becomes invalid (AUTO, from
+    gpt-4o's default) must be downgraded with a visible warning, not
+    silently."""
+    at = AppTest.from_file(str(DASHBOARD_PATH))
+    at.run(timeout=10)
+    assert not at.exception
+
+    provider_select = next(s for s in at.selectbox if s.key == "defender_provider")
+    provider_select.select("openai")
+    at.run(timeout=10)
+    assert not at.exception
+
+    model_select = next(s for s in at.selectbox if s.key == "defender_model_select")
+    assert model_select.value == "gpt-4o"  # first known model, thinking defaults to auto-only
+    thinking_select = next(s for s in at.selectbox if s.key == "defender_thinking")
+    assert thinking_select.options == ["auto"]
+
+    model_select.select("o1-preview")
+    at.run(timeout=10)
+    assert not at.exception
+
+    thinking_select = next(s for s in at.selectbox if s.key == "defender_thinking")
+    assert thinking_select.options == ["low", "medium", "high"]
+    assert thinking_select.value == "low"  # downgraded from the no-longer-valid "auto"
+    assert any(
+        "not supported by openai:o1-preview" in w.value and "reset to 'low'" in w.value
+        for w in at.warning
+    )
+
+
 def _find_profile_name_input(at: AppTest) -> Any:
     for ti in at.text_input:
         if ti.label == "Save profile as":

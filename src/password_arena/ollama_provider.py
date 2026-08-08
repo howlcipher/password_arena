@@ -20,6 +20,28 @@ from password_arena.providers import (
 )
 
 
+def list_local_models(base_url: str | None = None) -> list[str] | None:
+    """Query the local Ollama server's model list. Returns None if the
+    server is offline/unreachable -- a distinct state from "server reachable
+    but reports zero models" (returns `[]` in that case). Never called
+    automatically on a UI rerun; only on an explicit user-triggered refresh
+    (see `ui_helpers.py`)."""
+    if httpx is None:
+        return None
+    url = base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+    try:
+        with httpx.Client() as client:
+            response = client.get(f"{url}/api/tags", timeout=2.0)
+            if response.status_code != 200:
+                return None
+            data = response.json()
+            return [m["name"] for m in data.get("models", [])]
+    except httpx.RequestError:
+        return None
+    except Exception:
+        return None
+
+
 class OllamaProvider:
     def __init__(self, model: str = "llama3", base_url: str | None = None) -> None:
         self.model = model
