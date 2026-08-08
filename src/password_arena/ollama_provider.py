@@ -1,4 +1,5 @@
 import os
+import time
 from typing import Any
 
 try:
@@ -131,11 +132,13 @@ class OllamaProvider:
                     f"{request.thinking_level.value}.",
                 )
 
+        start_time = time.monotonic()
         try:
             with httpx.Client() as client:
                 response = client.post(f"{self.base_url}/api/generate", json=payload, timeout=60.0)
                 response.raise_for_status()
                 data = response.json()
+                latency_ms = (time.monotonic() - start_time) * 1000.0
 
                 content = data.get("response", "")
                 parsed_data, success, error_msg = parse_and_validate_json(
@@ -145,6 +148,7 @@ class OllamaProvider:
                 metrics = UsageMetrics(
                     input_tokens=data.get("prompt_eval_count", 0),
                     output_tokens=data.get("eval_count", 0),
+                    latency_ms=latency_ms,
                     requested_thinking_level=request.thinking_level,
                     effective_thinking_level=(
                         request.thinking_level

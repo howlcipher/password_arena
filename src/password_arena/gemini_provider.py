@@ -1,4 +1,5 @@
 import os
+import time
 from typing import Any
 
 try:
@@ -158,6 +159,7 @@ class GeminiProvider:
                     f"{request.thinking_level.value}.",
                 )
 
+        start_time = time.monotonic()
         try:
             config = types.GenerateContentConfig(**config_kwargs) if types else None
             response = client.models.generate_content(
@@ -167,6 +169,7 @@ class GeminiProvider:
             )
         except Exception as e:
             raise self._map_error(e) from e
+        latency_ms = (time.monotonic() - start_time) * 1000.0
 
         content = response.text or ""
         parsed_data, success, error_msg = parse_and_validate_json(
@@ -180,6 +183,7 @@ class GeminiProvider:
             output_tokens=(
                 response.usage_metadata.candidates_token_count if response.usage_metadata else 0
             ),
+            latency_ms=latency_ms,
             requested_thinking_level=request.thinking_level,
             effective_thinking_level=(
                 request.thinking_level

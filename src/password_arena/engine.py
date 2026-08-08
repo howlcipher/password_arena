@@ -14,6 +14,7 @@ from password_arena.models import (
     ArenaEvent,
     ExperimentResult,
     RoleMetadata,
+    RoleUsage,
     RoundOutcome,
     RoundResult,
 )
@@ -35,6 +36,19 @@ class PreflightFailure(NamedTuple):
     role: str
     state: str
     message: str
+
+
+def _to_role_usage(metrics: UsageMetrics | None) -> RoleUsage | None:
+    if metrics is None:
+        return None
+    return RoleUsage(
+        input_tokens=metrics.input_tokens,
+        output_tokens=metrics.output_tokens,
+        reasoning_tokens=metrics.reasoning_tokens,
+        latency_ms=metrics.latency_ms,
+        estimated_cost=metrics.estimated_cost,
+        fallback_used=metrics.fallback_used,
+    )
 
 
 def build_arena_engine(
@@ -101,7 +115,8 @@ class BudgetTracker:
 
     def add_metrics(self, metrics: UsageMetrics) -> None:
         self.total_tokens += metrics.input_tokens + metrics.output_tokens
-        self.total_cost += metrics.estimated_cost
+        if metrics.estimated_cost is not None:
+            self.total_cost += metrics.estimated_cost
         self.retries += metrics.retries
         self.check_limits()
 
@@ -114,6 +129,7 @@ class BoundBackend(AgentBackend):
     def __init__(self, delegate: AgentBackend, tracker: BudgetTracker) -> None:
         self.delegate = delegate
         self.tracker = tracker
+        self.last_metrics: UsageMetrics | None = None
 
     @property
     def provider_name(self) -> str:
@@ -138,6 +154,7 @@ class BoundBackend(AgentBackend):
                 response = self.delegate.generate(request)
                 self.tracker.add_metrics(response.metrics)
                 self.tracker.check_limits()
+                self.last_metrics = response.metrics
                 return response
             except ProviderError as e:
                 self.tracker.add_error_retry()
@@ -208,8 +225,16 @@ class ArenaEngine:
                     10, self.config.start_difficulty + index * self.config.difficulty_step
                 )
                 password, family, defender_note = self.defender.create_password(difficulty)
+                defender_metrics = getattr(self.defender.backend, "last_metrics", None)
                 strength = evaluate_strength(password)
                 raw_attack = self.attacker.attack(password, difficulty, self.config.max_guesses)
+                attacker_metrics = getattr(self.attacker.backend, "last_metrics", None)
+
+                defender_usage = _to_role_usage(defender_metrics)
+                attacker_usage = _to_role_usage(attacker_metrics)
+                comparable = not (defender_usage and defender_usage.fallback_used) and not (
+                    attacker_usage and attacker_usage.fallback_used
+                )
 
                 defender_learning = self.defender.observe(family, raw_attack.solved)
                 attacker_learning = self.attacker.observe(password, raw_attack.solved)
@@ -263,6 +288,9 @@ class ArenaEngine:
                     defender_metadata=defender_metadata,
                     attacker_metadata=attacker_metadata,
                     evaluator_metadata=evaluator_metadata,
+                    attacker_usage=attacker_usage,
+                    defender_usage=defender_usage,
+                    comparable=comparable,
                 )
                 self.completed_rounds.append(round_res)
                 self._record_event("round_completed", index + 1, round_res.to_dict())

@@ -15,6 +15,18 @@ class RoundOutcome(enum.StrEnum):
     ERROR = "error"
 
 
+class ExclusionReason(enum.StrEnum):
+    """Why an observation was excluded from headline tournament statistics."""
+
+    PREFLIGHT_FAILED = "preflight_failed"
+    INTERRUPTED_PROVIDER = "interrupted_provider"
+    FALLBACK_USED = "fallback_used"
+    MISMATCHED_GENERATOR_VERSION = "mismatched_generator_version"
+    MISMATCHED_GUESS_BUDGET = "mismatched_guess_budget"
+    MISMATCHED_SEED_SET = "mismatched_seed_set"
+    UNSUPPORTED_CONFIGURATION = "unsupported_configuration"
+
+
 @dataclass(frozen=True, slots=True)
 class RoleConfig:
     provider: str = "rule_based"
@@ -119,6 +131,26 @@ class RoleMetadata:
     model: str | None
     thinking_level: ThinkingLevel
 
+    @classmethod
+    def from_role_config(cls, role_config: RoleConfig) -> RoleMetadata:
+        return cls(
+            provider=role_config.provider,
+            model=role_config.model,
+            thinking_level=role_config.thinking_level,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class RoleUsage:
+    """Per-role, per-round LLM usage. Absent (None on RoundResult) means no backend call."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    reasoning_tokens: int | None = None
+    latency_ms: float = 0.0
+    estimated_cost: float | None = None
+    fallback_used: bool = False
+
 
 @dataclass(frozen=True, slots=True)
 class RoundResult:
@@ -136,6 +168,9 @@ class RoundResult:
     defender_metadata: RoleMetadata | None = None
     attacker_metadata: RoleMetadata | None = None
     evaluator_metadata: RoleMetadata | None = None
+    attacker_usage: RoleUsage | None = None
+    defender_usage: RoleUsage | None = None
+    comparable: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -145,6 +180,10 @@ class RoundResult:
             d["attacker_metadata"] = asdict(self.attacker_metadata)
         if self.evaluator_metadata:
             d["evaluator_metadata"] = asdict(self.evaluator_metadata)
+        if self.attacker_usage:
+            d["attacker_usage"] = asdict(self.attacker_usage)
+        if self.defender_usage:
+            d["defender_usage"] = asdict(self.defender_usage)
         return d
 
 
@@ -184,6 +223,16 @@ class ExperimentResult:
     @property
     def solve_rate(self) -> float:
         return self.solved_rounds / len(self.rounds) if self.rounds else 0.0
+
+    @property
+    def rounds_attempted(self) -> int:
+        """Recorded rounds plus the in-progress round that was interrupted, if any.
+
+        A round is only appended to `rounds` once it fully completes (see
+        ArenaEngine.run); an interruption always aborts before that append, so the
+        round in progress at interruption time is exactly one more than len(rounds).
+        """
+        return len(self.rounds) + (1 if self.interruption_reason else 0)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -227,6 +276,10 @@ class ExperimentResult:
             for meta_key in ["defender_metadata", "attacker_metadata", "evaluator_metadata"]:
                 if round_data.get(meta_key):
                     round_data[meta_key] = RoleMetadata(**round_data[meta_key])
+
+            for usage_key in ["attacker_usage", "defender_usage"]:
+                if round_data.get(usage_key):
+                    round_data[usage_key] = RoleUsage(**round_data[usage_key])
 
             # Handle backward compatibility: older runs may have report embedded
             if "report" in round_data:
@@ -273,21 +326,93 @@ class MatchupConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class ExclusionRecord:
+    seed: int
+    experiment_id: str | None
+    round_number: int | None
+    reason: ExclusionReason
+
+
+@dataclass(frozen=True, slots=True)
+class EfficiencyMetrics:
+    """Transparent per-role efficiency ratios. None when the denominator is unavailable or zero."""
+
+    attacker_solved_per_1k_tokens: float | None = None
+    attacker_solved_per_second: float | None = None
+    attacker_solved_per_dollar: float | None = None
+    defender_survived_per_1k_tokens: float | None = None
+    defender_survived_per_dollar: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayMetadata:
+    """Enough metadata to reconstruct a matchup's configuration for a re-run.
+
+    `deterministic=True` only when both roles are rule_based AND generator_mode is
+    "deterministic-test" -- only then does re-running guarantee an identical result.
+    Otherwise this only supports "configuration replay": re-running the same
+    configuration, with no claim that a hosted model will reproduce prior output.
+    """
+
+    attacker: RoleMetadata
+    defender: RoleMetadata
+    seeds: tuple[int, ...]
+    rounds_per_match: int
+    max_guesses: int
+    generator_mode: str
+    generator_version: str
+    application_version: str
+    schema_version: str
+    deterministic: bool
+
+
+@dataclass(frozen=True, slots=True)
 class MatchupSummary:
+    """Tournament matchup statistics.
+
+    Round-level fields (rounds_completed/solved/resisted, solve_rate, survival_rate,
+    guess metrics, token/latency/cost totals) are computed only from *comparable*
+    rounds (see RoundResult.comparable) across ALL trials, including trials that were
+    later interrupted -- their already-recorded, non-fallback rounds are still valid
+    Bernoulli observations. Trial-level fields (final_round_*, mean_total_guesses_per_trial,
+    comparable_trials) require the whole trial to be comparable, since they are not
+    decomposable to individual rounds.
+    """
+
     trials: int
-    completed_trials: int
-    interrupted_trials: int
-    attacker_wins: int
-    defender_survives: int
-    solve_rate: float
-    mean_guesses: float | None
-    median_guesses: float | None
-    std_guesses: float | None
-    mean_latency_ms: float | None
-    total_tokens: int
-    total_estimated_cost: float
-    confidence_interval_lower: float | None = None
-    confidence_interval_upper: float | None = None
+    comparable_trials: int
+    excluded_trials: int
+    excluded_rounds: int
+
+    rounds_completed: int
+    rounds_solved: int
+    rounds_resisted: int
+
+    solve_rate: float | None
+    survival_rate: float | None
+    confidence_interval_lower: float | None
+    confidence_interval_upper: float | None
+
+    final_round_solved_count: int
+    final_round_resisted_count: int
+
+    mean_guesses_per_round: float | None
+    median_guesses_per_round: float | None
+    std_guesses_per_round: float | None
+    mean_guesses_to_solve: float | None
+    median_guesses_to_solve: float | None
+    mean_total_guesses_per_trial: float | None
+
+    attacker_input_tokens: int = 0
+    attacker_output_tokens: int = 0
+    attacker_reasoning_tokens: int | None = None
+    defender_input_tokens: int = 0
+    defender_output_tokens: int = 0
+    defender_reasoning_tokens: int | None = None
+    attacker_mean_latency_ms: float | None = None
+    defender_mean_latency_ms: float | None = None
+    total_estimated_cost: float | None = None
+    efficiency: EfficiencyMetrics = field(default_factory=EfficiencyMetrics)
 
 
 @dataclass(frozen=True, slots=True)
@@ -298,6 +423,9 @@ class MatchupResult:
     summary: MatchupSummary
     is_comparable: bool = True
     non_comparable_reason: str | None = None
+    excluded_trial_records: tuple[ExclusionRecord, ...] = ()
+    excluded_round_records: tuple[ExclusionRecord, ...] = ()
+    replay: ReplayMetadata | None = None
 
 
 @dataclass(frozen=True, slots=True)

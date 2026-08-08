@@ -53,7 +53,15 @@ def test_anthropic_provider_generate(mock_client: Any) -> None:
     assert response.parsed_structured_data == {"key": "value"}
     assert response.metrics.input_tokens == 100
     assert response.metrics.output_tokens == 50
+    assert response.metrics.estimated_cost is not None
     assert response.metrics.estimated_cost > 0.0
+
+
+def test_anthropic_provider_unpriced_model_cost_is_unavailable(mock_client: Any) -> None:
+    provider = AnthropicProvider(model="some-future-model", client=mock_client)
+    response = provider.generate(ProviderRequest(prompt="hello"))
+    assert response.metrics.input_tokens == 100
+    assert response.metrics.estimated_cost is None
 
 
 def test_anthropic_provider_error_mapping(mock_client: Any) -> None:

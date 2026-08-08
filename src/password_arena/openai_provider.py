@@ -222,7 +222,7 @@ class OpenAIProvider(AgentBackend):
 
         input_tokens = 0
         output_tokens = 0
-        estimated_cost = 0.0
+        estimated_cost: float | None = None
 
         if response.usage:
             input_tokens = response.usage.prompt_tokens

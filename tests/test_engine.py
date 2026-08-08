@@ -1,3 +1,5 @@
+import pytest
+
 from password_arena import ArenaConfig, ArenaEngine
 
 
@@ -139,6 +141,89 @@ def test_generator_mode_deterministic_test_reproducibility() -> None:
     result2 = ArenaEngine(config2).run()
 
     assert result1.rounds[0].password_display == result2.rounds[0].password_display
+
+
+def test_rule_based_rounds_have_no_usage_and_are_comparable() -> None:
+    result = ArenaEngine(ArenaConfig(rounds=1, max_guesses=10)).run()
+    round_result = result.rounds[0]
+    assert round_result.attacker_usage is None
+    assert round_result.defender_usage is None
+    assert round_result.comparable is True
+
+
+def test_mock_backend_populates_usage_via_build_arena_engine() -> None:
+    from password_arena.engine import PreflightFailure, build_arena_engine
+    from password_arena.models import RoleConfig
+
+    config = ArenaConfig(
+        rounds=1,
+        max_guesses=10,
+        defender_config=RoleConfig(provider="mock"),
+        attacker_config=RoleConfig(provider="mock"),
+    )
+    engine = build_arena_engine(config)
+    assert not isinstance(engine, PreflightFailure)
+    result = engine.run()
+    round_result = result.rounds[0]
+
+    assert round_result.attacker_usage is not None
+    assert round_result.attacker_usage.input_tokens > 0
+    assert round_result.defender_usage is not None
+    assert round_result.defender_usage.input_tokens > 0
+    assert round_result.comparable is True
+
+
+def test_fallback_used_marks_round_non_comparable(monkeypatch: pytest.MonkeyPatch) -> None:
+    from typing import Any
+
+    from password_arena import providers as providers_module
+    from password_arena.engine import PreflightFailure, build_arena_engine
+    from password_arena.models import RoleConfig
+    from password_arena.providers import (
+        AgentBackend,
+        MockProvider,
+        ModelCapabilities,
+        ThinkingLevel,
+    )
+
+    capabilities = ModelCapabilities(
+        model_id="mock",
+        thinking_supported=False,
+        accepted_thinking_levels=(ThinkingLevel.AUTO,),
+        structured_output_supported=True,
+        context_limit=1000,
+        output_limit=1000,
+        token_accounting=True,
+        cost_metadata=False,
+        local_execution=True,
+    )
+    real_create = providers_module.ProviderRegistry.create
+
+    def fallback_mock_create(
+        role_config: Any, secrets_config: dict[str, str] | None = None
+    ) -> AgentBackend | None:
+        if role_config.provider == "mock":
+            return MockProvider(capabilities, fallback_used=True)
+        return real_create(role_config, secrets_config)
+
+    monkeypatch.setattr(
+        providers_module.ProviderRegistry, "create", staticmethod(fallback_mock_create)
+    )
+
+    config = ArenaConfig(
+        rounds=1,
+        max_guesses=10,
+        defender_config=RoleConfig(provider="mock"),
+        attacker_config=RoleConfig(provider="rule_based"),
+    )
+    engine = build_arena_engine(config)
+    assert not isinstance(engine, PreflightFailure)
+    result = engine.run()
+    round_result = result.rounds[0]
+
+    assert round_result.defender_usage is not None
+    assert round_result.defender_usage.fallback_used is True
+    assert round_result.comparable is False
 
 
 def test_generator_version_benchmark_regression() -> None:

@@ -58,7 +58,7 @@ class UsageMetrics:
     output_tokens: int = 0
     reasoning_tokens: int | None = None
     latency_ms: float = 0.0
-    estimated_cost: float = 0.0
+    estimated_cost: float | None = None
     retries: int = 0
     requested_thinking_level: ThinkingLevel = ThinkingLevel.AUTO
     effective_thinking_level: ThinkingLevel = ThinkingLevel.AUTO
@@ -180,6 +180,11 @@ class MockProvider:
         canned_structured_data: dict[str, Any] | None = None,
         error_to_raise: ProviderError | None = None,
         effective_thinking: ThinkingLevel = ThinkingLevel.AUTO,
+        input_tokens: int = 10,
+        output_tokens: int = 20,
+        reasoning_tokens: int | None = None,
+        estimated_cost: float | None = 0.0,
+        fallback_used: bool = False,
     ) -> None:
         self._capabilities = capabilities
         self._availability = AvailabilityResult(
@@ -191,6 +196,11 @@ class MockProvider:
         self._canned_structured_data = canned_structured_data
         self._error = error_to_raise
         self._effective_thinking = effective_thinking
+        self._input_tokens = input_tokens
+        self._output_tokens = output_tokens
+        self._reasoning_tokens = reasoning_tokens
+        self._estimated_cost = estimated_cost
+        self._fallback_used = fallback_used
 
     @property
     def provider_name(self) -> str:
@@ -206,25 +216,48 @@ class MockProvider:
     def check_availability(self) -> AvailabilityResult:
         return self._availability
 
+    def _auto_structured_data(self, schema: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Best-effort schema-valid response when no canned data was configured.
+
+        Lets `provider="mock"` (via ProviderRegistry) work generically for both the
+        defender's family-selection schema and the attacker's weight-allocation
+        schema without per-instance test wiring.
+        """
+        if not schema:
+            return None
+        props = schema.get("properties", {})
+        if "family" in props:
+            enum_vals = props["family"].get("enum") or ["dictionary-word"]
+            return {"family": enum_vals[0], "note": "mock note"}
+        if "weights" in props:
+            return {"weights": {"common": 1.0}, "reasoning": "mock reasoning"}
+        return None
+
     def generate(self, request: ProviderRequest) -> ProviderResponse:
         if self._error:
             raise self._error
         if self._availability.state != AvailabilityState.AVAILABLE:
             raise ProviderError(self._availability.state, self._availability.message)
 
+        structured_data = self._canned_structured_data or self._auto_structured_data(
+            request.structured_schema
+        )
+
         return ProviderResponse(
             content=self._canned_response,
             provider_name=self.provider_name,
             model_id=self.model_id,
-            parsed_structured_data=self._canned_structured_data,
+            parsed_structured_data=structured_data,
             metrics=UsageMetrics(
-                input_tokens=10,
-                output_tokens=20,
+                input_tokens=self._input_tokens,
+                output_tokens=self._output_tokens,
+                reasoning_tokens=self._reasoning_tokens,
                 latency_ms=100.0,
-                estimated_cost=0.0,
+                estimated_cost=self._estimated_cost,
                 retries=0,
                 requested_thinking_level=ThinkingLevel.AUTO,
                 effective_thinking_level=self._effective_thinking,
+                fallback_used=self._fallback_used,
             ),
         )
 
