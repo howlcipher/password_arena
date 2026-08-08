@@ -138,6 +138,8 @@ def _matchup_summary_from_dict(d: dict[str, Any]) -> MatchupSummary:
         attacker_mean_latency_ms=d.get("attacker_mean_latency_ms"),
         defender_mean_latency_ms=d.get("defender_mean_latency_ms"),
         total_estimated_cost=d.get("total_estimated_cost"),
+        attacker_estimated_cost=d.get("attacker_estimated_cost"),
+        defender_estimated_cost=d.get("defender_estimated_cost"),
         efficiency=_efficiency_from_dict(d.get("efficiency")),
     )
 

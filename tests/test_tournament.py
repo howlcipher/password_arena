@@ -293,6 +293,65 @@ def test_known_cost_sums_including_rule_based_zero() -> None:
     assert result.summary.total_estimated_cost == pytest.approx(0.5)
 
 
+def test_role_specific_cost_is_not_combined_matchup_cost() -> None:
+    """BUG-018: attacker cost must reflect only the attacker's own LLM calls,
+    never the defender's spend folded into a single combined total."""
+    config = _matchup_config(seeds=(1,))
+    exp = _experiment(
+        1,
+        [
+            _round(
+                1,
+                True,
+                1,
+                attacker_usage=RoleUsage(estimated_cost=1.0),
+                defender_usage=RoleUsage(estimated_cost=9.0),
+            ),
+        ],
+    )
+    result = aggregate_matchup(config, [exp], [])
+    s = result.summary
+    assert s.attacker_estimated_cost == pytest.approx(1.0)
+    assert s.defender_estimated_cost == pytest.approx(9.0)
+    assert s.total_estimated_cost == pytest.approx(10.0)
+
+
+def test_role_specific_cost_unknown_for_only_the_affected_role() -> None:
+    """When only the defender's cost is unknown, the attacker's own
+    (fully-known) cost must still be reported -- not dragged down to None by
+    a role it doesn't share data with."""
+    config = _matchup_config(seeds=(1,))
+    exp = _experiment(
+        1,
+        [
+            _round(
+                1,
+                True,
+                1,
+                attacker_usage=RoleUsage(estimated_cost=1.0),
+                defender_usage=RoleUsage(estimated_cost=None),
+            ),
+        ],
+    )
+    result = aggregate_matchup(config, [exp], [])
+    s = result.summary
+    assert s.attacker_estimated_cost == pytest.approx(1.0)
+    assert s.defender_estimated_cost is None
+    assert s.total_estimated_cost is None
+
+
+def test_role_specific_cost_zero_when_role_never_calls_llm() -> None:
+    """rule_based vs rule_based: neither role ever calls an LLM, so both
+    role-specific costs are a real, known 0.0 -- not None."""
+    config = _matchup_config(seeds=(1,))
+    exp = _experiment(1, [_round(1, True, 1)])
+    result = aggregate_matchup(config, [exp], [])
+    s = result.summary
+    assert s.attacker_estimated_cost == 0.0
+    assert s.defender_estimated_cost == 0.0
+    assert s.total_estimated_cost == 0.0
+
+
 def test_confidence_interval_exact_value() -> None:
     lower, upper = calculate_confidence_interval(50, 100)
     p, z, n = 0.5, 1.96, 100
@@ -323,7 +382,8 @@ def test_efficiency_zero_denominator_guards() -> None:
         attacker_total_tokens=0,
         defender_total_tokens=0,
         attacker_total_latency_ms=0.0,
-        total_estimated_cost=None,
+        attacker_estimated_cost=None,
+        defender_estimated_cost=None,
     )
     assert eff.attacker_solved_per_1k_tokens is None
     assert eff.attacker_solved_per_second is None
@@ -339,13 +399,31 @@ def test_efficiency_known_values() -> None:
         attacker_total_tokens=2000,
         defender_total_tokens=1000,
         attacker_total_latency_ms=5000.0,
-        total_estimated_cost=2.0,
+        attacker_estimated_cost=2.0,
+        defender_estimated_cost=2.0,
     )
     assert eff.attacker_solved_per_1k_tokens == pytest.approx(5.0)
     assert eff.attacker_solved_per_second == pytest.approx(2.0)
     assert eff.attacker_solved_per_dollar == pytest.approx(5.0)
     assert eff.defender_survived_per_1k_tokens == pytest.approx(5.0)
     assert eff.defender_survived_per_dollar == pytest.approx(2.5)
+
+
+def test_efficiency_uses_role_specific_cost_not_combined() -> None:
+    """attacker_solved_per_dollar must use the attacker's own cost, never the
+    defender's or a combined total -- otherwise spend gets misattributed
+    across roles (BUG-018)."""
+    eff = compute_efficiency(
+        rounds_solved=10,
+        rounds_resisted=5,
+        attacker_total_tokens=2000,
+        defender_total_tokens=1000,
+        attacker_total_latency_ms=5000.0,
+        attacker_estimated_cost=1.0,
+        defender_estimated_cost=9.0,
+    )
+    assert eff.attacker_solved_per_dollar == pytest.approx(10.0)
+    assert eff.defender_survived_per_dollar == pytest.approx(5 / 9)
 
 
 def test_replay_metadata_deterministic_flag() -> None:

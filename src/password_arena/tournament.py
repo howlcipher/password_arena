@@ -81,24 +81,35 @@ def compute_efficiency(
     attacker_total_tokens: int,
     defender_total_tokens: int,
     attacker_total_latency_ms: float,
-    total_estimated_cost: float | None,
+    attacker_estimated_cost: float | None,
+    defender_estimated_cost: float | None,
 ) -> EfficiencyMetrics:
-    """Transparent per-role efficiency ratios. Never divide by zero or unavailable data."""
+    """Transparent per-role efficiency ratios. Never divide by zero or unavailable data.
+
+    Cost denominators are role-specific (attacker cost for the attacker ratio,
+    defender cost for the defender ratio) -- never the combined matchup cost,
+    which would attribute the other role's spend to this one.
+    """
 
     def ratio(numerator: int, denominator: float) -> float | None:
         return numerator / denominator if denominator > 0 else None
 
-    cost_denominator = total_estimated_cost if total_estimated_cost else None
+    attacker_cost_denominator = attacker_estimated_cost if attacker_estimated_cost else None
+    defender_cost_denominator = defender_estimated_cost if defender_estimated_cost else None
 
     return EfficiencyMetrics(
         attacker_solved_per_1k_tokens=ratio(rounds_solved, attacker_total_tokens / 1000),
         attacker_solved_per_second=ratio(rounds_solved, attacker_total_latency_ms / 1000),
         attacker_solved_per_dollar=(
-            ratio(rounds_solved, cost_denominator) if cost_denominator else None
+            ratio(rounds_solved, attacker_cost_denominator)
+            if attacker_cost_denominator
+            else None
         ),
         defender_survived_per_1k_tokens=ratio(rounds_resisted, defender_total_tokens / 1000),
         defender_survived_per_dollar=(
-            ratio(rounds_resisted, cost_denominator) if cost_denominator else None
+            ratio(rounds_resisted, defender_cost_denominator)
+            if defender_cost_denominator
+            else None
         ),
     )
 
@@ -142,8 +153,10 @@ def aggregate_matchup(
     defender_reasoning_tokens: int | None = None
     attacker_latencies: list[float] = []
     defender_latencies: list[float] = []
-    cost_known = True
-    total_cost = 0.0
+    attacker_cost_known = True
+    attacker_total_cost = 0.0
+    defender_cost_known = True
+    defender_total_cost = 0.0
 
     for experiment in experiments:
         seed = experiment.config.seed
@@ -192,9 +205,9 @@ def aggregate_matchup(
                     ) + r.attacker_usage.reasoning_tokens
                 attacker_latencies.append(r.attacker_usage.latency_ms)
                 if r.attacker_usage.estimated_cost is None:
-                    cost_known = False
+                    attacker_cost_known = False
                 else:
-                    total_cost += r.attacker_usage.estimated_cost
+                    attacker_total_cost += r.attacker_usage.estimated_cost
 
             if r.defender_usage is not None:
                 defender_input_tokens += r.defender_usage.input_tokens
@@ -205,9 +218,9 @@ def aggregate_matchup(
                     ) + r.defender_usage.reasoning_tokens
                 defender_latencies.append(r.defender_usage.latency_ms)
                 if r.defender_usage.estimated_cost is None:
-                    cost_known = False
+                    defender_cost_known = False
                 else:
-                    total_cost += r.defender_usage.estimated_cost
+                    defender_total_cost += r.defender_usage.estimated_cost
 
     comparable_trials = trials - len(trial_exclusions)
     excluded_trials = len(trial_exclusions)
@@ -222,7 +235,13 @@ def aggregate_matchup(
     else:
         ci_lower = ci_upper = None
 
-    total_estimated_cost = total_cost if cost_known else None
+    attacker_estimated_cost = attacker_total_cost if attacker_cost_known else None
+    defender_estimated_cost = defender_total_cost if defender_cost_known else None
+    total_estimated_cost = (
+        attacker_total_cost + defender_total_cost
+        if attacker_cost_known and defender_cost_known
+        else None
+    )
 
     efficiency = compute_efficiency(
         rounds_solved=rounds_solved,
@@ -230,7 +249,8 @@ def aggregate_matchup(
         attacker_total_tokens=attacker_input_tokens + attacker_output_tokens,
         defender_total_tokens=defender_input_tokens + defender_output_tokens,
         attacker_total_latency_ms=sum(attacker_latencies),
-        total_estimated_cost=total_estimated_cost,
+        attacker_estimated_cost=attacker_estimated_cost,
+        defender_estimated_cost=defender_estimated_cost,
     )
 
     summary = MatchupSummary(
@@ -276,6 +296,8 @@ def aggregate_matchup(
             statistics.mean(defender_latencies) if defender_latencies else None
         ),
         total_estimated_cost=total_estimated_cost,
+        attacker_estimated_cost=attacker_estimated_cost,
+        defender_estimated_cost=defender_estimated_cost,
         efficiency=efficiency,
     )
 

@@ -377,6 +377,12 @@ class MatchupSummary:
     Bernoulli observations. Trial-level fields (final_round_*, mean_total_guesses_per_trial,
     comparable_trials) require the whole trial to be comparable, since they are not
     decomposable to individual rounds.
+
+    Cost is tracked both combined (`total_estimated_cost`) and per role
+    (`attacker_estimated_cost`, `defender_estimated_cost`); each is `None`, never
+    `0.0`, unless every contributing comparable round's cost for that scope is
+    known. A role that made no LLM calls (e.g. rule_based) contributes a real,
+    known `0.0` to its own field, not `None`.
     """
 
     trials: int
@@ -412,6 +418,8 @@ class MatchupSummary:
     attacker_mean_latency_ms: float | None = None
     defender_mean_latency_ms: float | None = None
     total_estimated_cost: float | None = None
+    attacker_estimated_cost: float | None = None
+    defender_estimated_cost: float | None = None
     efficiency: EfficiencyMetrics = field(default_factory=EfficiencyMetrics)
 
 

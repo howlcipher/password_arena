@@ -278,7 +278,11 @@ def _matchup_payload(m: MatchupResult) -> dict[str, Any]:
             "attacker_mean": s.attacker_mean_latency_ms,
             "defender_mean": s.defender_mean_latency_ms,
         },
-        "estimated_cost": s.total_estimated_cost,
+        "estimated_cost": {
+            "total": s.total_estimated_cost,
+            "attacker": s.attacker_estimated_cost,
+            "defender": s.defender_estimated_cost,
+        },
         "efficiency": asdict(s.efficiency),
         "replay": asdict(m.replay) if m.replay else None,
         "excluded_trial_records": _exclusion_payload(m.excluded_trial_records),
@@ -370,7 +374,11 @@ def tournament_report_markdown(
             f"- **Latency (ms):** attacker={s.attacker_mean_latency_ms}, "
             f"defender={s.defender_mean_latency_ms}"
         )
-        lines.append(f"- **Estimated cost:** {_cost_display(s.total_estimated_cost)}")
+        lines.append(
+            f"- **Estimated cost:** total={_cost_display(s.total_estimated_cost)}, "
+            f"attacker={_cost_display(s.attacker_estimated_cost)}, "
+            f"defender={_cost_display(s.defender_estimated_cost)}"
+        )
         eff = s.efficiency
         lines.append(
             "- **Efficiency:** "
@@ -441,6 +449,8 @@ def tournament_report_csv(
             "attacker_mean_latency_ms",
             "defender_mean_latency_ms",
             "estimated_cost",
+            "attacker_estimated_cost",
+            "defender_estimated_cost",
             "deterministic_replay",
         ]
     )
@@ -486,6 +496,8 @@ def tournament_report_csv(
                 cell(s.attacker_mean_latency_ms),
                 cell(s.defender_mean_latency_ms),
                 cell(s.total_estimated_cost),
+                cell(s.attacker_estimated_cost),
+                cell(s.defender_estimated_cost),
                 m.replay.deterministic if m.replay else "",
             ]
         )

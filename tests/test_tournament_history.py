@@ -58,6 +58,10 @@ def test_save_list_load_delete_round_trip(tmp_path: Any) -> None:
     assert len(stored.matchups) == 1
     assert stored.matchups[0].summary.comparable_trials == matchup.summary.comparable_trials
     assert stored.missing_experiment_ids == ()
+    # rule_based vs rule_based: role-specific cost round-trips as a known zero.
+    stored_summary = stored.matchups[0].summary
+    assert stored_summary.attacker_estimated_cost == matchup.summary.attacker_estimated_cost
+    assert stored_summary.defender_estimated_cost == matchup.summary.defender_estimated_cost
 
     experiments, missing = hydrate_experiments(stored.matchups[0], history_mgr)
     assert len(experiments) == len(matchup.experiments)
@@ -144,6 +148,10 @@ def test_load_tolerates_old_format_missing_new_fields(tmp_path: Any) -> None:
     assert m.summary.rounds_solved == 1
     assert m.summary.excluded_rounds == 0
     assert m.summary.mean_guesses_per_round == 12.0
+    # Role-specific cost fields are additive (post-dating this legacy format);
+    # absence must deserialize as None ("unavailable"), never fabricated as 0.0.
+    assert m.summary.attacker_estimated_cost is None
+    assert m.summary.defender_estimated_cost is None
 
 
 def test_hydrate_experiments_skips_dangling_id(tmp_path: Any) -> None:

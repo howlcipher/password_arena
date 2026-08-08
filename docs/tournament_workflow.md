@@ -68,15 +68,29 @@ Three distinct guess metrics are reported, and they are not interchangeable:
 
 Tracked separately per role (attacker/defender): input tokens, output tokens,
 reasoning tokens (when exposed by the provider), and mean latency. Estimated cost
-is a single pooled total across both roles, `total_estimated_cost: float | None`.
+is tracked both ways: a combined `total_estimated_cost: float | None` and, since
+this sprint, role-specific `attacker_estimated_cost` / `defender_estimated_cost`.
+Efficiency ratios (`attacker_solved_per_dollar`, `defender_survived_per_dollar`)
+use the matching role-specific cost as their denominator, never the combined
+total -- otherwise the other role's spend would be misattributed.
 
 **A missing cost is `None`, never `0.0`.** If any comparable round used an LLM call
-whose provider could not price the model, `total_estimated_cost` is `None` for the
-whole matchup -- rendered as `"unavailable"` in reports, not as a zero. A matchup
-with no LLM calls at all (rule_based vs rule_based) reports a real, known `0.0`.
+whose provider could not price the model, the affected scope's cost is `None` --
+`total_estimated_cost` is `None` if either role has any unknown-cost round;
+`attacker_estimated_cost`/`defender_estimated_cost` are `None` only for the
+affected role, so one role's missing pricing does not blank out the other's known
+cost. All are rendered as `"unavailable"` in reports, never as a zero. A role that
+made no LLM calls at all (rule_based) reports a real, known `0.0` for that role.
 
 As of this writing, `gemini` and `ollama` providers have no pricing table, so any
-matchup using them will report `total_estimated_cost` as unavailable.
+matchup using them will report the affected role's (and therefore the combined)
+cost as unavailable.
+
+The Tournament dashboard's cross-matchup rollups (tournament totals, per-attacker/
+per-defender leaderboard costs) apply the same rule at their own granularity: a
+sum is only shown when **every** contributing matchup's cost for that role/scope
+is known; otherwise the rollup is `None`/"unavailable", never silently summed as
+if the unknown contributors were zero. See `tournament_view_models.py`.
 
 ### Comparability
 
