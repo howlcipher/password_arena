@@ -364,6 +364,9 @@ class ReplayMetadata:
     application_version: str
     schema_version: str
     deterministic: bool
+    attacker_prompt_version: str
+    defender_prompt_version: str
+    capability_registry_version: str
 
 
 @dataclass(frozen=True, slots=True)

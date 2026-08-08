@@ -8,6 +8,11 @@ from dataclasses import dataclass, field
 from password_arena.grammars import HELD_OUT_WORDS, SHARED_WORDS, SYMBOLS
 from password_arena.providers import AgentBackend, ProviderRequest
 
+# Bump whenever the defender's LLM-facing prompt text materially changes
+# (wording, schema, requested fields) -- lets reports and tournament
+# comparisons distinguish results produced under different prompts.
+DEFENDER_PROMPT_VERSION = "1.0"
+
 
 @dataclass(slots=True)
 class AdaptiveDefender:

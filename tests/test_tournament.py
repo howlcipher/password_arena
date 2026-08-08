@@ -439,6 +439,24 @@ def test_replay_metadata_deterministic_flag() -> None:
     assert build_replay_metadata(hosted_config).deterministic is False
 
 
+def test_replay_metadata_carries_prompt_and_capability_registry_versions() -> None:
+    """IMP-026: reports must identify prompt and capability-registry versions,
+    not just schema/application version."""
+    from password_arena.attacker import ATTACKER_PROMPT_VERSION
+    from password_arena.defender import DEFENDER_PROMPT_VERSION
+    from password_arena.providers import CAPABILITY_REGISTRY_VERSION
+
+    replay = build_replay_metadata(_matchup_config())
+    assert replay.attacker_prompt_version == ATTACKER_PROMPT_VERSION
+    assert replay.defender_prompt_version == DEFENDER_PROMPT_VERSION
+    assert replay.capability_registry_version == CAPABILITY_REGISTRY_VERSION
+    # Sanity: these are meant to be independently bumpable, not accidentally
+    # aliased to the same string by construction.
+    assert replay.attacker_prompt_version
+    assert replay.defender_prompt_version
+    assert replay.capability_registry_version
+
+
 def test_run_matchup_rule_based_end_to_end() -> None:
     config = MatchupConfig(
         attacker=RoleConfig(provider="rule_based"),

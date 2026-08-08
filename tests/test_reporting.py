@@ -89,6 +89,25 @@ def test_tournament_report_json_has_required_fields() -> None:
         assert key in m
 
 
+def test_tournament_report_json_includes_version_metadata() -> None:
+    """IMP-026: reports must identify application, schema, prompt, and
+    capability-registry versions so results can be traced to exactly what
+    produced them."""
+    from password_arena.attacker import ATTACKER_PROMPT_VERSION
+    from password_arena.defender import DEFENDER_PROMPT_VERSION
+    from password_arena.providers import CAPABILITY_REGISTRY_VERSION
+
+    tournament_id, timestamp, config, matchups = _tournament_fixture()
+    payload = json.loads(tournament_report_json(tournament_id, timestamp, config, matchups))
+    replay = payload["matchups"][0]["replay"]
+
+    assert replay["application_version"]
+    assert replay["schema_version"]
+    assert replay["attacker_prompt_version"] == ATTACKER_PROMPT_VERSION
+    assert replay["defender_prompt_version"] == DEFENDER_PROMPT_VERSION
+    assert replay["capability_registry_version"] == CAPABILITY_REGISTRY_VERSION
+
+
 def test_tournament_report_json_no_secrets_or_passwords() -> None:
     tournament_id, timestamp, config, matchups = _tournament_fixture()
     text = tournament_report_json(tournament_id, timestamp, config, matchups)

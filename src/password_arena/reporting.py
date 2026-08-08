@@ -391,7 +391,10 @@ def tournament_report_markdown(
         if m.replay:
             lines.append(
                 f"- **Replay:** deterministic={m.replay.deterministic} "
-                f"(schema {m.replay.schema_version}, app {m.replay.application_version})"
+                f"(schema {m.replay.schema_version}, app {m.replay.application_version}, "
+                f"attacker prompt {m.replay.attacker_prompt_version}, "
+                f"defender prompt {m.replay.defender_prompt_version}, "
+                f"capability registry {m.replay.capability_registry_version})"
             )
         if m.excluded_trial_records or m.excluded_round_records:
             lines.append("- **Exclusion reasons:**")

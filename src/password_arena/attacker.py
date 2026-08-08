@@ -13,6 +13,11 @@ from password_arena.grammars import SHARED_WORDS, SYMBOLS
 from password_arena.models import AttackResult, StrategyBudget
 from password_arena.providers import AgentBackend, ProviderRequest
 
+# Bump whenever the attacker's LLM-facing prompt text materially changes
+# (wording, schema, requested fields) -- lets reports and tournament
+# comparisons distinguish results produced under different prompts.
+ATTACKER_PROMPT_VERSION = "1.0"
+
 
 def _dedupe(candidates: Iterator[str]) -> Iterator[str]:
     seen: set[str] = set()

@@ -5,6 +5,8 @@ import statistics
 import uuid
 
 import password_arena
+from password_arena.attacker import ATTACKER_PROMPT_VERSION
+from password_arena.defender import DEFENDER_PROMPT_VERSION
 from password_arena.engine import PreflightFailure, build_arena_engine
 from password_arena.models import (
     ArenaConfig,
@@ -19,6 +21,7 @@ from password_arena.models import (
     RoleMetadata,
     TournamentConfig,
 )
+from password_arena.providers import CAPABILITY_REGISTRY_VERSION
 
 REPLAY_SCHEMA_VERSION = "1.0"
 
@@ -72,6 +75,9 @@ def build_replay_metadata(config: MatchupConfig) -> ReplayMetadata:
         application_version=password_arena.__version__,
         schema_version=REPLAY_SCHEMA_VERSION,
         deterministic=deterministic,
+        attacker_prompt_version=ATTACKER_PROMPT_VERSION,
+        defender_prompt_version=DEFENDER_PROMPT_VERSION,
+        capability_registry_version=CAPABILITY_REGISTRY_VERSION,
     )
 
 

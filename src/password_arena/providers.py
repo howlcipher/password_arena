@@ -5,6 +5,12 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+# Bump whenever a provider's ModelCapabilities registry (accepted thinking
+# levels, per-model capability data) materially changes -- lets reports and
+# tournament comparisons distinguish results produced under different
+# capability assumptions.
+CAPABILITY_REGISTRY_VERSION = "1.0"
+
 
 class ThinkingLevel(enum.StrEnum):
     AUTO = "auto"
