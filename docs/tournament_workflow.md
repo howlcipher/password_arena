@@ -22,14 +22,29 @@ through BUG-015 in `bugs.md`).
 - **Cross-model reports:** JSON, Markdown, and CSV exports (`reporting.tournament_report_*`).
 
 ## How to use the Tournament Dashboard
-1. Run `password-arena --ui` to start the Streamlit application.
+1. Run `password-arena --ui` to start the Streamlit application. The **Tournament**
+   tab is reachable immediately on load -- it does not require running anything on
+   the **Arena** tab first (BUG-016).
 2. Navigate to the **Tournament** tab.
 3. Select any combination of attacker roles and defender roles.
 4. Configure standard constraints: rounds per match, trials (seeds), and max guesses.
-5. Click **Run Tournament**.
+5. For any non-`rule_based` role, click **Test connections** to run a preflight
+   availability check. This never happens automatically -- provider checks only run
+   in response to this explicit click, never on an ordinary widget interaction
+   elsewhere on the page (BUG-023). Changing a role's provider/model/thinking level
+   invalidates the cached result and requires re-checking. `Run Tournament` stays
+   disabled until the current configuration's preflight is confirmed available (or
+   every role is `rule_based`, which needs no check at all).
+6. Click **Run Tournament**.
 
 The UI automatically filters out self-play matches (e.g. a model defending against
 itself) if selected, and executes the complete matchup matrix in sequence.
+
+Once results exist, a **filter bar** (role / provider / model / thinking level /
+comparable-only) applies once, upstream of all four result tabs (Overview &
+Leaderboard, Matchup Heatmap, Efficiency, Thinking Levels) -- every chart consumes
+the same filtered subset. Downloadable JSON/Markdown/CSV reports intentionally use
+the unfiltered result set, since they are the canonical record, not a view.
 
 ## Metric semantics
 
@@ -109,6 +124,11 @@ recorded (never silently discarded):
 `MatchupResult.excluded_trial_records` / `excluded_round_records` hold the full,
 unabridged list of exclusions (seed, experiment id, round number, reason) for
 inspection -- headline statistics exclude them by default, they are never dropped.
+This is now also true of *saved* tournaments: `TournamentHistoryManager.save()`
+previously dropped these records (and `replay` metadata) entirely on write, which
+also crashed report generation for any loaded tournament (BUG-026). Both are now
+persisted as of schema `"2.1"`; tournaments saved under `"2.0"` or earlier load
+with `None`/`()` defaults for these fields rather than raising.
 
 ### Confidence intervals
 
@@ -130,11 +150,14 @@ denominator is zero or unavailable.
 ## Persistence
 
 `TournamentHistoryManager` supports the full lifecycle: `save`, `list_runs`, `load`,
-`delete`. Only matchup metadata and links to full experiments (`experiment_ids`) are
-saved directly; full round logs live in single-experiment history (`HistoryManager`).
-`load()` tolerates JSON saved before this rewrite (schema version < `"2.0"`) by
-mapping old field names onto their nearest new equivalent, and reports any linked
-experiment that can no longer be found (`missing_experiment_ids`) rather than raising.
+`delete`. Matchup metadata, replay metadata, and exclusion records are saved
+directly (schema `"2.1"`); links to full round logs (`experiment_ids`) point into
+single-experiment history (`HistoryManager`), which stores the round-by-round data
+itself. `load()` tolerates JSON saved before this rewrite (schema version < `"2.0"`)
+by mapping old field names onto their nearest new equivalent, tolerates JSON saved
+under `"2.0"` (no `replay`/exclusion-record fields yet) with `None`/`()` defaults,
+and reports any linked experiment that can no longer be found
+(`missing_experiment_ids`) rather than raising.
 
 ## Replay
 
@@ -149,7 +172,26 @@ re-run, with no claim that a hosted model will reproduce prior output.
 `reporting.tournament_report_json/markdown/csv` produce provider-neutral exports
 covering: tournament ID, timestamp, provider/model/thinking level per role, seed
 set, rounds, guess budget, comparable/excluded observation counts and reasons,
-solve/survival rate, guess metrics, token/latency/cost, confidence interval, and
-efficiency. They operate only on configuration and aggregate statistics -- never on
-per-round password data -- so they cannot contain API keys, auth headers,
-environment variables, unredacted passwords, or chain-of-thought.
+solve/survival rate, guess metrics, token/latency/cost (combined and role-specific),
+confidence interval, efficiency, and version metadata (application, schema,
+attacker prompt, defender prompt, capability registry -- via `ReplayMetadata`).
+They operate only on configuration and aggregate statistics -- never on per-round
+password data -- so they cannot contain API keys, auth headers, environment
+variables, unredacted passwords, or chain-of-thought. Reports accept either a
+freshly-run matchup or one reloaded from tournament history (`MatchupLike` in
+`models.py`) interchangeably.
+
+## Comparing tournaments
+
+Selecting two saved tournaments in Tournament History and clicking **Compare
+Tournaments** runs `compare_tournament_configs()` (`tournament_comparison.py`), a
+pure function that checks every `TournamentConfig` field that plausibly affects
+comparability -- generator version/mode, seed set, rounds per match, all budget
+fields, and every attacker/defender role configuration (provider, model, thinking
+level, temperature, max tokens) present in either tournament -- and returns a
+structured list of differences, not a single "comparable" boolean. Storage schema
+version mismatches are flagged separately. **Known limitation:** prompt version and
+capability-registry version are not currently compared here (see IMP-029 in
+`improvements.md`) -- they are not part of `TournamentConfig`, only of each
+matchup's `ReplayMetadata`, and this function does not yet reconcile per-matchup
+version metadata into a single tournament-level verdict.

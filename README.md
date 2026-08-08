@@ -27,10 +27,10 @@ The MVP deliberately uses transparent, rule-based agents. That makes the experim
 
 - **Adaptive defender:** escalates from dictionary words to passphrases and finally CSPRNG-generated passwords.
 - **Adaptive attacker:** ranks common-password, mutation, passphrase, and bounded-random strategies using prior synthetic results.
-- **Multi-Model Support:** Configure AI-vs-AI matchups using Gemini, OpenAI, Anthropic, Ollama, and Rule-Based agents. Support for advanced "Thinking" levels.
-- **Tournament Engine:** Build robust multi-model evaluation matrices, run repeated trials, check preflight capability, and enforce budget constraints (cost, time, tokens).
+- **Multi-Model Support:** Configure AI-vs-AI matchups using Gemini, OpenAI, Anthropic, Ollama, and Rule-Based agents. Thinking-level choices are restricted to what the selected model's own capability registry accepts, not shown unconditionally.
+- **Tournament Engine:** Build robust multi-model evaluation matrices, run repeated trials, and enforce budget constraints (cost, time, tokens). Provider availability is checked only on an explicit "Test connections" click, cached until the configuration changes -- never on every widget interaction.
 - **Evaluator:** calculates strength indicators and captures experiment metrics.
-- **Dashboard:** visualizes learning curves, generates leaderboards, plots efficiency, and exports experiment JSON.
+- **Dashboard:** visualizes learning curves, generates weighted leaderboards, plots per-role efficiency, filters results by role/provider/model/thinking-level/comparability, and exports experiment and tournament JSON/Markdown/CSV.
 
 The MVP performs persistent-state adaptation; it does not claim to retrain model weights.
 

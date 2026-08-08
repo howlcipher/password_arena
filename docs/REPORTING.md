@@ -33,14 +33,26 @@ The training baseline reveals the synthetic password to both learning components
 `reporting.tournament_report_json`, `tournament_report_markdown`, and
 `tournament_report_csv` (see `docs/tournament_workflow.md` for full metric
 semantics) produce provider-neutral, cross-model exports of a completed
-tournament's matchup statistics. They accept only `TournamentConfig` and
-`MatchupResult` objects -- configuration and aggregate statistics -- and never
-touch `ExperimentResult.rounds`, so per-round password data cannot reach them.
-`RoleConfig` (the only per-role data serialized) has no secret-bearing fields
-(`provider`, `model`, `thinking_level`, `temperature`, `max_tokens`,
-`local_endpoint`), so these reports cannot contain API keys, auth headers,
-environment variables, unredacted passwords, or chain-of-thought.
+tournament's matchup statistics. They accept `TournamentConfig` and any
+`MatchupLike` object -- a freshly-run `MatchupResult` or a `StoredMatchup`
+reloaded from tournament history (`models.MatchupLike`) -- configuration and
+aggregate statistics only, and never touch `ExperimentResult.rounds`, so
+per-round password data cannot reach them. `RoleConfig` (the only per-role
+data serialized) has no secret-bearing fields (`provider`, `model`,
+`thinking_level`, `temperature`, `max_tokens`, `local_endpoint`), so these
+reports cannot contain API keys, auth headers, environment variables,
+unredacted passwords, or chain-of-thought.
 
 Unavailable values (e.g. cost when no pricing table covers the model used) render
 as the literal string `"unavailable"` in all three formats -- never as `"0"` or a
-blank cell, so a missing measurement can never be misread as a measured zero.
+blank cell, so a missing measurement can never be misread as a measured zero. Cost
+is reported both combined (`estimated_cost`/`total`) and role-specific
+(`estimated_cost.attacker`/`estimated_cost.defender` in JSON;
+`attacker_estimated_cost`/`defender_estimated_cost` columns in CSV) -- each
+following the same unavailable-not-zero rule independently, so one role's missing
+pricing does not blank out the other's known cost.
+
+Each report also carries version metadata via `ReplayMetadata`: application
+version, schema version, and -- since the Tournament UI correctness sprint --
+attacker prompt version, defender prompt version, and capability-registry
+version, letting results be traced to exactly what code produced them.

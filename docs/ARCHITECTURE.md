@@ -20,16 +20,34 @@ depend on Streamlit:
 
 - `models.py` -- tournament data models (`MatchupConfig`, `MatchupSummary`,
   `MatchupResult`, `TournamentConfig`, `RoleUsage`, `ExclusionRecord`,
-  `EfficiencyMetrics`, `ReplayMetadata`).
+  `EfficiencyMetrics`, `ReplayMetadata`), plus `MatchupLike`: a structural
+  `Protocol` satisfied by both `MatchupResult` (fresh) and
+  `tournament_history.StoredMatchup` (reloaded), used everywhere a matchup is
+  rendered or reported so those two types stay interchangeable. Deliberately
+  lives here rather than in `tournament_view_models.py` so `reporting.py` can
+  use it without pulling in `tournament_view_models.py`'s pandas dependency
+  (only in the optional `dashboard` extra).
 - `tournament.py` -- orchestration (`run_matchup`, `build_tournament_matrix`) and
   aggregation (`aggregate_matchup`, `compute_efficiency`, `calculate_confidence_interval`,
   `replay_matchup`). Each trial is executed through the same `build_arena_engine`
   path used by single-experiment runs -- no duplicated engine logic.
+- `tournament_comparison.py` -- pure structural comparison of two
+  `TournamentConfig`s (`compare_tournament_configs`), returning a structured
+  diff rather than a single boolean. No Streamlit dependency.
 - `tournament_history.py` -- persistence (`TournamentHistoryManager`: save/list/
   load/delete), schema versioning, and linking back to full experiments stored in
   `history.py`'s `HistoryManager`.
 - `reporting.py` -- serialization, including the tournament-level JSON/Markdown/CSV
   exports, alongside the existing single-experiment exports.
-- `tournament_dashboard.py` -- Streamlit presentation only. It sources every
-  number it displays from `tournament.py`/`tournament_history.py`/`reporting.py`
-  and computes no statistics itself.
+- `preflight.py` -- provider availability checking, split into a pure fingerprint
+  function (safe to call every Streamlit rerun) and the actual network-calling
+  checks (only ever invoked from an explicit UI action). No Streamlit dependency.
+- `tournament_view_models.py` -- pure aggregation and transformation for the
+  dashboard (overview totals, weighted leaderboards, heatmap rows, efficiency
+  rows, thinking-level comparisons, result filtering). No Streamlit dependency;
+  fully covered by strict mypy. `tournament_views.py` (below) must not recreate
+  or weaken any calculation defined here.
+- `tournament_dashboard.py` / `tournament_views.py` / `ui_helpers.py` -- Streamlit
+  presentation only. They source every number they display from
+  `tournament.py`/`tournament_history.py`/`reporting.py`/`tournament_view_models.py`/
+  `preflight.py`/`tournament_comparison.py` and compute no statistics themselves.

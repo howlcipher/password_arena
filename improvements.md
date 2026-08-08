@@ -489,8 +489,20 @@ Create a provider-neutral capability model used to populate valid UI options and
 **Implementation note:**
 Enforced valid capabilities at provider generation layer for OpenAI, Gemini, and Ollama. Rejected configurations raising `ProviderError(UNSUPPORTED_CONFIGURATION)`. Validated schema with preflight checks in UI and CLI.
 
+**Re-audited in the Tournament UI correctness sprint (BUG-021):** the "UI disables
+invalid choices before execution" criterion was not actually met by the dashboard --
+`ui_helpers.py` exposed all six normalized levels unconditionally regardless of the
+selected model's real capabilities, relying entirely on the provider-layer rejection
+below to catch a bad choice at execution time rather than preventing it at
+configuration time. Fixed: `get_supported_thinking_levels()` now queries the same
+`get_capabilities()` the provider layer already enforces against, and the selectbox
+is restricted to exactly what's returned, with a visible downgrade notice if a prior
+selection becomes invalid. Status remains Done; this closes a real gap in how that
+status was earned, not a new criterion.
+
 **Validation performed:**
 Ran `pytest`, `ruff check .`, `mypy src/password_arena tests` all passed.
+`tests/test_ui_helpers.py`, `tests/test_dashboard.py::test_thinking_level_selector_is_capability_aware`.
 
 Expose `auto`, `minimal`, `low`, `medium`, `high`, and `maximum` as provider-neutral choices.
 
@@ -553,7 +565,7 @@ Preserve experiment integrity when a selected model becomes unavailable.
 ## IMP-026 — Cross-model matchup reports
 
 **Priority:** P1  
-**Status:** In Progress
+**Status:** Done
 
 Add reports that compare cloud and local models across arena roles.
 
@@ -563,49 +575,79 @@ Add reports that compare cloud and local models across arena roles.
 - Fallback and interrupted rounds are visibly marked. ✅ (`excluded_trial_records` /
   `excluded_round_records`, each with an explicit `ExclusionReason`)
 - Comparisons include solve rate, survival rate, guesses, tokens, latency, estimated cost, and efficiency. ✅
-- Reports identify prompt, schema, and capability-registry versions. ⚠️ **Partial.**
-  Reports identify `schema_version` and `application_version` (via `ReplayMetadata`).
-  There is no prompt-versioning or capability-registry-versioning concept anywhere
-  in the codebase yet (attacker/defender prompts and the per-provider
-  `*_MODEL_REGISTRY` dicts are unversioned) -- adding that is out of scope for this
-  sprint (would touch attacker.py/defender.py/every provider adapter) and is not
-  claimed as done. Left **In Progress** rather than Done for this reason.
+- Reports identify prompt, schema, and capability-registry versions. ✅ **Closed in the
+  Tournament UI correctness sprint.** `ATTACKER_PROMPT_VERSION` (attacker.py),
+  `DEFENDER_PROMPT_VERSION` (defender.py), and `CAPABILITY_REGISTRY_VERSION`
+  (providers.py) are now threaded into `ReplayMetadata`, which every tournament
+  report already includes (`"replay": asdict(m.replay)`). Reports now carry all
+  five version fields together: application, schema, attacker prompt, defender
+  prompt, capability registry.
 - Non-comparable rounds are excluded from headline comparisons by default. ✅
 
 **Implementation note**
 
 `reporting.tournament_report_json/markdown/csv` (see `docs/REPORTING.md`) implement
-everything above except prompt/capability-registry versioning. Reports never touch
-per-round password data and cannot contain secrets (`RoleConfig` has no
-secret-bearing fields). Tested in `tests/test_reporting.py`.
+everything above. Reports never touch per-round password data and cannot contain
+secrets (`RoleConfig` has no secret-bearing fields). Tested in
+`tests/test_reporting.py::test_tournament_report_json_includes_version_metadata` and
+`tests/test_tournament.py::test_replay_metadata_carries_prompt_and_capability_registry_versions`.
+
+Known limitation (tracked separately, see IMP-029): these version fields are only
+persisted on a freshly-run `MatchupResult`'s `ReplayMetadata`, not on
+`StoredMatchup` at the tournament-history level in a way `compare_tournament_configs`
+can consult -- two saved tournaments run under different prompt/capability-registry
+versions are not currently flagged as such by the history comparison feature.
 
 ---
 
 ## IMP-027 — Model efficiency dashboard
 
 **Priority:** P2  
-**Status:** In Progress (data layer done, dashboard visualization deferred)
+**Status:** In Progress (visualization landed; one criterion still genuinely open)
 
 Visualize performance per token, second, and estimated cost.
 
-**Acceptance criteria**
+**Acceptance criteria, re-audited individually against the Tournament UI correctness sprint's actual result:**
 
-- Dashboard includes password-strength gain per 1,000 tokens where meaningful. ❌ Not done (dashboard/chart work, deferred)
-- Attacker success and defender survival can be compared against latency and cost. ✅ (data layer: `EfficiencyMetrics`)
+- Dashboard includes password-strength gain per 1,000 tokens where meaningful. ❌ **Still not done.**
+  This would require a new aggregate metric (mean entropy/strength gain per matchup)
+  that does not exist anywhere in `MatchupSummary` today -- strength/entropy is only
+  tracked per-round (`RoundResult.strength`), never aggregated at the tournament level.
+  Adding it means extending core tournament aggregation semantics, not just the UI,
+  which is a larger change than this UI-focused sprint's mandate covers. Left
+  explicitly open rather than claimed done.
+- Attacker success and defender survival can be compared against latency and cost. ✅
+  The Efficiency tab now has six scatter charts, not two: attacker solve rate vs.
+  attacker cost/tokens/latency, and defender survival rate vs. defender
+  cost/tokens/latency -- each using role-specific data (`attacker_estimated_cost`,
+  `defender_estimated_cost`, `attacker_mean_latency_ms`, `defender_mean_latency_ms`),
+  never a role's performance charted against the *other* role's resource usage.
 - Missing provider metrics are shown as unavailable rather than estimated without disclosure. ✅
-- Filters support role, model, provider, thinking level, and comparable-only rounds. ❌ Not done (dashboard filter UI, deferred)
-- Charts do not mix incompatible scales without clear axes. ❌ Not applicable yet (no charts added)
+  Every chart drops points with missing data (`dropna`) rather than substituting `0`;
+  `build_efficiency_data` returns `None` for genuinely missing cost/latency, never a
+  fabricated zero.
+- Filters support role, model, provider, thinking level, and comparable-only rounds. ✅
+  Added a filter bar (`filter_results`/`available_filter_options` in
+  `tournament_view_models.py`, wired into `tournament_dashboard.py::_render_filter_bar`)
+  applied once, upstream of all four result tabs including Efficiency.
+- Charts do not mix incompatible scales without clear axes. ✅
+  Attacker and defender metrics are charted separately (never one role's rate against
+  the other role's resource axis); the heatmap's combined attacker+defender metrics
+  are now explicitly labeled as combined ("Combined attacker+defender latency (ms)"),
+  not presented under an ambiguous shared label.
 
 **Implementation note**
 
-`tournament.py::compute_efficiency` now computes transparent, role-specific ratios
+`tournament.py::compute_efficiency` computes transparent, role-specific ratios
 (`attacker_solved_per_1k_tokens`, `attacker_solved_per_second`,
 `attacker_solved_per_dollar`, `defender_survived_per_1k_tokens`,
 `defender_survived_per_dollar`), never a blended single score, and never divides by
-a zero/unavailable denominator. This unblocks IMP-027's data requirements, but the
-dashboard visualization (charts, filters) explicitly remains out of scope for this
-sprint per the task brief ("visual dashboard work can remain for the next sprint")
--- do not mark this Done until that UI work lands.
+a zero/unavailable denominator, using role-specific cost denominators as of this
+sprint (previously divided by the combined matchup cost). The dashboard
+visualization (`tournament_views.py::render_efficiency`,
+`tournament_view_models.py::build_efficiency_data`) and the filter bar landed this
+sprint. Left **In Progress**, not Done, solely because of the strength-gain-per-token
+criterion above -- do not mark Done until that lands.
 
 ---
 
@@ -637,3 +679,42 @@ generically with no hard-coded model names; only the UI's convenience checkbox
 catalog in `tournament_dashboard.py` names specific models, which the task brief
 treats as acceptable (model discovery belongs in the provider/capability layer and
 UI, not core orchestration).
+
+---
+
+## IMP-029 — Persist replay metadata on StoredMatchup so version comparability is checkable across saved tournaments
+
+**Priority:** P2  
+**Status:** Open
+
+`compare_tournament_configs()` (IMP-013 audit / BUG-024) cannot compare prompt
+version or capability-registry version between two saved tournaments, because
+that metadata lives only in `ReplayMetadata`, which is built fresh at run time
+and (until BUG-026's fix) was never persisted on `StoredMatchup` at all.
+BUG-026 fixed the *dropping* of `ReplayMetadata` on save -- `StoredMatchup` now
+carries it -- but `compare_tournament_configs()` still only accepts bare
+`TournamentConfig` objects, which have no version fields to compare. Two
+tournaments run under different `ATTACKER_PROMPT_VERSION` /
+`CAPABILITY_REGISTRY_VERSION` values can therefore still be reported as
+"identical" by the history comparison feature today.
+
+**Acceptance criteria**
+
+- `compare_tournament_configs()` (or a sibling function) also compares
+  application version, schema version, attacker/defender prompt version, and
+  capability-registry version, sourced from each tournament's matchups'
+  `ReplayMetadata` (now persisted per BUG-026) rather than from
+  `TournamentConfig` alone.
+- Two tournaments whose matchups carry different prompt or capability-registry
+  versions are flagged as a difference, not silently reported as comparable.
+- Existing `TournamentConfig`-level comparison behavior (generator, budgets,
+  seeds, role configs) is unchanged.
+
+**Implementation note**
+
+Not started. Deliberately left out of the Tournament UI correctness sprint that
+discovered and scoped it (BUG-024/BUG-026), since it requires deciding how to
+reconcile *per-matchup* replay metadata (different matchups within one
+tournament could theoretically have been run under different code versions, if
+a tournament were resumed after a code deploy) into a single tournament-level
+comparability verdict -- a design question, not a mechanical fix.

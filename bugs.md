@@ -438,7 +438,8 @@ Either confine writes to a fixed directory with a validated filename, or avoid t
 ## BUG-016 — Tournament tab is unreachable until an Arena experiment has been run
 
 **Priority:** P1  
-**Status:** Open
+**Status:** Resolved  
+**Resolved in:** Tournament UI correctness sprint
 
 ### Reproduction
 
@@ -464,11 +465,358 @@ guard only the Arena tab's results section, not the whole script, or check
 `st.session_state.experiment` before calling `st.stop()` in a way that does not
 also block sibling tabs from rendering.
 
-### Status note
+### Resolution
 
-Discovered during validation of this sprint's tournament-statistics work. Left
-**unfixed and out of scope**: this is an Arena-tab control-flow/UX defect, not a
-tournament statistics, comparability, or persistence defect, and fixing it means
-changing `render_arena_tab()`'s early-return structure -- exactly the kind of
-dashboard/UI change this sprint's brief said to defer. Tracked here so it is not
-lost; recommended as the first item for the next UI-focused sprint.
+Replaced all three `st.stop()` calls in `render_arena_tab()` with `return`.
+`st.stop()` halts the entire script run (both tabs); `return` only exits the
+Arena tab's own render function, leaving `render_tournament_tab()` (called
+afterward in the same script run) unaffected. Also removed the duplicate
+`st.set_page_config()` call that used to live inside `render_arena_tab()` --
+`render_dashboard()` now makes the single application-level call, since the
+Arena tab is no longer guaranteed to always run first without side effects.
+
+### Validation performed
+
+`tests/test_dashboard.py::test_tournament_tab_accessible_without_arena_run`:
+fresh `AppTest` session, asserts both Arena controls ("Run arena") and
+Tournament controls ("Run Tournament", "Add Attacker", "Add Defender", the
+"Tournament Configuration" header) exist without ever running Arena. Ran
+`pytest`.
+
+---
+
+## BUG-017 — Tournament Overview understated total cost by treating unknown per-matchup cost as zero
+
+**Priority:** P1  
+**Status:** Resolved  
+**Resolved in:** Tournament UI correctness sprint
+
+### Reproduction
+
+Run or load a tournament containing at least one matchup with known cost and at least one matchup using a provider without cost metadata (e.g. `gemini`/`ollama`, or any comparable round with `RoleUsage.estimated_cost=None`). Open the Overview tab.
+
+### Impact
+
+`tournament_views.py::render_overview` computed `cost_known = any(r.summary.total_estimated_cost is not None for r in results)` and `total_cost = sum((r.summary.total_estimated_cost or 0.0) for r in results)`. Because `cost_known` only required *one* matchup to have a known cost, and the sum silently substituted `0.0` for every unpriced matchup, the Overview displayed a confident dollar figure that was actually missing an unknown amount -- directly contradicting the documented invariant (`docs/tournament_workflow.md`): "a missing cost is `None`, never `0.0`."
+
+### Expected resolution
+
+A cross-matchup cost rollup must require *every* contributing matchup's cost to be known before showing a sum; otherwise it must render as unavailable, matching the same discipline `tournament.py::aggregate_matchup` already applies within a single matchup.
+
+### Resolution
+
+Added `aggregate_tournament_cost()` (`tournament_view_models.py`), a pure function using `all()`-known semantics: sums `total_estimated_cost` across the given matchups only if none are `None`; otherwise returns `None`. `render_overview` now calls this instead of the inline `any()`/`or 0.0` logic. Also fixed the same-shaped bug in the solve/survival rate computation, which used to silently render `0.0` (not "no data") when there were zero comparable rounds.
+
+### Validation performed
+
+`tests/test_tournament_view_models.py::test_aggregate_tournament_cost_known_zero`,
+`::test_aggregate_tournament_cost_unknown_when_any_matchup_unknown`,
+`::test_aggregate_tournament_cost_empty_is_none_not_zero`,
+`::test_build_overview_cost_unknown_not_zero_substituted`,
+`::test_build_overview_no_comparable_rounds_returns_none_not_zero`. Ran `pytest`.
+
+---
+
+## BUG-018 — Attacker leaderboard "Cost" column showed combined attacker+defender matchup cost
+
+**Priority:** P1  
+**Status:** Resolved  
+**Resolved in:** Tournament UI correctness sprint
+
+### Reproduction
+
+Run a tournament where attacker and defender both use priced hosted providers. Open the Leaderboards tab and inspect the attacker table's "Cost" column.
+
+### Impact
+
+`tournament_views.py::render_leaderboards` populated the attacker "Cost" column from `r.summary.total_estimated_cost` -- the whole matchup's combined attacker+defender spend -- with an inline comment self-acknowledging the shortcut ("Fallback: per role not separated"). This inflated apparent attacker cost by however much the defender spent, and the defender leaderboard had no Cost column at all, so defender spend was invisible.
+
+### Expected resolution
+
+Either compute real per-role cost from the data already available (`RoleUsage.estimated_cost` is role-separated at the round level), or mark attacker/defender cost unavailable rather than presenting combined cost as attacker-only.
+
+### Resolution
+
+Extended the data model cleanly: added `attacker_estimated_cost`/`defender_estimated_cost` to `MatchupSummary`, computed in `tournament.py::aggregate_matchup` with the same all-known-or-`None` discipline as the existing combined total (per role, not the whole matchup). `compute_efficiency` now divides `attacker_solved_per_dollar` by the attacker's own cost and `defender_survived_per_dollar` by the defender's own cost, not the combined total. The attacker leaderboard reads `attacker_estimated_cost`; the defender leaderboard gained a "Cost" column reading `defender_estimated_cost`.
+
+### Validation performed
+
+`tests/test_tournament.py::test_role_specific_cost_is_not_combined_matchup_cost`,
+`::test_role_specific_cost_unknown_for_only_the_affected_role`,
+`::test_role_specific_cost_zero_when_role_never_calls_llm`,
+`::test_efficiency_uses_role_specific_cost_not_combined`;
+`tests/test_tournament_view_models.py::test_defender_leaderboard_is_weighted_and_has_cost_column`. Ran `pytest`.
+
+---
+
+## BUG-019 — Leaderboard and thinking-level comparisons used an unweighted mean of per-matchup rates
+
+**Priority:** P1  
+**Status:** Resolved  
+**Resolved in:** Tournament UI correctness sprint
+
+### Reproduction
+
+Build fixtures where one attacker played matchup A (100 comparable rounds, 100% solve rate) and matchup B (2 comparable rounds, 0% solve rate) against different defenders. Check the attacker leaderboard's aggregate solve rate.
+
+### Impact
+
+`tournament_views.py::render_leaderboards` and `render_thinking_comparison` built a per-matchup row per attacker/defender/thinking-level, then called `df.groupby(...).mean(numeric_only=True)` -- an unweighted arithmetic mean of each matchup's own percentage. With the fixture above, this produced 50% (mean of 100% and 0%) rather than the statistically correct 100/102 ≈ 98.0% (ratio of summed counts). A matchup with 2 comparable rounds carried equal statistical weight to one with 100.
+
+### Expected resolution
+
+Aggregate as a ratio of summed counts (`sum(rounds_solved) / sum(rounds_completed)`), matching how `tournament.py` itself defines solve/survival rate, not a mean of already-normalized percentages.
+
+### Resolution
+
+`build_attacker_leaderboard`/`build_defender_leaderboard`/`build_thinking_comparison_data` (`tournament_view_models.py`) now aggregate rates as ratios of summed counts. Latency and guesses-to-solve are reconstructed as weighted means using each contributing matchup's own count (`rounds_completed`/`rounds_solved`) as the weight -- an exact reconstruction of the pooled mean, documented in the module docstring alongside why medians are *not* recombined the same way (a "median of medians" isn't a valid reconstruction without the raw per-round data).
+
+### Validation performed
+
+`tests/test_tournament_view_models.py::test_attacker_leaderboard_is_weighted_not_unweighted_mean`
+(the 100-round-vs-2-round fixture, asserting the weighted result differs from the unweighted mean),
+`::test_defender_leaderboard_is_weighted_and_has_cost_column`,
+`::test_leaderboard_latency_is_weighted_mean_reconstruction`,
+`::test_thinking_comparison_is_weighted_across_matchups`. Ran `pytest`.
+
+---
+
+## BUG-020 — Heatmap combined attacker+defender latency/tokens under an ambiguous label, relying on color alone
+
+**Priority:** P2  
+**Status:** Resolved  
+**Resolved in:** Tournament UI correctness sprint
+
+### Reproduction
+
+Open the Matchup Heatmap tab and select "Latency ms" or "Tokens" as the metric.
+
+### Impact
+
+`tournament_views.py::render_heatmap`'s "Latency ms" and "Tokens" metrics summed the attacker and defender values with no indication the displayed number was combined, under a generic label that reads as if it were a single role's figure. The heatmap also had no "Cost" metric at all, and conveyed its value only through cell color (`viridis` color scale), with no accessible text alternative, and tooltips omitted comparable/excluded round counts, trial counts, and confidence intervals.
+
+### Expected resolution
+
+Label combined metrics explicitly as combined; add a Cost metric; add a visible value alongside color; extend tooltips with the full context.
+
+### Resolution
+
+`HEATMAP_METRICS` now reads `"Combined attacker+defender latency (ms)"` / `"Combined attacker+defender tokens"` instead of the ambiguous originals, plus a new `"Cost"` option (using the matchup-level `total_estimated_cost`, which is legitimately a whole-matchup figure at that granularity, not mislabeled). `render_heatmap` layers a `mark_text` value label on top of the `mark_rect` color cells so the metric is never conveyed by color alone. Tooltips now include attacker/defender provider, model, thinking level, comparable rounds, excluded rounds, trials, excluded trials, and the confidence interval bounds.
+
+### Validation performed
+
+`tests/test_tournament_view_models.py::test_heatmap_combined_metrics_are_explicitly_labeled`,
+`::test_heatmap_data_missing_latency_is_none_not_zero`,
+`::test_heatmap_data_tooltip_payload_is_complete`,
+`::test_heatmap_data_rejects_unknown_metric`. Ran `pytest`.
+
+---
+
+## BUG-021 — Thinking-level selector exposed all six levels regardless of the selected model's actual capability
+
+**Priority:** P2  
+**Status:** Resolved  
+**Resolved in:** Tournament UI correctness sprint
+
+### Reproduction
+
+In either the Arena or Tournament role configuration UI, select `openai` / `gpt-4o` (which only accepts `auto`) or `o1-preview` (which only accepts `low`/`medium`/`high`) and inspect the "Thinking level" dropdown.
+
+### Impact
+
+`ui_helpers.py::render_role_config` built the thinking-level selectbox from `[t.value for t in ThinkingLevel]` unconditionally -- all six normalized levels, for every provider/model, ignoring the real per-model capability registry (`ModelCapabilities.accepted_thinking_levels`) that provider adapters already enforce at request time. Users could select and run with a level the provider would reject or silently coerce, discovered only at preflight/execution time rather than at configuration time.
+
+### Expected resolution
+
+Query the existing capability registry (already IMP-023's source of truth for enforcement) before rendering the selector; restrict options to what the selected model actually accepts; never silently downgrade.
+
+### Resolution
+
+Added `get_supported_thinking_levels(provider, model)` (`ui_helpers.py`), which asks the provider adapter's own `get_capabilities()` -- the same source execution itself consults. The thinking-level selectbox is now restricted to exactly what's returned. If a previously valid selection becomes invalid after switching provider/model, it is downgraded with a visible `st.warning` naming both the rejected and the new level, never silently.
+
+### Validation performed
+
+`tests/test_ui_helpers.py::test_get_supported_thinking_levels_narrow_model`,
+`::test_get_supported_thinking_levels_auto_only_model`,
+`::test_get_supported_thinking_levels_unknown_manual_model_falls_back_to_auto`;
+`tests/test_dashboard.py::test_thinking_level_selector_is_capability_aware` (end-to-end AppTest
+proving the downgrade-with-warning path). Ran `pytest`.
+
+---
+
+## BUG-022 — mypy exclude regex unanchored, silently hiding real type errors in two files never intended to be excluded
+
+**Priority:** P2  
+**Status:** Resolved  
+**Resolved in:** Tournament UI correctness sprint
+
+### Reproduction
+
+Run `mypy src/password_arena tests` on `main` before this fix, then re-run with `--verbose` and diff the "Found source" file list against every `.py` file under `src/password_arena/` and `tests/`.
+
+### Impact
+
+`pyproject.toml`'s `[tool.mypy] exclude = ["dashboard\\.py", "tournament_views\\.py"]` used unanchored regexes, which mypy matches with `re.search` (substring match). `"dashboard\.py"` therefore also matched `tournament_dashboard.py` and `tests/test_dashboard.py` -- neither was ever intended to be excluded (only `src/password_arena/dashboard.py` was), but both were silently skipped by strict mypy in every CI run. This masked 5 real strict-mode errors once corrected, including a genuine type mismatch between `_render_results()`'s declared `list` parameter and the `tuple[StoredMatchup, ...]` it was actually called with for loaded tournaments.
+
+### Expected resolution
+
+Anchor the exclude patterns so they only match the exact intended filenames.
+
+### Resolution
+
+Changed to `exclude = ["(^|/)dashboard\\.py$", "(^|/)tournament_views\\.py$"]`, verified against the full file list to exclude exactly those two files and no others. Fixed the 5 real errors this surfaced by moving the `MatchupLike` Protocol (introduced in the earlier view-model extraction) to `models.py` and typing `_render_results`, `_render_filter_bar`, and `reporting.py`'s three `tournament_report_*` functions against `Sequence[MatchupLike]` instead of a bare/mismatched `list`.
+
+### Validation performed
+
+Diffed the full `.py` file list against `mypy --verbose`'s "Found source" list before and after -- confirmed exactly 2 files excluded (down from 4), both intended. Ran `mypy src/password_arena tests` (41 files, clean) and `pytest`.
+
+---
+
+## BUG-023 — Provider preflight network calls fired on every Streamlit rerun, not just explicit checks
+
+**Priority:** P1  
+**Status:** Resolved  
+**Resolved in:** Tournament UI correctness sprint
+
+### Reproduction
+
+Select a hosted provider (e.g. `openai`) for a role in either the Arena or Tournament tab, then interact with any unrelated widget on the page (a slider, another selectbox).
+
+### Impact
+
+`dashboard.py::render_arena_tab` called `build_arena_engine(config)` (which internally calls `check_availability()` for both roles) unconditionally on every script rerun, and `tournament_dashboard.py::render_tournament_tab` ran an equivalent `check_availability()` loop over every unique role, also unconditionally. Since any widget interaction anywhere on a Streamlit page triggers a full script rerun, every keystroke or slider drag fired provider network calls -- wasteful, and risked hitting rate limits or unexpected spend signals from repeated availability checks.
+
+### Expected resolution
+
+Cache preflight status, invalidate the cache on configuration change, and only perform the actual network check in response to an explicit user action ("Test connections"). Rule-based configurations should remain immediately available with no network check.
+
+### Resolution
+
+Added `preflight.py`: `compute_role_fingerprint()` (pure, no I/O, cheap to call every rerun) plus `check_role_availability()`/`check_roles_availability()` (the actual network-calling checks). `ui_helpers.render_preflight_gate()` wraps these with session-state caching keyed by the fingerprint -- a configuration change invalidates the cache and shows "Configuration changed. Status: Not checked." with a "Test connections" button; the check only runs in response to that click. `Run arena`/`Run Tournament` stay disabled until the cached result for the *current* configuration is all-available. `build_arena_engine()` (which re-verifies availability while constructing the engine) now only runs when "Run arena" is actually clicked.
+
+### Validation performed
+
+`tests/test_preflight.py` (fingerprinting, dedup, error wrapping -- all with fakes, no network calls);
+`tests/test_dashboard.py::test_preflight_not_checked_automatically_for_non_rule_based_provider`,
+`::test_test_connections_caches_result_until_config_changes`,
+`::test_tournament_preflight_gate_disables_run_for_unchecked_hosted_provider` (end-to-end AppTests
+using OpenAI's real, network-free `check_availability()` behavior when no API key is set). Ran `pytest`.
+
+---
+
+## BUG-024 — Tournament comparison declared "directly comparable" after checking only 4 scalar fields
+
+**Priority:** P1  
+**Status:** Resolved  
+**Resolved in:** Tournament UI correctness sprint
+
+### Reproduction
+
+Save two tournaments with identical `rounds_per_match`/`seeds`/`max_guesses`/`generator_version` but different attacker/defender provider, model, or thinking-level configurations, or different budgets. Select both in Tournament History and click "Compare Tournaments".
+
+### Impact
+
+`tournament_dashboard.py::render_tournament_history` only compared `rounds_per_match`, `seeds`, `max_guesses`, and `generator_version`; if those four matched, it printed "Tournaments share identical core parameters and are directly comparable" even when the actual role configurations (provider/model/thinking level) or budgets (tokens/cost/time/retries) differed -- a materially false claim.
+
+### Expected resolution
+
+Compare every field that plausibly affects comparability: generator version/mode, seed set, rounds per match, all budget fields, and every attacker/defender role configuration present in either tournament. Return a structured diff, not a single boolean.
+
+### Resolution
+
+Added `compare_tournament_configs()` (`tournament_comparison.py`), a pure function comparing generator_version, generator_mode, seeds (as a set -- trial order doesn't affect comparability), rounds_per_match, max_guesses, max_tokens, max_api_cost, max_wall_time_s, max_retries, and per-role signatures (provider/model/thinking_level/temperature/max_tokens) for every attacker/defender present in either tournament. Returns a `ConfigComparison` with a full list of named differences, not a bare bool. Wired into the "Compare Tournaments" flow, replacing the old 4-field check. Storage schema-version mismatches are also flagged separately.
+
+Known, documented limitation: prompt version and capability-registry version are *not* compared, because neither is part of `TournamentConfig` nor persisted at the tournament level (only per-matchup `ReplayMetadata` at run time, which `StoredMatchup` did not carry at all until BUG-026 below). See IMP-029.
+
+### Validation performed
+
+`tests/test_tournament_comparison.py` (8 cases: identical configs, seed-order independence, seed-set differences, scalar budget differences, thinking-level differences, provider/model differences, extra-role differences, generator differences);
+`tests/test_dashboard.py::test_compare_two_tournaments_renders_without_error` (end-to-end AppTest). Ran `pytest`.
+
+---
+
+## BUG-025 — RoleConfig.thinking_level deserialized as a bare string, not a ThinkingLevel enum, after loading from disk
+
+**Priority:** P1  
+**Status:** Resolved  
+**Resolved in:** Tournament UI correctness sprint
+
+### Reproduction
+
+Save any tournament or single-arena experiment involving a non-`rule_based` role with a non-default thinking level, then load it back and access `role_config.thinking_level.value` (e.g. via the Tournament leaderboard, heatmap, or the new comparison feature).
+
+### Impact
+
+`ThinkingLevel` is a `StrEnum`; `dataclasses.asdict()` does not convert it, but `json.dumps()` serializes it as a plain string (StrEnum inherits from `str`). Neither `tournament_history.py::_role_config_from_dict` nor `models.py::ExperimentResult.from_dict` re-wrapped the loaded value, so `RoleConfig.thinking_level` on anything loaded from disk was actually a bare `str`, not a `ThinkingLevel` member -- despite the field's declared type. Any code calling `.thinking_level.value` on a loaded config raised `AttributeError: 'str' object has no attribute 'value'`. Discovered while manually exercising the new tournament-comparison feature end to end (BUG-024) against two saved tournaments -- this crashed the entire Tournament tab render for *any* loaded tournament, predating this sprint's changes entirely.
+
+### Expected resolution
+
+Re-wrap `thinking_level` with `ThinkingLevel(...)` in both deserialization paths.
+
+### Resolution
+
+Fixed in both `tournament_history.py::_role_config_from_dict` and `models.py::ExperimentResult.from_dict`.
+
+### Validation performed
+
+`tests/test_tournament_history.py::test_loaded_role_config_thinking_level_is_a_real_enum_not_a_string`;
+`tests/test_history.py::test_loaded_experiment_role_config_thinking_level_is_a_real_enum`. Ran `pytest`.
+
+---
+
+## BUG-026 — StoredMatchup silently dropped replay metadata and exclusion records on save
+
+**Priority:** P1  
+**Status:** Resolved  
+**Resolved in:** Tournament UI correctness sprint
+
+### Reproduction
+
+Save any tournament, then load it back and attempt to download a JSON/Markdown/CSV report for it (or compare it against another saved tournament).
+
+### Impact
+
+`TournamentHistoryManager.save()` never persisted `replay`, `excluded_trial_records`, or `excluded_round_records` -- `StoredMatchup` didn't carry those fields at all. `reporting.py::_matchup_payload` unconditionally accesses `m.replay`/`m.excluded_trial_records`/`m.excluded_round_records`, so generating any report for a loaded tournament raised `AttributeError`. This also violated the documented invariant in `docs/tournament_workflow.md` that exclusion records are "never dropped." Discovered while manually exercising the new tournament-comparison feature end to end (BUG-024) -- predates this sprint's changes entirely.
+
+### Expected resolution
+
+Persist and reconstruct `replay`/`excluded_trial_records`/`excluded_round_records` on `StoredMatchup`, with backward-compatible defaults for tournaments saved before the fix.
+
+### Resolution
+
+Added the three fields to `StoredMatchup` (defaulting to `None`/`()`), persisted them in `save()`, and reconstructed them on load via new `_replay_metadata_from_dict`/`_exclusion_record_from_dict` helpers (which also re-wrap the `ThinkingLevel`/`ExclusionReason` StrEnum fields nested inside them -- see BUG-025). Bumped `TOURNAMENT_SCHEMA_VERSION` to `"2.1"`; tournaments saved under `"2.0"` or earlier load with `None`/`()` defaults for the new fields rather than raising.
+
+### Validation performed
+
+`tests/test_tournament_history.py::test_save_list_load_delete_round_trip` (extended with replay/exclusion-record round-trip assertions),
+`::test_load_tolerates_old_format_missing_replay_and_exclusion_records`;
+`tests/test_dashboard.py::test_load_saved_tournament_from_history_renders_without_error`,
+`::test_compare_two_tournaments_renders_without_error`. Ran `pytest`.
+
+---
+
+## BUG-027 — Comparing two tournaments side by side crashed with a duplicate Streamlit element ID
+
+**Priority:** P2  
+**Status:** Resolved  
+**Resolved in:** Tournament UI correctness sprint
+
+### Reproduction
+
+Save two tournaments, select both in Tournament History, and click "Compare Tournaments".
+
+### Impact
+
+`tournament_views.py::render_heatmap`'s metric `st.selectbox` had no explicit `key`. Streamlit auto-generates widget IDs from element type, label, and options; rendering two tournaments side by side in the same script run (the comparison view calls `_render_results` twice) produced two heatmap selectboxes with an identical auto-ID, raising `StreamlitDuplicateElementId` and crashing the whole comparison. Discovered while manually exercising BUG-024's comparison feature end to end -- predates this sprint's changes entirely (the side-by-side comparison code path already existed and was simply never exercised by any prior test).
+
+### Expected resolution
+
+Give the metric selectbox an explicit, per-tournament-unique key.
+
+### Resolution
+
+`render_heatmap()` now takes a required `key_prefix` parameter, keyed by the calling `tournament_id`, and passes `key=f"{key_prefix}_heatmap_metric"` to the selectbox.
+
+### Validation performed
+
+`tests/test_dashboard.py::test_compare_two_tournaments_renders_without_error`. Ran `pytest`.
