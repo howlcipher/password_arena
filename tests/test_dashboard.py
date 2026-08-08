@@ -42,6 +42,41 @@ def test_tournament_tab_accessible_without_arena_run() -> None:
     assert "Tournament Configuration" in header_texts
 
 
+def test_run_tournament_renders_all_result_tabs_without_error(
+    tmp_path: Any, monkeypatch: Any
+) -> None:
+    """End-to-end exercise of the rewritten tournament_views.py rendering
+    layer (Overview, Leaderboards, Heatmap, Efficiency, Thinking Levels)
+    against real (rule_based vs rule_based, so fast and free) tournament
+    data, not just the pure tournament_view_models functions in isolation."""
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(str(DASHBOARD_PATH))
+    at.run(timeout=30)
+    assert not at.exception
+
+    # Default attacker/defender are both rule_based with no model, so
+    # "Exclude self-play matchups" would otherwise exclude the only possible
+    # matchup entirely -- uncheck it for this rule_based-vs-rule_based case.
+    self_play_checkbox = next(
+        c for c in at.checkbox if c.label == "Exclude self-play matchups (e.g. GPT vs GPT)"
+    )
+    self_play_checkbox.set_value(False)
+    at.run(timeout=30)
+    assert not at.exception
+
+    run_button = next(b for b in at.button if b.label == "Run Tournament")
+    run_button.click()
+    at.run(timeout=60)
+    assert not at.exception
+
+    subheader_texts = {s.value for s in at.subheader}
+    assert "Tournament Overview" in subheader_texts
+    assert "Leaderboards" in subheader_texts
+    assert "Matchup Matrix" in subheader_texts
+    assert "Efficiency" in subheader_texts
+    assert "Thinking-Level Comparison" in subheader_texts
+
+
 def _find_profile_name_input(at: AppTest) -> Any:
     for ti in at.text_input:
         if ti.label == "Save profile as":
