@@ -230,3 +230,245 @@ Store full-precision normalized weights and round only in presentation layers, o
 ### Validation performed
 
 Ran `ruff check .`, `mypy src/password_arena`, and `pytest`. All tests passed successfully.
+
+---
+
+## BUG-009 — Tournament trial outcome ignores every round but the last
+
+**Priority:** P1  
+**Status:** Resolved  
+**Resolved in:** Tournament aggregation rewrite
+
+### Reproduction
+
+Run a tournament matchup with `rounds > 1`. `run_matchup()` determined whether the attacker "won" a trial by inspecting only `experiment.rounds[-1].attack.solved` (`tournament.py:88-94`, pre-fix), discarding the outcome of every other round in the trial.
+
+### Impact
+
+A trial where the attacker solved 7 of 8 rounds and an otherwise-identical trial where the attacker solved only the final round were indistinguishable in the headline statistic. Solve rate could not be trusted as a summary of attacker performance.
+
+### Expected resolution
+
+Define an explicit, round-level headline metric and keep any retained trial-level binary statistic narrowly scoped and separately labeled.
+
+### Resolution
+
+- `tournament.py::aggregate_matchup` now computes `solve_rate`/`survival_rate` as round-level Bernoulli statistics (`rounds_solved`/`rounds_completed`, comparable observations only).
+- The old last-round check is retained only as an explicitly narrow, separately labeled `final_round_solved_count`/`final_round_resisted_count` -- never presented as the headline.
+
+### Validation performed
+
+`tests/test_tournament.py::test_one_solved_one_resisted_round`, `test_all_solved`, `test_none_solved`. Ran `ruff check .`, `mypy src/password_arena tests`, and `pytest`.
+
+---
+
+## BUG-010 — Tournament guess statistic mixes solved and resisted rounds under a misleading name
+
+**Priority:** P2  
+**Status:** Resolved  
+**Resolved in:** Tournament aggregation rewrite
+
+### Reproduction
+
+`mean_guesses` (pre-fix) summed `guesses_used` across every round of a trial, including rounds the attacker never solved, which still consume up to `max_guesses` guesses.
+
+### Impact
+
+A number that reads as "guesses to solve" was actually a blended, always-larger total-guess-volume figure, understating attacker efficiency and misleading anyone comparing models.
+
+### Expected resolution
+
+Separate "guesses to solve" (solved rounds only) from "guesses per round" (all rounds) and "total guesses per trial."
+
+### Resolution
+
+- `MatchupSummary` now reports `mean_guesses_to_solve`/`median_guesses_to_solve` (solved rounds only), `mean_guesses_per_round`/`median_guesses_per_round`/`std_guesses_per_round` (all comparable rounds), and `mean_total_guesses_per_trial` (per-trial sums) as distinct fields.
+
+### Validation performed
+
+`tests/test_tournament.py::test_guess_statistics_hand_calculated`. Ran `pytest`.
+
+---
+
+## BUG-011 — Tournament token and cost aggregation is dead placeholder code
+
+**Priority:** P1  
+**Status:** Resolved  
+**Resolved in:** Tournament aggregation rewrite
+
+### Reproduction
+
+`run_matchup()` executed `total_tokens += 0` and `total_estimated_cost += 0.0` unconditionally every loop iteration (`tournament.py:96-97`, pre-fix), even though `engine.py`'s `BudgetTracker` already accumulated real usage per trial. `MatchupSummary.total_tokens`/`total_estimated_cost` were always zero regardless of actual LLM usage. Separately, every provider adapter defaulted `estimated_cost` to `0.0` even when the model's price was unknown, so a genuinely-unpriced call was indistinguishable from a genuinely-free one.
+
+### Impact
+
+Any tournament involving hosted models reported zero tokens and zero cost, making cost/efficiency comparisons meaningless and silently misleading.
+
+### Expected resolution
+
+Wire real per-role usage into round/trial/matchup results, and represent unknown cost as `None`, never a fabricated `0.0`.
+
+### Resolution
+
+- `providers.py::UsageMetrics.estimated_cost` is now `float | None` (`None` = unavailable). `openai_provider.py`/`anthropic_provider.py` only set a float when their pricing table covers the model; `gemini_provider.py`/`ollama_provider.py` never fabricated a cost and now correctly default to `None`. `engine.py::BudgetTracker.add_metrics` guards the `None` case.
+- `engine.py::BoundBackend` now records `last_metrics` per call; `ArenaEngine.run()` captures per-role `RoleUsage` (tokens, latency, cost, fallback flag) onto each `RoundResult`.
+- `tournament.py::aggregate_matchup` sums real per-role tokens/latency and propagates `total_estimated_cost=None` if any contributing call had unknown cost, rather than silently treating it as zero.
+- `gemini_provider.py`/`ollama_provider.py` also gained real latency measurement (previously always `0.0`, a fabricated measurement for a network call).
+
+### Validation performed
+
+`tests/test_tournament.py::test_role_specific_token_and_latency_aggregation`, `test_unavailable_cost_propagates_as_none`, `test_known_cost_sums_including_rule_based_zero`; `tests/test_openai_provider.py::test_openai_provider_unpriced_model_cost_is_unavailable`; `tests/test_anthropic_provider.py` equivalent; `tests/test_engine.py::test_mock_backend_populates_usage_via_build_arena_engine`. Ran `ruff check .`, `mypy src/password_arena tests`, and `pytest`.
+
+---
+
+## BUG-012 — One interrupted seed marks an entire matchup non-comparable and loses prior exclusion reasons
+
+**Priority:** P1  
+**Status:** Resolved  
+**Resolved in:** Tournament aggregation rewrite
+
+### Reproduction
+
+`run_matchup()` used a single matchup-wide `is_comparable`/`non_comparable_reason` pair (pre-fix). Any preflight failure or interruption set `is_comparable = False` and overwrote `non_comparable_reason`, so if seed A failed for one reason and seed B failed for another, only B's reason survived, and every trial in the matchup -- including ones that completed cleanly -- was excluded from headline statistics.
+
+### Impact
+
+A single rate-limited seed could discard an entire matchup's worth of valid observations, and the recorded failure reason could be wrong for part of the run.
+
+### Expected resolution
+
+Track comparability at the smallest meaningful unit (round and trial), record every exclusion with its own reason, and compute headline statistics only from comparable observations while preserving excluded ones for inspection.
+
+### Resolution
+
+- Added `ExclusionRecord`/`ExclusionReason` (`models.py`). `MatchupResult` now carries `excluded_trial_records` (preflight failures, interruptions) and `excluded_round_records` (per-round provider fallback) as complete, unabridged lists -- never overwritten or discarded.
+- `RoundResult.comparable` is a new round-level flag (false only when that round's provider call used a fallback). Round-level headline statistics use every comparable round from every trial, including trials later interrupted -- their already-recorded, non-fallback rounds are still valid observations.
+- `MatchupResult.is_comparable` is now `comparable_trials > 0` rather than "zero failures anywhere."
+
+### Validation performed
+
+`tests/test_tournament.py::test_interrupted_trial_completed_rounds_still_count_for_headline`, `test_preflight_failure_is_excluded_and_recorded`, `test_fallback_round_excluded_but_trial_stays_comparable`. Ran `pytest`.
+
+---
+
+## BUG-013 — Confidence interval computed over the flawed last-round trial statistic
+
+**Priority:** P2  
+**Status:** Resolved  
+**Resolved in:** Tournament aggregation rewrite
+
+### Reproduction
+
+`calculate_confidence_interval(attacker_wins, completed_trials)` (pre-fix) fed the Wilson score formula the same last-round-only win count described in BUG-009. The formula itself was correct; its input was not.
+
+### Impact
+
+The reported confidence interval implied statistical precision around a trial-level statistic that did not honestly summarize a trial's rounds.
+
+### Expected resolution
+
+Re-point the (already-correct) Wilson interval at the round-level solve rate, and document the independence assumption.
+
+### Resolution
+
+- `tournament.py::aggregate_matchup` now calls `calculate_confidence_interval(rounds_solved, rounds_completed)`. The function's docstring documents that it assumes independent Bernoulli observations and that repeated hosted-model trials may not be strictly independent.
+
+### Validation performed
+
+`tests/test_tournament.py::test_confidence_interval_exact_value`, `test_confidence_interval_edge_cases`. Ran `pytest`.
+
+---
+
+## BUG-014 — TournamentHistoryManager has no list, load, or delete
+
+**Priority:** P2  
+**Status:** Resolved  
+**Resolved in:** Tournament history lifecycle
+
+### Reproduction
+
+`tournament_history.py` (pre-fix) implemented only `save()`. No caller anywhere in the codebase could list, reload, or delete a saved tournament.
+
+### Impact
+
+Saved tournaments were effectively write-only; the persistence feature described in documentation did not exist in practice.
+
+### Expected resolution
+
+Complete the lifecycle to match the existing single-experiment `HistoryManager` (save/list/load/delete), with schema versioning and backward-compatible parsing for files saved before the change.
+
+### Resolution
+
+- Added `TOURNAMENT_SCHEMA_VERSION`, `list_runs()`, `load()` (returns `StoredTournament`/`StoredMatchup`, defensively parsed field-by-field so old-format JSON loads without crashing), `delete()`, and `hydrate_experiments()` (joins a stored matchup back to its full `ExperimentResult`s in `HistoryManager`, tolerating a dangling linked id rather than raising).
+
+### Validation performed
+
+`tests/test_tournament_history.py` (save/list/load/delete round trip, old-format tolerance, dangling-id hydration). Ran `pytest`.
+
+---
+
+## BUG-015 — Streamlit "Save profile" is vulnerable to path traversal
+
+**Priority:** P1  
+**Status:** Resolved  
+**Resolved in:** Profile export hardening
+
+### Reproduction
+
+`dashboard.py` (pre-fix) built `Path(f"{profile_name}.json")` directly from an unsanitized `st.text_input` and called `.write_text()` on it, with no containment check. A `profile_name` of `../../outside` or an absolute path was honored as-is.
+
+### Impact
+
+A user (or anyone with access to the running dashboard) could write a JSON file to an arbitrary path reachable by the server process, limited only by OS permissions.
+
+### Expected resolution
+
+Either confine writes to a fixed directory with a validated filename, or avoid the server-side filesystem write entirely via a browser download.
+
+### Resolution
+
+- Replaced the filesystem write with `st.download_button`, matching the pattern already used elsewhere in the same file for JSON/Markdown exports. No server-side path is ever constructed from user input; the suggested browser filename is sanitized to `[A-Za-z0-9_-]` as a hygiene measure only, since no traversal is possible once there is no filesystem write.
+
+### Validation performed
+
+`tests/test_dashboard.py::test_save_profile_never_writes_to_filesystem`, parametrized over `../../outside`, `../foo`, and `C:\temp\thing`, asserting no file is created anywhere in the test's working directory. Ran `pytest`.
+
+---
+
+## BUG-016 — Tournament tab is unreachable until an Arena experiment has been run
+
+**Priority:** P1  
+**Status:** Open
+
+### Reproduction
+
+Load the dashboard fresh (`password-arena --ui`) and click straight to the **Tournament** tab without first running anything on the **Arena** tab.
+
+### Impact
+
+`render_dashboard()` renders `tab1` (`render_arena_tab()`) before `tab2`
+(`render_tournament_tab()`). `render_arena_tab()` calls `st.stop()` whenever
+`st.session_state.experiment` is unset (i.e., on every first load), and
+`st.stop()` halts the *entire* script run, not just the current tab's container.
+Confirmed via `streamlit.testing.v1.AppTest`: on a fresh session, `at.button`
+only contains `"Run arena"` -- no tournament widgets exist in the tree at all
+until after an Arena experiment has been run once, moving `st.session_state`
+past the `st.stop()` guard on a later rerun. A user who only wants Tournament
+Mode currently cannot reach it without first running an unrelated single-arena
+experiment.
+
+### Expected resolution
+
+Move the "no experiment yet" early-return out of the shared script path -- e.g.
+guard only the Arena tab's results section, not the whole script, or check
+`st.session_state.experiment` before calling `st.stop()` in a way that does not
+also block sibling tabs from rendering.
+
+### Status note
+
+Discovered during validation of this sprint's tournament-statistics work. Left
+**unfixed and out of scope**: this is an Arena-tab control-flow/UX defect, not a
+tournament statistics, comparability, or persistence defect, and fixing it means
+changing `render_arena_tab()`'s early-return structure -- exactly the kind of
+dashboard/UI change this sprint's brief said to defer. Tracked here so it is not
+lost; recommended as the first item for the next UI-focused sprint.

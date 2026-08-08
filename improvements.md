@@ -176,7 +176,7 @@ Separate defender generation patterns from attacker development data so evaluati
 ## IMP-008 — Repeated trials and confidence intervals
 
 **Priority:** P2  
-**Status:** In Progress
+**Status:** Done
 
 Run each configuration across multiple seeds and summarize distributions rather than presenting one run as representative.
 
@@ -186,6 +186,19 @@ Run each configuration across multiple seeds and summarize distributions rather 
 - Reports include mean, median, spread, and confidence intervals where appropriate.
 - Runtime and resource ceilings apply across the complete batch.
 - Raw trial results remain exportable.
+
+**Implementation note**
+
+Tournament matchups (`tournament.py::aggregate_matchup`) now report mean, median,
+and standard deviation for guesses, plus a 95% Wilson confidence interval computed
+over the round-level solve rate (`rounds_solved`/`rounds_completed`, comparable
+observations only) rather than the previous, flawed last-round trial statistic.
+Runtime/resource ceilings (`max_wall_time_s`, `max_tokens`, `max_api_cost`,
+`max_retries`) are `MatchupConfig` fields applied per trial via the same
+`ArenaConfig`/`BudgetTracker` path as single experiments. Raw per-trial
+`ExperimentResult`s remain exportable via `HistoryManager`, linked from
+`TournamentHistoryManager`. See `docs/tournament_workflow.md` for exact semantics
+and `bugs.md` BUG-009/BUG-013 for the defects this replaced.
 
 ---
 
@@ -540,44 +553,87 @@ Preserve experiment integrity when a selected model becomes unavailable.
 ## IMP-026 — Cross-model matchup reports
 
 **Priority:** P1  
-**Status:** Ready
+**Status:** In Progress
 
 Add reports that compare cloud and local models across arena roles.
 
 **Acceptance criteria**
 
-- Reports group results by provider, model, role, and effective thinking level.
-- Fallback and interrupted rounds are visibly marked.
-- Comparisons include solve rate, survival rate, guesses, tokens, latency, estimated cost, and efficiency.
-- Reports identify prompt, schema, and capability-registry versions.
-- Non-comparable rounds are excluded from headline comparisons by default.
+- Reports group results by provider, model, role, and effective thinking level. ✅
+- Fallback and interrupted rounds are visibly marked. ✅ (`excluded_trial_records` /
+  `excluded_round_records`, each with an explicit `ExclusionReason`)
+- Comparisons include solve rate, survival rate, guesses, tokens, latency, estimated cost, and efficiency. ✅
+- Reports identify prompt, schema, and capability-registry versions. ⚠️ **Partial.**
+  Reports identify `schema_version` and `application_version` (via `ReplayMetadata`).
+  There is no prompt-versioning or capability-registry-versioning concept anywhere
+  in the codebase yet (attacker/defender prompts and the per-provider
+  `*_MODEL_REGISTRY` dicts are unversioned) -- adding that is out of scope for this
+  sprint (would touch attacker.py/defender.py/every provider adapter) and is not
+  claimed as done. Left **In Progress** rather than Done for this reason.
+- Non-comparable rounds are excluded from headline comparisons by default. ✅
+
+**Implementation note**
+
+`reporting.tournament_report_json/markdown/csv` (see `docs/REPORTING.md`) implement
+everything above except prompt/capability-registry versioning. Reports never touch
+per-round password data and cannot contain secrets (`RoleConfig` has no
+secret-bearing fields). Tested in `tests/test_reporting.py`.
 
 ---
 
 ## IMP-027 — Model efficiency dashboard
 
 **Priority:** P2  
-**Status:** Blocked by IMP-026
+**Status:** In Progress (data layer done, dashboard visualization deferred)
 
 Visualize performance per token, second, and estimated cost.
 
 **Acceptance criteria**
 
-- Dashboard includes password-strength gain per 1,000 tokens where meaningful.
-- Attacker success and defender survival can be compared against latency and cost.
-- Missing provider metrics are shown as unavailable rather than estimated without disclosure.
-- Filters support role, model, provider, thinking level, and comparable-only rounds.
-- Charts do not mix incompatible scales without clear axes.
+- Dashboard includes password-strength gain per 1,000 tokens where meaningful. ❌ Not done (dashboard/chart work, deferred)
+- Attacker success and defender survival can be compared against latency and cost. ✅ (data layer: `EfficiencyMetrics`)
+- Missing provider metrics are shown as unavailable rather than estimated without disclosure. ✅
+- Filters support role, model, provider, thinking level, and comparable-only rounds. ❌ Not done (dashboard filter UI, deferred)
+- Charts do not mix incompatible scales without clear axes. ❌ Not applicable yet (no charts added)
 
+**Implementation note**
+
+`tournament.py::compute_efficiency` now computes transparent, role-specific ratios
+(`attacker_solved_per_1k_tokens`, `attacker_solved_per_second`,
+`attacker_solved_per_dollar`, `defender_survived_per_1k_tokens`,
+`defender_survived_per_dollar`), never a blended single score, and never divides by
+a zero/unavailable denominator. This unblocks IMP-027's data requirements, but the
+dashboard visualization (charts, filters) explicitly remains out of scope for this
+sprint per the task brief ("visual dashboard work can remain for the next sprint")
+-- do not mark this Done until that UI work lands.
+
+---
 
 ## IMP-028 — Tournament and benchmark orchestration
 
 **Priority:** P1  
-**Status:** In Progress
+**Status:** Done
 
 Run controlled matrices of attacker-versus-defender configurations across repeated seeds and aggregate the results.
 
 **Acceptance criteria**
-- Run controlled matrices of attacker-versus-defender configurations
-- Repeated trials per matchup
-- Aggregate metrics are correctly calculated
+- Run controlled matrices of attacker-versus-defender configurations ✅
+- Repeated trials per matchup ✅
+- Aggregate metrics are correctly calculated ✅
+
+**Implementation note**
+
+Rewrote `tournament.py::run_matchup`/`aggregate_matchup` to fix the defects
+tracked as BUG-009 through BUG-014: trial win/loss was previously decided by the
+last round only; guess statistics mixed solved and resisted rounds under a
+misleading name; token/cost aggregation was dead placeholder code
+(`total_tokens += 0`); a single interrupted seed marked the entire matchup
+non-comparable with the reason silently overwritten; the confidence interval was
+computed over the flawed last-round statistic; and `TournamentHistoryManager` had
+no `list`/`load`/`delete`. See `docs/tournament_workflow.md` for the corrected
+metric semantics and `bugs.md` for each defect's resolution. Tournament
+orchestration (`tournament.py`, `engine.py`, `models.py`) accepts `RoleConfig`
+generically with no hard-coded model names; only the UI's convenience checkbox
+catalog in `tournament_dashboard.py` names specific models, which the task brief
+treats as acceptable (model discovery belongs in the provider/capability layer and
+UI, not core orchestration).
