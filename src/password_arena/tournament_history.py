@@ -10,16 +10,24 @@ from typing import Any
 from password_arena.history import HistoryManager
 from password_arena.models import (
     EfficiencyMetrics,
+    ExclusionReason,
+    ExclusionRecord,
     ExperimentResult,
     MatchupConfig,
     MatchupResult,
     MatchupSummary,
+    ReplayMetadata,
     RoleConfig,
+    RoleMetadata,
     TournamentConfig,
 )
 from password_arena.providers import ThinkingLevel
 
-TOURNAMENT_SCHEMA_VERSION = "2.0"
+# 2.1 adds replay/excluded_trial_records/excluded_round_records to
+# StoredMatchup (previously silently dropped on save -- see
+# _stored_matchup_from_dict for backward-compat defaulting on tournaments
+# saved under 2.0 or earlier).
+TOURNAMENT_SCHEMA_VERSION = "2.1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +41,9 @@ class StoredMatchup:
     is_comparable: bool
     non_comparable_reason: str | None
     experiment_ids: tuple[str, ...]
+    replay: ReplayMetadata | None = None
+    excluded_trial_records: tuple[ExclusionRecord, ...] = ()
+    excluded_round_records: tuple[ExclusionRecord, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,10 +58,15 @@ class StoredTournament:
 
 def _role_config_from_dict(d: dict[str, Any] | None) -> RoleConfig:
     d = d or {}
+    # ThinkingLevel is a StrEnum, so `asdict()` -> `json.dumps()` serializes it
+    # as a plain string; without re-wrapping it here, thinking_level would
+    # deserialize as a bare `str` instead of a `ThinkingLevel` member, and any
+    # later `.thinking_level.value` access (leaderboards, heatmap, comparison)
+    # would raise AttributeError for every tournament loaded from disk.
     return RoleConfig(
         provider=d.get("provider", "rule_based"),
         model=d.get("model"),
-        thinking_level=d.get("thinking_level", ThinkingLevel.AUTO),
+        thinking_level=ThinkingLevel(d.get("thinking_level", ThinkingLevel.AUTO)),
         temperature=d.get("temperature"),
         max_tokens=d.get("max_tokens"),
         local_endpoint=d.get("local_endpoint"),
@@ -144,6 +160,44 @@ def _matchup_summary_from_dict(d: dict[str, Any]) -> MatchupSummary:
     )
 
 
+def _role_metadata_from_dict(d: dict[str, Any] | None) -> RoleMetadata:
+    d = d or {}
+    return RoleMetadata(
+        provider=d.get("provider", "rule_based"),
+        model=d.get("model"),
+        thinking_level=ThinkingLevel(d.get("thinking_level", ThinkingLevel.AUTO)),
+    )
+
+
+def _replay_metadata_from_dict(d: dict[str, Any] | None) -> ReplayMetadata | None:
+    if not d:
+        return None
+    return ReplayMetadata(
+        attacker=_role_metadata_from_dict(d.get("attacker")),
+        defender=_role_metadata_from_dict(d.get("defender")),
+        seeds=tuple(d.get("seeds", ())),
+        rounds_per_match=d.get("rounds_per_match", 0),
+        max_guesses=d.get("max_guesses", 0),
+        generator_mode=d.get("generator_mode", "deterministic-test"),
+        generator_version=d.get("generator_version", "benchmark"),
+        application_version=d.get("application_version", ""),
+        schema_version=d.get("schema_version", ""),
+        deterministic=d.get("deterministic", False),
+        attacker_prompt_version=d.get("attacker_prompt_version", ""),
+        defender_prompt_version=d.get("defender_prompt_version", ""),
+        capability_registry_version=d.get("capability_registry_version", ""),
+    )
+
+
+def _exclusion_record_from_dict(d: dict[str, Any]) -> ExclusionRecord:
+    return ExclusionRecord(
+        seed=d.get("seed", 0),
+        experiment_id=d.get("experiment_id"),
+        round_number=d.get("round_number"),
+        reason=ExclusionReason(d.get("reason", ExclusionReason.UNSUPPORTED_CONFIGURATION)),
+    )
+
+
 def _stored_matchup_from_dict(d: dict[str, Any]) -> StoredMatchup:
     return StoredMatchup(
         matchup_id=d.get("matchup_id", ""),
@@ -152,6 +206,16 @@ def _stored_matchup_from_dict(d: dict[str, Any]) -> StoredMatchup:
         is_comparable=d.get("is_comparable", True),
         non_comparable_reason=d.get("non_comparable_reason"),
         experiment_ids=tuple(d.get("experiment_ids", ())),
+        # Absent on tournaments saved before schema 2.1 -- default to "no
+        # replay metadata"/"no recorded exclusions" rather than raising, same
+        # backward-compat tolerance as _matchup_summary_from_dict.
+        replay=_replay_metadata_from_dict(d.get("replay")),
+        excluded_trial_records=tuple(
+            _exclusion_record_from_dict(r) for r in d.get("excluded_trial_records", ())
+        ),
+        excluded_round_records=tuple(
+            _exclusion_record_from_dict(r) for r in d.get("excluded_round_records", ())
+        ),
     )
 
 
@@ -194,6 +258,9 @@ class TournamentHistoryManager:
                 "is_comparable": m.is_comparable,
                 "non_comparable_reason": m.non_comparable_reason,
                 "experiment_ids": [exp.experiment_id for exp in m.experiments],
+                "replay": asdict(m.replay) if m.replay else None,
+                "excluded_trial_records": [asdict(r) for r in m.excluded_trial_records],
+                "excluded_round_records": [asdict(r) for r in m.excluded_round_records],
             }
             matchup_data.append(m_dict)
 

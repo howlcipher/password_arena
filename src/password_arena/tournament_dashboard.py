@@ -9,6 +9,7 @@ from password_arena.reporting import (
     tournament_report_markdown,
 )
 from password_arena.tournament import build_tournament_matrix, run_matchup
+from password_arena.tournament_comparison import compare_tournament_configs
 from password_arena.tournament_history import TournamentHistoryManager
 from password_arena.tournament_view_models import available_filter_options, filter_results
 from password_arena.tournament_views import (
@@ -200,7 +201,7 @@ def _render_results(
         render_leaderboards(filtered_results)
 
     with t2:
-        render_heatmap(filtered_results)
+        render_heatmap(filtered_results, key_prefix=tournament_id)
 
     with t3:
         render_efficiency(filtered_results)
@@ -297,33 +298,34 @@ def render_tournament_history() -> None:
             
             st.divider()
             st.subheader("Comparison")
-            
-            # Simple config diff
-            ca = stored_a.config
-            cb = stored_b.config
-            
+
             st.markdown("#### Configuration Differences")
-            diffs = []
-            if ca.rounds_per_match != cb.rounds_per_match:
-                diffs.append(f"Rounds: {ca.rounds_per_match} vs {cb.rounds_per_match}")
-            if ca.seeds != cb.seeds:
-                diffs.append(f"Trials (seeds): {len(ca.seeds)} vs {len(cb.seeds)}")
-            if ca.max_guesses != cb.max_guesses:
-                diffs.append(f"Max Guesses: {ca.max_guesses} vs {cb.max_guesses}")
-            if ca.generator_version != cb.generator_version:
-                diffs.append(f"Generator: {ca.generator_version} vs {cb.generator_version}")
-                
-            if not diffs:
+            comparison = compare_tournament_configs(stored_a.config, stored_b.config)
+            if comparison.identical:
                 st.success(
-                    "Tournaments share identical core parameters and are directly comparable."
+                    "Every compared configuration field matches "
+                    "(generator, budgets, seeds, and role configurations)."
                 )
             else:
-                msg = (
-                    "Tournaments have different parameters and may not be directly comparable:\n"
-                    + "\n".join(f"- {d}" for d in diffs)
+                msg = "Tournaments differ and may not be directly comparable:\n" + "\n".join(
+                    f"- {d}" for d in comparison.differences
                 )
                 st.warning(msg)
-                
+
+            if stored_a.schema_version != stored_b.schema_version:
+                st.warning(
+                    f"Storage schema versions differ ({stored_a.schema_version} vs "
+                    f"{stored_b.schema_version}) -- older schema versions may have been "
+                    "aggregated under different statistical rules."
+                )
+
+            st.caption(
+                "Prompt version and capability-registry version are not compared: they are "
+                "not currently persisted at the tournament level (only per-matchup "
+                "ReplayMetadata at run time), so two tournaments run under different prompt "
+                "or capability-registry versions could be reported as identical above."
+            )
+
             c1, c2 = st.columns(2)
             with c1:
                 st.markdown(f"**Tournament A ({id_a[:8]})**")

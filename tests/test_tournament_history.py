@@ -67,10 +67,88 @@ def test_save_list_load_delete_round_trip(tmp_path: Any) -> None:
     assert len(experiments) == len(matchup.experiments)
     assert missing == ()
 
+    # Regression: replay/excluded_*_records used to be silently dropped on
+    # save (StoredMatchup didn't carry them at all), which crashed report
+    # generation for any loaded tournament (reporting.py._matchup_payload
+    # unconditionally accesses m.replay / m.excluded_trial_records).
+    stored_matchup = stored.matchups[0]
+    assert stored_matchup.replay is not None
+    assert matchup.replay is not None
+    assert stored_matchup.replay.deterministic == matchup.replay.deterministic
+    assert stored_matchup.replay.application_version == matchup.replay.application_version
+    assert stored_matchup.replay.attacker_prompt_version == matchup.replay.attacker_prompt_version
+    assert stored_matchup.excluded_trial_records == matchup.excluded_trial_records
+    assert stored_matchup.excluded_round_records == matchup.excluded_round_records
+
     tourney_mgr.delete(tournament_id)
     assert tourney_mgr.list_runs() == []
     with pytest.raises(FileNotFoundError):
         tourney_mgr.load(tournament_id)
+
+
+def test_loaded_role_config_thinking_level_is_a_real_enum_not_a_string(tmp_path: Any) -> None:
+    """Regression: ThinkingLevel is a StrEnum, so JSON round-tripping used to
+    leave RoleConfig.thinking_level as a bare `str` after loading from disk.
+    Any code calling `.thinking_level.value` on a loaded config (leaderboards,
+    heatmap, tournament comparison) would raise AttributeError."""
+    from password_arena.providers import ThinkingLevel
+
+    tourney_mgr = TournamentHistoryManager(storage_dir=tmp_path)
+    history_mgr = HistoryManager(storage_dir=tmp_path / "experiments")
+
+    tournament_config = _config()
+    matchup = _matchup_result()
+    tournament_id, _ = tourney_mgr.save(tournament_config, [matchup])
+
+    stored = tourney_mgr.load(tournament_id, history_mgr=history_mgr)
+    attacker_thinking = stored.matchups[0].config.attacker.thinking_level
+    assert isinstance(attacker_thinking, ThinkingLevel)
+    assert attacker_thinking.value == "auto"
+
+    tournament_thinking = stored.config.attackers[0].thinking_level
+    assert isinstance(tournament_thinking, ThinkingLevel)
+
+
+def test_load_tolerates_old_format_missing_replay_and_exclusion_records(tmp_path: Any) -> None:
+    """Tournaments saved before schema 2.1 have no replay/excluded_*_records
+    keys at all -- loading them must default to None/() rather than raise."""
+    import json
+
+    tourney_mgr = TournamentHistoryManager(storage_dir=tmp_path)
+
+    old_format = {
+        "tournament_id": "legacy-id",
+        "timestamp": "2025-01-01T00:00:00+00:00",
+        "schema_version": "2.0",
+        "config": {
+            "attackers": [{"provider": "rule_based"}],
+            "defenders": [{"provider": "rule_based"}],
+            "seeds": [1, 2],
+            "rounds_per_match": 2,
+        },
+        "matchups": [
+            {
+                "matchup_id": "legacy-matchup",
+                "config": {
+                    "attacker": {"provider": "rule_based"},
+                    "defender": {"provider": "rule_based"},
+                    "rounds": 2,
+                    "seeds": [1, 2],
+                },
+                "summary": {"trials": 2},
+                "is_comparable": True,
+                "non_comparable_reason": None,
+                "experiment_ids": [],
+            }
+        ],
+    }
+    (tmp_path / "legacy-id.json").write_text(json.dumps(old_format), encoding="utf-8")
+
+    stored = tourney_mgr.load("legacy-id")
+    m = stored.matchups[0]
+    assert m.replay is None
+    assert m.excluded_trial_records == ()
+    assert m.excluded_round_records == ()
 
 
 def test_delete_missing_raises(tmp_path: Any) -> None:

@@ -77,6 +77,87 @@ def test_run_tournament_renders_all_result_tabs_without_error(
     assert "Thinking-Level Comparison" in subheader_texts
 
 
+def _run_a_tiny_rule_based_tournament(
+    at: AppTest, *, rounds_per_match: int | None = None
+) -> AppTest:
+    self_play_checkbox = next(
+        c for c in at.checkbox if c.label == "Exclude self-play matchups (e.g. GPT vs GPT)"
+    )
+    if self_play_checkbox.value:
+        self_play_checkbox.set_value(False)
+        at.run(timeout=30)
+
+    if rounds_per_match is not None:
+        rpm = next(n for n in at.number_input if n.label == "Rounds per Matchup")
+        rpm.set_value(rounds_per_match)
+        at.run(timeout=30)
+
+    run_button = next(b for b in at.button if b.label == "Run Tournament")
+    run_button.click()
+    at.run(timeout=60)
+    return at
+
+
+def test_load_saved_tournament_from_history_renders_without_error(
+    tmp_path: Any, monkeypatch: Any
+) -> None:
+    """Regression: loading a previously-saved tournament used to crash while
+    generating its downloadable reports, because StoredMatchup silently
+    dropped `replay`/`excluded_trial_records`/`excluded_round_records` on
+    save, and reporting.py's report builders unconditionally access those
+    attributes."""
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(str(DASHBOARD_PATH))
+    at.run(timeout=30)
+    at = _run_a_tiny_rule_based_tournament(at)
+    assert not at.exception
+
+    saved = next(m for m in at.multiselect if m.label == "Saved tournaments")
+    saved.set_value(saved.options[:1])
+    at.run(timeout=30)
+
+    load_button = next(b for b in at.button if b.label == "Load tournament details")
+    load_button.click()
+    at.run(timeout=60)
+    assert not at.exception
+
+    subheader_texts = {s.value for s in at.subheader}
+    assert "Tournament Overview" in subheader_texts
+    assert "Matchup Matrix" in subheader_texts
+
+
+def test_compare_two_tournaments_renders_without_error(tmp_path: Any, monkeypatch: Any) -> None:
+    """Regression: comparing two saved tournaments used to crash with
+    StreamlitDuplicateElementId because render_heatmap()'s metric selectbox
+    had no explicit key, so rendering two tournaments side by side in the
+    same script run produced two selectboxes with an identical auto-ID.
+    Also exercises compare_tournament_configs() end to end (not just its
+    unit tests) against real saved-and-reloaded TournamentConfigs."""
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(str(DASHBOARD_PATH))
+    at.run(timeout=30)
+    at = _run_a_tiny_rule_based_tournament(at)
+    assert not at.exception
+
+    at = _run_a_tiny_rule_based_tournament(at, rounds_per_match=2)
+    assert not at.exception
+
+    saved = next(m for m in at.multiselect if m.label == "Saved tournaments")
+    assert len(saved.options) == 2
+    saved.set_value(saved.options[:2])
+    at.run(timeout=30)
+
+    compare_button = next(b for b in at.button if b.label == "Compare Tournaments")
+    compare_button.click()
+    at.run(timeout=60)
+    assert not at.exception
+
+    assert any(
+        "Tournaments differ and may not be directly comparable" in w.value for w in at.warning
+    )
+    assert any("rounds_per_match" in w.value for w in at.warning)
+
+
 def test_thinking_level_selector_is_capability_aware() -> None:
     """Regression for the audit finding that ui_helpers.py used to expose all
     six normalized thinking levels regardless of the selected model's actual

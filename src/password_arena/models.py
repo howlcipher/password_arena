@@ -255,7 +255,13 @@ class ExperimentResult:
         config_data = data["config"].copy()
         for role in ["defender_config", "attacker_config", "evaluator_config"]:
             if role in config_data and isinstance(config_data[role], dict):
-                config_data[role] = RoleConfig(**config_data[role])
+                role_data = config_data[role].copy()
+                # ThinkingLevel is a StrEnum, so JSON round-tripping leaves it
+                # as a plain str; re-wrap it or later `.thinking_level.value`
+                # access on a loaded experiment raises AttributeError.
+                if "thinking_level" in role_data:
+                    role_data["thinking_level"] = ThinkingLevel(role_data["thinking_level"])
+                config_data[role] = RoleConfig(**role_data)
         config = ArenaConfig(**config_data)
 
         rounds = []

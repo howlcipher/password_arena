@@ -68,10 +68,10 @@ def render_leaderboards(results: list) -> None:
         st.dataframe(def_df, use_container_width=True, hide_index=True)
 
 
-def render_heatmap(results: list) -> None:
+def render_heatmap(results: list, *, key_prefix: str) -> None:
     st.subheader("Matchup Matrix")
 
-    metric = st.selectbox("Metric", list(HEATMAP_METRICS))
+    metric = st.selectbox("Metric", list(HEATMAP_METRICS), key=f"{key_prefix}_heatmap_metric")
 
     df = build_heatmap_data(results, metric)
     if df.empty:
