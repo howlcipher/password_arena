@@ -1,9 +1,8 @@
-import pandas as pd
 import streamlit as st
 
 from password_arena.history import HistoryManager
 from password_arena.models import TournamentConfig
-from password_arena.providers import AvailabilityState, ProviderRegistry, ThinkingLevel
+from password_arena.providers import ThinkingLevel
 from password_arena.reporting import (
     tournament_report_csv,
     tournament_report_json,
@@ -19,7 +18,7 @@ from password_arena.tournament_views import (
     render_overview,
     render_thinking_comparison,
 )
-from password_arena.ui_helpers import render_tournament_role_manager
+from password_arena.ui_helpers import render_preflight_gate, render_tournament_role_manager
 
 
 def render_tournament_tab() -> None:
@@ -65,53 +64,12 @@ def render_tournament_tab() -> None:
     if run_disabled:
         st.warning("Select at least one attacker and one defender.")
 
-    # Preflight Matrix
+    # Preflight Matrix -- cached, explicit (render_preflight_gate never calls
+    # check_availability() automatically on an ordinary rerun; only in
+    # response to the "Test connections" button click).
     st.divider()
-    st.subheader("Preflight Status")
-    unique_roles = {}
-    for r in attackers + defenders:
-        key = f"{r.provider}:{r.model}:{r.thinking_level.value}"
-        if key not in unique_roles:
-            unique_roles[key] = r
-
-    preflight_failed = False
-    status_rows = []
-    
-    # We want to display the preflight status
-    for r in unique_roles.values():
-        prov_display = r.provider
-        mod_display = r.model or "default"
-        think_display = r.thinking_level.value
-        
-        status = "AVAILABLE"
-        reason = ""
-        
-        if r.provider != "rule_based":
-            try:
-                backend = ProviderRegistry.create(r)
-                if backend:
-                    avail = backend.check_availability()
-                    status = avail.state.value.upper()
-                    if avail.state != AvailabilityState.AVAILABLE:
-                        reason = avail.message
-                        preflight_failed = True
-            except Exception as e:
-                status = "ERROR"
-                reason = str(e)
-                preflight_failed = True
-                
-        status_rows.append({
-            "Provider": prov_display,
-            "Model": mod_display,
-            "Thinking": think_display,
-            "Status": status,
-            "Details": reason
-        })
-        
-    st.dataframe(pd.DataFrame(status_rows), use_container_width=True, hide_index=True)
-
-    if preflight_failed:
-        st.error("Some configurations are offline or invalid. Please fix them before running.")
+    preflight_ok = render_preflight_gate(list(attackers) + list(defenders), state_key="tournament")
+    if not preflight_ok:
         run_disabled = True
 
     # Estimated Scale

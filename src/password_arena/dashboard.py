@@ -13,7 +13,7 @@ from password_arena.engine import PreflightFailure, build_arena_engine
 from password_arena.models import ArenaConfig
 from password_arena.reporting import experiment_report_markdown
 from password_arena.tournament_dashboard import render_tournament_tab
-from password_arena.ui_helpers import render_role_config
+from password_arena.ui_helpers import render_preflight_gate, render_role_config
 
 
 def render_arena_tab() -> None:
@@ -118,19 +118,19 @@ def render_arena_tab() -> None:
 
         st.divider()
 
-        # Preflight check
-        result = build_arena_engine(config)
-        run_disabled = False
-        if isinstance(result, PreflightFailure):
-            st.error(f"Preflight failed for {result.role}: {result.message} ({result.state})")
-            run_disabled = True
+        preflight_ok = render_preflight_gate([defender_config, attacker_config], state_key="arena")
+        run_disabled = not preflight_ok
 
         run = st.button(
             "Run arena", type="primary", use_container_width=True, disabled=run_disabled
         )
 
-    if run and not isinstance(result, PreflightFailure):
-        st.session_state.experiment = result.run()
+    if run:
+        result = build_arena_engine(config)
+        if isinstance(result, PreflightFailure):
+            st.error(f"Preflight failed for {result.role}: {result.message} ({result.state})")
+        else:
+            st.session_state.experiment = result.run()
 
     if "experiment" not in st.session_state or st.session_state.experiment is None:
         if not run_disabled:

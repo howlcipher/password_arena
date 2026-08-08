@@ -112,6 +112,74 @@ def test_thinking_level_selector_is_capability_aware() -> None:
     )
 
 
+def test_preflight_not_checked_automatically_for_non_rule_based_provider() -> None:
+    """Selecting a hosted provider must not trigger a network availability
+    check on the ordinary rerun that follows -- only an explicit "Test
+    connections" click may do that. Run arena must stay disabled until the
+    user explicitly checks and it comes back available."""
+    at = AppTest.from_file(str(DASHBOARD_PATH))
+    at.run(timeout=10)
+
+    provider_select = next(s for s in at.selectbox if s.key == "defender_provider")
+    provider_select.select("openai")
+    at.run(timeout=10)
+    assert not at.exception
+
+    assert any(i.value == "Configuration changed. Status: Not checked." for i in at.info)
+    assert any(b.label == "Test connections" for b in at.button)
+    run_button = next(b for b in at.button if b.label == "Run arena")
+    assert run_button.disabled
+
+
+def test_test_connections_caches_result_until_config_changes() -> None:
+    """Clicking "Test connections" performs and caches the check; the status
+    table then persists across unrelated reruns without another click.
+    Changing the model afterward invalidates the cache and the button
+    reappears -- config changes must invalidate old preflight results."""
+    at = AppTest.from_file(str(DASHBOARD_PATH))
+    at.run(timeout=10)
+
+    provider_select = next(s for s in at.selectbox if s.key == "defender_provider")
+    provider_select.select("openai")
+    at.run(timeout=10)
+
+    test_connections = next(b for b in at.button if b.label == "Test connections")
+    test_connections.click()
+    at.run(timeout=10)
+    assert not at.exception
+
+    # No OPENAI_API_KEY in the test environment -> a deterministic, offline
+    # AUTHENTICATION_FAILED status (OpenAIProvider.check_availability() never
+    # makes a network call; it just reports the state set at construction).
+    status_df = next(df for df in at.dataframe)
+    assert "AUTHENTICATION_FAILED" in status_df.value["Status"].to_list()
+    assert not any(b.label == "Test connections" for b in at.button)
+
+    model_select = next(s for s in at.selectbox if s.key == "defender_model_select")
+    model_select.select("gpt-4o-mini")
+    at.run(timeout=10)
+    assert any(i.value == "Configuration changed. Status: Not checked." for i in at.info)
+    assert any(b.label == "Test connections" for b in at.button)
+
+
+def test_tournament_preflight_gate_disables_run_for_unchecked_hosted_provider() -> None:
+    """The Tournament tab shares the same cached, explicit preflight gate as
+    Arena -- selecting a hosted provider for a tournament role must disable
+    "Run Tournament" until explicitly checked, without an automatic network
+    call on the ordinary rerun that follows the selection."""
+    at = AppTest.from_file(str(DASHBOARD_PATH))
+    at.run(timeout=10)
+
+    attacker_provider = next(s for s in at.selectbox if s.key == "t_attacker_0_provider")
+    attacker_provider.select("openai")
+    at.run(timeout=10)
+    assert not at.exception
+
+    assert any(i.value == "Configuration changed. Status: Not checked." for i in at.info)
+    run_button = next(b for b in at.button if b.label == "Run Tournament")
+    assert run_button.disabled
+
+
 def _find_profile_name_input(at: AppTest) -> Any:
     for ti in at.text_input:
         if ti.label == "Save profile as":

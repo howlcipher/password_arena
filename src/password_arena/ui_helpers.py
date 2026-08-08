@@ -1,9 +1,62 @@
+import pandas as pd
 import streamlit as st
 
 from password_arena.models import RoleConfig
+from password_arena.preflight import (
+    all_available,
+    check_roles_availability,
+    compute_role_fingerprint,
+    is_rule_based_only,
+)
 from password_arena.providers import ProviderRegistry, ThinkingLevel
 
 PROVIDERS = ["rule_based", "openai", "anthropic", "gemini", "ollama"]
+
+
+def render_preflight_gate(roles: list[RoleConfig], *, state_key: str) -> bool:
+    """Cached, explicit preflight status. Returns True iff every distinct
+    role is confirmed AVAILABLE for the CURRENT configuration.
+    `check_roles_availability` (real network I/O) is only ever invoked in
+    response to the "Test connections" button click -- never automatically
+    on a widget change, tab redraw, or other ordinary rerun. A rule_based-
+    only role set is always available with no network check at all."""
+    if is_rule_based_only(roles):
+        return True
+
+    fingerprint = compute_role_fingerprint(roles)
+    cache_key = f"{state_key}_preflight_cache"
+    cached = st.session_state.get(cache_key)
+
+    st.markdown("**Preflight Status**")
+    if cached is None or cached["fingerprint"] != fingerprint:
+        st.info("Configuration changed. Status: Not checked.")
+        if st.button("Test connections", key=f"{state_key}_test_connections"):
+            statuses = check_roles_availability(roles)
+            st.session_state[cache_key] = {"fingerprint": fingerprint, "statuses": statuses}
+            st.rerun()
+        return False
+
+    statuses = cached["statuses"]
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "Provider": s.provider,
+                    "Model": s.model,
+                    "Thinking": s.thinking,
+                    "Status": s.status,
+                    "Details": s.message,
+                }
+                for s in statuses
+            ]
+        ),
+        use_container_width=True,
+        hide_index=True,
+    )
+    ok = all_available(statuses)
+    if not ok:
+        st.error("Some configurations are offline or invalid. Please fix them before running.")
+    return ok
 
 
 def get_supported_thinking_levels(
