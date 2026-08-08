@@ -4,13 +4,14 @@ import csv
 import html
 import io
 import json
+from collections.abc import Sequence
 from dataclasses import asdict
 from typing import Any
 
 from password_arena.models import (
     ExclusionRecord,
     ExperimentResult,
-    MatchupResult,
+    MatchupLike,
     RoleConfig,
     RoundResult,
     TournamentConfig,
@@ -196,8 +197,10 @@ def experiment_export_html(experiment: ExperimentResult) -> str:
 
 # --- Tournament-level (cross-model) reports -------------------------------------
 #
-# These functions operate only on TournamentConfig/MatchupResult (configuration and
-# aggregate statistics) -- never on ExperimentResult.rounds password data -- so they
+# These functions operate only on TournamentConfig/MatchupLike (configuration and
+# aggregate statistics -- MatchupLike covers both a freshly-run MatchupResult and a
+# StoredMatchup reconstructed from tournament history) -- never on
+# ExperimentResult.rounds password data -- so they
 # cannot leak secrets, API keys, or unredacted passwords by construction. RoleConfig
 # has no secret-bearing fields (provider/model/thinking_level/temperature/max_tokens/
 # local_endpoint only).
@@ -231,7 +234,7 @@ def _exclusion_payload(records: tuple[ExclusionRecord, ...]) -> list[dict[str, A
     ]
 
 
-def _matchup_payload(m: MatchupResult) -> dict[str, Any]:
+def _matchup_payload(m: MatchupLike) -> dict[str, Any]:
     s = m.summary
     return {
         "matchup_id": m.matchup_id,
@@ -294,7 +297,7 @@ def tournament_report_json(
     tournament_id: str,
     timestamp: str,
     config: TournamentConfig,
-    matchups: list[MatchupResult],
+    matchups: Sequence[MatchupLike],
 ) -> str:
     """Provider-neutral JSON export for a completed tournament (IMP-026)."""
     payload = {
@@ -314,7 +317,7 @@ def tournament_report_markdown(
     tournament_id: str,
     timestamp: str,
     config: TournamentConfig,
-    matchups: list[MatchupResult],
+    matchups: Sequence[MatchupLike],
 ) -> str:
     """Human-readable cross-model tournament report (IMP-026)."""
     lines = [
@@ -410,7 +413,7 @@ def tournament_report_csv(
     tournament_id: str,
     timestamp: str,
     config: TournamentConfig,
-    matchups: list[MatchupResult],
+    matchups: Sequence[MatchupLike],
 ) -> str:
     """One row per matchup (IMP-026). Unavailable values render as "unavailable",
     never as "0" or blank, so they cannot be misread as a measured zero."""

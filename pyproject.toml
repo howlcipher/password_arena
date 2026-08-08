@@ -47,10 +47,21 @@ target-version = "py311"
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.mypy]
+# Kept at 3.12 (above the declared 3.11 support floor) deliberately: a
+# transitive dependency's stub file (numpy, pulled in via pandas) uses PEP
+# 695 `type` statement syntax that mypy can only parse under
+# python_version >= "3.12". Downgrading this to 3.11 breaks mypy entirely
+# ("Type statement is only supported in Python 3.12 and greater"); it is
+# not evidence of unsupported 3.11 syntax in this project's own code.
 python_version = "3.12"
 strict = true
 packages = ["password_arena"]
-exclude = ["dashboard\\.py", "tournament_views\\.py"]
+# Anchored so these only match the exact top-level files, not any path that
+# merely contains the substring (e.g. "tournament_dashboard.py" or
+# "tests/test_dashboard.py" both contained "dashboard.py" under the old,
+# unanchored pattern and were silently excluded from strict checking too --
+# see bugs.md).
+exclude = ["(^|/)dashboard\\.py$", "(^|/)tournament_views\\.py$"]
 
 [[tool.mypy.overrides]]
 # No pandas-stubs dependency. This only silences the "no stubs" import error

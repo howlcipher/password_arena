@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 from password_arena.providers import ThinkingLevel
 
@@ -443,6 +443,43 @@ class MatchupResult:
     excluded_trial_records: tuple[ExclusionRecord, ...] = ()
     excluded_round_records: tuple[ExclusionRecord, ...] = ()
     replay: ReplayMetadata | None = None
+
+
+class MatchupLike(Protocol):
+    """Structural type satisfied by both `MatchupResult` (a fresh, in-memory
+    tournament result) and `tournament_history.StoredMatchup` (one
+    reconstructed from disk) -- the two concrete types the Tournament
+    dashboard and reporting.py's report builders consume interchangeably.
+    Lives in models.py (not tournament_view_models.py) specifically so
+    reporting.py can use it without pulling in tournament_view_models.py's
+    pandas dependency, which is only in the optional `dashboard` extra.
+    Declared as read-only properties (not plain attributes) so frozen
+    dataclasses -- whose fields mypy treats as read-only -- satisfy this
+    protocol structurally."""
+
+    @property
+    def matchup_id(self) -> str: ...
+
+    @property
+    def config(self) -> MatchupConfig: ...
+
+    @property
+    def summary(self) -> MatchupSummary: ...
+
+    @property
+    def is_comparable(self) -> bool: ...
+
+    @property
+    def non_comparable_reason(self) -> str | None: ...
+
+    @property
+    def replay(self) -> ReplayMetadata | None: ...
+
+    @property
+    def excluded_trial_records(self) -> tuple[ExclusionRecord, ...]: ...
+
+    @property
+    def excluded_round_records(self) -> tuple[ExclusionRecord, ...]: ...
 
 
 @dataclass(frozen=True, slots=True)

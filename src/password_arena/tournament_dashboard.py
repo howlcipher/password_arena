@@ -1,7 +1,9 @@
+from collections.abc import Sequence
+
 import streamlit as st
 
 from password_arena.history import HistoryManager
-from password_arena.models import TournamentConfig
+from password_arena.models import MatchupLike, TournamentConfig
 from password_arena.providers import ThinkingLevel
 from password_arena.reporting import (
     tournament_report_csv,
@@ -142,7 +144,7 @@ def _rate_display(value: float | None) -> str:
     return "-" if value is None else f"{value * 100:.1f}%"
 
 
-def _render_filter_bar(results: list, key_prefix: str) -> list:
+def _render_filter_bar(results: Sequence[MatchupLike], key_prefix: str) -> list[MatchupLike]:
     """IMP-027: role/provider/model/thinking-level/comparable-only filters,
     applied once here and consumed by every result tab below -- charts never
     recompute their own subset of `results`. Downloadable reports (JSON/
@@ -185,7 +187,7 @@ def _render_filter_bar(results: list, key_prefix: str) -> list:
 
 
 def _render_results(
-    tournament_id: str, timestamp: str, config: TournamentConfig, results: list
+    tournament_id: str, timestamp: str, config: TournamentConfig, results: Sequence[MatchupLike]
 ) -> None:
     filtered_results = _render_filter_bar(results, key_prefix=tournament_id)
     st.divider()

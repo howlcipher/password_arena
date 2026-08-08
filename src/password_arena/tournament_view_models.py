@@ -34,29 +34,11 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol
 
 import pandas as pd
 
-from password_arena.models import MatchupConfig, MatchupSummary, RoleConfig
+from password_arena.models import MatchupLike, RoleConfig
 from password_arena.providers import ThinkingLevel
-
-
-class MatchupLike(Protocol):
-    """Structural type satisfied by both `MatchupResult` and `StoredMatchup` --
-    the two concrete types the Tournament dashboard renders results from. Only
-    the attributes the view layer actually touches are required. Declared as
-    read-only properties (not plain attributes) so frozen dataclasses -- whose
-    fields mypy treats as read-only -- satisfy this protocol structurally."""
-
-    @property
-    def config(self) -> MatchupConfig: ...
-
-    @property
-    def summary(self) -> MatchupSummary: ...
-
-    @property
-    def is_comparable(self) -> bool: ...
 
 
 def _role_label(provider: str, model: str | None, thinking_level: ThinkingLevel) -> str:
