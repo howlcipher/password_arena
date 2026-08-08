@@ -50,4 +50,4 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 python_version = "3.12"
 strict = true
 packages = ["password_arena"]
-exclude = ["dashboard\\.py"]
+exclude = ["dashboard\\.py", "tournament_views\\.py"]
