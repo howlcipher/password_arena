@@ -17,7 +17,6 @@ from password_arena.ui_helpers import render_role_config
 
 
 def render_arena_tab() -> None:
-    st.set_page_config(page_title="Password Arena", page_icon="🛡️", layout="wide")
     st.title("Password Arena")
     st.caption(
         "A safe, local attacker-versus-defender learning sandbox using synthetic passwords only."
@@ -136,10 +135,10 @@ def render_arena_tab() -> None:
     if "experiment" not in st.session_state or st.session_state.experiment is None:
         if not run_disabled:
             st.info("Choose the experiment controls and run the arena.")
-        st.stop()
+        return
 
     if isinstance(result, PreflightFailure) and run:
-        st.stop()  # sanity check
+        return  # sanity check
 
     experiment = st.session_state.experiment
     if experiment.interruption_reason:
@@ -149,7 +148,7 @@ def render_arena_tab() -> None:
         )
         if not experiment.rounds:
             st.warning("No rounds were completed.")
-            st.stop()
+            return
 
     rows = []
     for item in experiment.rounds:
