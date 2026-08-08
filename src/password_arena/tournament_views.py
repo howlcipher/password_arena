@@ -119,31 +119,38 @@ def render_efficiency(results: list) -> None:
     if df.empty:
         return
 
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("**Solve Rate vs Cost**")
-        if df["Cost"].notna().any():
+    def _scatter(x_col: str, y_col: str, title: str) -> None:
+        st.markdown(f"**{title}**")
+        if df[x_col].notna().any():
             chart = (
-                alt.Chart(df.dropna(subset=["Cost"]))
+                alt.Chart(df.dropna(subset=[x_col]))
                 .mark_circle(size=60)
-                .encode(x="Cost:Q", y="Solve Rate:Q", tooltip=["Matchup", "Solve Rate", "Cost"])
+                .encode(
+                    x=f"{x_col}:Q", y=f"{y_col}:Q", tooltip=["Matchup", y_col, x_col]
+                )
             )
             st.altair_chart(chart, use_container_width=True)
         else:
-            st.info("No cost data available.")
+            st.info(f"No {x_col.lower()} data available.")
 
+    # Attacker performance (solve rate) vs its own resource usage -- never
+    # mixed with defender-side data on the same axis.
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        _scatter("Attacker Cost", "Solve Rate", "Attacker Solve Rate vs Cost")
     with c2:
-        st.markdown("**Solve Rate vs Tokens**")
-        chart = (
-            alt.Chart(df)
-            .mark_circle(size=60)
-            .encode(
-                x="Attacker Tokens:Q",
-                y="Solve Rate:Q",
-                tooltip=["Matchup", "Solve Rate", "Attacker Tokens"],
-            )
-        )
-        st.altair_chart(chart, use_container_width=True)
+        _scatter("Attacker Tokens", "Solve Rate", "Attacker Solve Rate vs Tokens")
+    with c3:
+        _scatter("Attacker Latency ms", "Solve Rate", "Attacker Solve Rate vs Latency")
+
+    # Defender performance (survival rate) vs its own resource usage.
+    d1, d2, d3 = st.columns(3)
+    with d1:
+        _scatter("Defender Cost", "Survival Rate", "Defender Survival Rate vs Cost")
+    with d2:
+        _scatter("Defender Tokens", "Survival Rate", "Defender Survival Rate vs Tokens")
+    with d3:
+        _scatter("Defender Latency ms", "Survival Rate", "Defender Survival Rate vs Latency")
 
 
 def render_thinking_comparison(results: list) -> None:

@@ -306,6 +306,26 @@ def test_efficiency_data_preserves_none_for_missing_latency() -> None:
     df = build_efficiency_data([m])
     row = df.iloc[0]
     assert row["Combined Latency ms"] is None
+    assert row["Attacker Latency ms"] == 50.0
+    assert row["Defender Latency ms"] is None  # rule_based: no defender usage at all
+
+
+def test_efficiency_data_role_specific_latency_and_tokens_never_mixed() -> None:
+    """IMP-027: attacker and defender performance must be chartable against
+    their own resource usage separately, not only a combined figure."""
+    m = _matchup(
+        attacker=_attacker(),
+        defender=_defender(),
+        round_outcomes=[True],
+        attacker_usage=RoleUsage(latency_ms=10.0, input_tokens=1, output_tokens=1),
+        defender_usage=RoleUsage(latency_ms=20.0, input_tokens=2, output_tokens=2),
+    )
+    df = build_efficiency_data([m])
+    row = df.iloc[0]
+    assert row["Attacker Latency ms"] == 10.0
+    assert row["Defender Latency ms"] == 20.0
+    assert row["Attacker Tokens"] == 2
+    assert row["Defender Tokens"] == 4
 
 
 # --- thinking comparison ----------------------------------------------------

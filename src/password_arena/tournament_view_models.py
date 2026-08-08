@@ -391,6 +391,8 @@ def build_efficiency_data(results: Sequence[MatchupLike]) -> pd.DataFrame:
                 "Attacker Cost": s.attacker_estimated_cost,
                 "Defender Cost": s.defender_estimated_cost,
                 "Combined Latency ms": latency,
+                "Attacker Latency ms": s.attacker_mean_latency_ms,
+                "Defender Latency ms": s.defender_mean_latency_ms,
             }
         )
 
