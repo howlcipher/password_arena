@@ -38,7 +38,7 @@ from typing import Protocol
 
 import pandas as pd
 
-from password_arena.models import MatchupConfig, MatchupSummary
+from password_arena.models import MatchupConfig, MatchupSummary, RoleConfig
 from password_arena.providers import ThinkingLevel
 
 
@@ -61,6 +61,82 @@ class MatchupLike(Protocol):
 
 def _role_label(provider: str, model: str | None, thinking_level: ThinkingLevel) -> str:
     return f"{provider} ({model or '-'}) [{thinking_level.value}]"
+
+
+def _role_matches(
+    cfg: RoleConfig,
+    provider: str | None,
+    model: str | None,
+    thinking_level: ThinkingLevel | None,
+) -> bool:
+    if provider is not None and cfg.provider != provider:
+        return False
+    if model is not None and cfg.model != model:
+        return False
+    return thinking_level is None or cfg.thinking_level == thinking_level
+
+
+def filter_results(
+    results: Sequence[MatchupLike],
+    *,
+    role: str | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+    thinking_level: ThinkingLevel | None = None,
+    comparable_only: bool = True,
+) -> list[MatchupLike]:
+    """Filter a matchup list for the Tournament dashboard's filter bar
+    (IMP-027). `role` is `"attacker"`, `"defender"`, or `None` (either side
+    may match). `provider`/`model`/`thinking_level` are matched against the
+    selected role's `RoleConfig`; when `role` is `None` a matchup is kept if
+    EITHER side matches, so "provider=openai" alone surfaces every matchup
+    involving OpenAI regardless of which side it played. `comparable_only`
+    defaults to `True`, matching the dashboard's previous implicit behavior,
+    but is now a visible, togglable control rather than silent."""
+    out: list[MatchupLike] = []
+    for r in results:
+        if comparable_only and not r.is_comparable:
+            continue
+        if provider is None and model is None and thinking_level is None:
+            out.append(r)
+            continue
+        att_match = _role_matches(r.config.attacker, provider, model, thinking_level)
+        dfd_match = _role_matches(r.config.defender, provider, model, thinking_level)
+        if role == "attacker":
+            keep = att_match
+        elif role == "defender":
+            keep = dfd_match
+        else:
+            keep = att_match or dfd_match
+        if keep:
+            out.append(r)
+    return out
+
+
+@dataclass(frozen=True, slots=True)
+class FilterOptions:
+    providers: tuple[str, ...]
+    models: tuple[str, ...]
+    thinking_levels: tuple[ThinkingLevel, ...]
+
+
+def available_filter_options(results: Sequence[MatchupLike]) -> FilterOptions:
+    """Distinct provider/model/thinking-level values present across both
+    roles of every matchup, for populating the filter bar's selectboxes."""
+    providers: set[str] = set()
+    models: set[str] = set()
+    thinking_levels: set[ThinkingLevel] = set()
+    for r in results:
+        for cfg in (r.config.attacker, r.config.defender):
+            providers.add(cfg.provider)
+            if cfg.model:
+                models.add(cfg.model)
+            thinking_levels.add(cfg.thinking_level)
+    return FilterOptions(
+        providers=tuple(sorted(providers)),
+        models=tuple(sorted(models)),
+        thinking_levels=tuple(sorted(thinking_levels, key=lambda t: t.value)),
+    )
 
 
 def _weighted_mean(pairs: Sequence[tuple[float | None, float]]) -> float | None:

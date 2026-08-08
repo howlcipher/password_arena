@@ -17,12 +17,14 @@ from password_arena.tournament_history import StoredMatchup
 from password_arena.tournament_view_models import (
     HEATMAP_METRICS,
     aggregate_tournament_cost,
+    available_filter_options,
     build_attacker_leaderboard,
     build_defender_leaderboard,
     build_efficiency_data,
     build_heatmap_data,
     build_overview,
     build_thinking_comparison_data,
+    filter_results,
 )
 
 
@@ -358,3 +360,98 @@ def test_view_models_accept_stored_matchup_not_just_matchup_result() -> None:
 
     att_df = build_attacker_leaderboard([stored])
     assert len(att_df) == 1
+
+
+# --- filter_results ------------------------------------------------------------
+
+
+def test_filter_results_by_provider_matches_either_role_by_default() -> None:
+    openai_attacker = _matchup(
+        attacker=RoleConfig(provider="openai", model="m1", thinking_level=ThinkingLevel.AUTO),
+        defender=_defender("d1"),
+        round_outcomes=[True],
+    )
+    openai_defender = _matchup(
+        attacker=RoleConfig(provider="anthropic", model="a2", thinking_level=ThinkingLevel.AUTO),
+        defender=RoleConfig(provider="openai", model="m2", thinking_level=ThinkingLevel.AUTO),
+        round_outcomes=[True],
+    )
+    neither_openai = _matchup(
+        attacker=RoleConfig(provider="rule_based"),
+        defender=RoleConfig(provider="rule_based"),
+        round_outcomes=[True],
+    )
+
+    filtered = filter_results(
+        [openai_attacker, openai_defender, neither_openai], provider="openai"
+    )
+    assert len(filtered) == 2
+
+
+def test_filter_results_by_role_restricts_which_side_must_match() -> None:
+    openai_attacker = _matchup(
+        attacker=RoleConfig(provider="openai", model="m1", thinking_level=ThinkingLevel.AUTO),
+        defender=_defender("d1"),
+        round_outcomes=[True],
+    )
+    openai_defender = _matchup(
+        attacker=RoleConfig(provider="anthropic", model="a2", thinking_level=ThinkingLevel.AUTO),
+        defender=RoleConfig(provider="openai", model="m2", thinking_level=ThinkingLevel.AUTO),
+        round_outcomes=[True],
+    )
+
+    attacker_only = filter_results(
+        [openai_attacker, openai_defender], role="attacker", provider="openai"
+    )
+    assert attacker_only == [openai_attacker]
+
+    defender_only = filter_results(
+        [openai_attacker, openai_defender], role="defender", provider="openai"
+    )
+    assert defender_only == [openai_defender]
+
+
+def test_filter_results_comparable_only_excludes_non_comparable() -> None:
+    comparable = _matchup(attacker=_attacker(), defender=_defender(), round_outcomes=[True])
+    non_comparable_config = MatchupConfig(
+        attacker=_attacker("x"), defender=_defender("y"), rounds=1, seeds=(1,)
+    )
+    non_comparable_exp = ExperimentResult(
+        config=ArenaConfig(seed=1), rounds=(), interruption_reason="provider_error"
+    )
+    non_comparable = aggregate_matchup(non_comparable_config, [non_comparable_exp], [])
+    assert non_comparable.is_comparable is False
+
+    default_filtered = filter_results([comparable, non_comparable])
+    assert default_filtered == [comparable]
+
+    all_filtered = filter_results([comparable, non_comparable], comparable_only=False)
+    assert len(all_filtered) == 2
+
+
+def test_filter_results_by_thinking_level() -> None:
+    high = _matchup(
+        attacker=RoleConfig(provider="openai", model="m", thinking_level=ThinkingLevel.HIGH),
+        defender=_defender(),
+        round_outcomes=[True],
+    )
+    low = _matchup(
+        attacker=RoleConfig(provider="openai", model="m", thinking_level=ThinkingLevel.LOW),
+        defender=_defender(),
+        round_outcomes=[True],
+    )
+    filtered = filter_results([high, low], role="attacker", thinking_level=ThinkingLevel.HIGH)
+    assert filtered == [high]
+
+
+def test_available_filter_options_collects_both_roles() -> None:
+    m = _matchup(
+        attacker=RoleConfig(provider="openai", model="m1", thinking_level=ThinkingLevel.HIGH),
+        defender=RoleConfig(provider="anthropic", model="m2", thinking_level=ThinkingLevel.LOW),
+        round_outcomes=[True],
+    )
+    options = available_filter_options([m])
+    assert options.providers == ("anthropic", "openai")
+    assert options.models == ("m1", "m2")
+    assert ThinkingLevel.HIGH in options.thinking_levels
+    assert ThinkingLevel.LOW in options.thinking_levels

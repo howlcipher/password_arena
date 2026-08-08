@@ -3,7 +3,7 @@ import streamlit as st
 
 from password_arena.history import HistoryManager
 from password_arena.models import TournamentConfig
-from password_arena.providers import AvailabilityState, ProviderRegistry
+from password_arena.providers import AvailabilityState, ProviderRegistry, ThinkingLevel
 from password_arena.reporting import (
     tournament_report_csv,
     tournament_report_json,
@@ -11,6 +11,7 @@ from password_arena.reporting import (
 )
 from password_arena.tournament import build_tournament_matrix, run_matchup
 from password_arena.tournament_history import TournamentHistoryManager
+from password_arena.tournament_view_models import available_filter_options, filter_results
 from password_arena.tournament_views import (
     render_efficiency,
     render_heatmap,
@@ -182,27 +183,72 @@ def _rate_display(value: float | None) -> str:
     return "-" if value is None else f"{value * 100:.1f}%"
 
 
+def _render_filter_bar(results: list, key_prefix: str) -> list:
+    """IMP-027: role/provider/model/thinking-level/comparable-only filters,
+    applied once here and consumed by every result tab below -- charts never
+    recompute their own subset of `results`. Downloadable reports (JSON/
+    Markdown/CSV) intentionally use the unfiltered `results` -- they are the
+    canonical record, not a view."""
+    options = available_filter_options(results)
+
+    st.markdown("**Filters**")
+    f1, f2, f3, f4, f5 = st.columns(5)
+    with f1:
+        role = st.selectbox(
+            "Role", ["Both", "Attacker", "Defender"], key=f"{key_prefix}_filter_role"
+        )
+    with f2:
+        provider = st.selectbox(
+            "Provider", ["All", *options.providers], key=f"{key_prefix}_filter_provider"
+        )
+    with f3:
+        model = st.selectbox("Model", ["All", *options.models], key=f"{key_prefix}_filter_model")
+    with f4:
+        thinking_labels = ["All"] + [t.value for t in options.thinking_levels]
+        thinking = st.selectbox(
+            "Thinking level", thinking_labels, key=f"{key_prefix}_filter_thinking"
+        )
+    with f5:
+        comparable_only = st.checkbox(
+            "Comparable only", value=True, key=f"{key_prefix}_filter_comparable"
+        )
+
+    filtered = filter_results(
+        results,
+        role=None if role == "Both" else role.lower(),
+        provider=None if provider == "All" else provider,
+        model=None if model == "All" else model,
+        thinking_level=None if thinking == "All" else ThinkingLevel(thinking),
+        comparable_only=comparable_only,
+    )
+    st.caption(f"Showing {len(filtered)} of {len(results)} matchups.")
+    return filtered
+
+
 def _render_results(
     tournament_id: str, timestamp: str, config: TournamentConfig, results: list
 ) -> None:
+    filtered_results = _render_filter_bar(results, key_prefix=tournament_id)
+    st.divider()
+
     # Use tabbed layout for views
     t1, t2, t3, t4 = st.tabs([
         "Overview & Leaderboard", "Matchup Heatmap", "Efficiency", "Thinking Levels"
     ])
-    
+
     with t1:
-        render_overview(results)
+        render_overview(filtered_results)
         st.divider()
-        render_leaderboards(results)
-        
+        render_leaderboards(filtered_results)
+
     with t2:
-        render_heatmap(results)
-        
+        render_heatmap(filtered_results)
+
     with t3:
-        render_efficiency(results)
-        
+        render_efficiency(filtered_results)
+
     with t4:
-        render_thinking_comparison(results)
+        render_thinking_comparison(filtered_results)
 
     st.divider()
     json_report = tournament_report_json(tournament_id, timestamp, config, results)
