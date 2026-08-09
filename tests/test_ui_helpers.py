@@ -3,6 +3,7 @@ from password_arena.openai_provider import OPENAI_MODEL_REGISTRY
 from password_arena.providers import ThinkingLevel
 from password_arena.ui_helpers import (
     _known_models_for_provider,
+    get_huggingface_execution_status,
     get_supported_thinking_levels,
 )
 
@@ -59,3 +60,10 @@ def test_known_models_empty_for_providers_without_a_static_registry() -> None:
     only correct source."""
     assert _known_models_for_provider("gemini") == []
     assert _known_models_for_provider("ollama") == []
+
+
+def test_huggingface_execution_status_uses_exact_capability_registry_match() -> None:
+    assert get_huggingface_execution_status("rule_based", "anything/model") == "NO"
+    assert get_huggingface_execution_status("openai", "gpt-4o") == "YES"
+    assert get_huggingface_execution_status("openai", "org/gpt-4o") == "UNKNOWN"
+    assert get_huggingface_execution_status("gemini", "gemini-2.5-pro") == "UNKNOWN"
