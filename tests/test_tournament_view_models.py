@@ -28,8 +28,10 @@ from password_arena.tournament_view_models import (
 )
 
 
-def _strength() -> StrengthReport:
-    return StrengthReport(entropy_bits=10.0, score=1, character_pool=26, pattern_penalty=0.0)
+def _strength(entropy_bits: float = 10.0) -> StrengthReport:
+    return StrengthReport(
+        entropy_bits=entropy_bits, score=1, character_pool=26, pattern_penalty=0.0
+    )
 
 
 def _round(
@@ -37,13 +39,14 @@ def _round(
     solved: bool,
     attacker_usage: RoleUsage | None = None,
     defender_usage: RoleUsage | None = None,
+    entropy_bits: float = 10.0,
 ) -> RoundResult:
     return RoundResult(
         round_number=number,
         difficulty=1,
         password_display="****",
         password_length=4,
-        strength=_strength(),
+        strength=_strength(entropy_bits),
         attack=AttackResult(
             solved=solved,
             guesses_used=10 if solved else 5000,
@@ -67,6 +70,7 @@ def _matchup(
     round_outcomes: list[bool],
     attacker_usage: RoleUsage | None = None,
     defender_usage: RoleUsage | None = None,
+    entropy_bits: list[float] | None = None,
 ) -> MatchupResult:
     config = MatchupConfig(
         attacker=attacker,
@@ -75,7 +79,13 @@ def _matchup(
         seeds=(1,),
     )
     rounds = [
-        _round(i + 1, solved, attacker_usage=attacker_usage, defender_usage=defender_usage)
+        _round(
+            i + 1,
+            solved,
+            attacker_usage=attacker_usage,
+            defender_usage=defender_usage,
+            entropy_bits=entropy_bits[i] if entropy_bits is not None else 10.0,
+        )
         for i, solved in enumerate(round_outcomes)
     ]
     experiment = ExperimentResult(config=ArenaConfig(seed=1), rounds=tuple(rounds))
@@ -308,6 +318,24 @@ def test_efficiency_data_preserves_none_for_missing_latency() -> None:
     assert row["Combined Latency ms"] is None
     assert row["Attacker Latency ms"] == 50.0
     assert row["Defender Latency ms"] is None  # rule_based: no defender usage at all
+
+
+def test_efficiency_data_exposes_defender_entropy_gain_measurements() -> None:
+    usage = RoleUsage(input_tokens=20, output_tokens=30)
+    m = _matchup(
+        attacker=_attacker(),
+        defender=RoleConfig(provider="mock", model="test-defender"),
+        round_outcomes=[False, False],
+        defender_usage=usage,
+        entropy_bits=[10.0, 14.0],
+    )
+    row = build_efficiency_data([m]).iloc[0]
+    assert row["Entropy Gain Trials"] == 1
+    assert row["Mean Initial Entropy (bits)"] == 10.0
+    assert row["Mean Final Entropy (bits)"] == 14.0
+    assert row["Mean Entropy Gain (bits)"] == 4.0
+    assert row["Defender Tokens for Entropy Gain"] == 100
+    assert row["Defender Entropy Gain/1K Tokens"] == 40.0
 
 
 def test_efficiency_data_role_specific_latency_and_tokens_never_mixed() -> None:

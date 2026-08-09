@@ -24,10 +24,10 @@ from password_arena.models import (
 from password_arena.providers import ThinkingLevel
 
 # 2.1 adds replay/excluded_trial_records/excluded_round_records to
-# StoredMatchup (previously silently dropped on save -- see
-# _stored_matchup_from_dict for backward-compat defaulting on tournaments
-# saved under 2.0 or earlier).
-TOURNAMENT_SCHEMA_VERSION = "2.1"
+# StoredMatchup. 2.2 adds the optional defender entropy-trajectory summary
+# fields. `_stored_matchup_from_dict` defaults both additions so older saved
+# tournaments remain loadable.
+TOURNAMENT_SCHEMA_VERSION = "2.2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +113,7 @@ def _efficiency_from_dict(d: dict[str, Any] | None) -> EfficiencyMetrics:
         attacker_solved_per_dollar=d.get("attacker_solved_per_dollar"),
         defender_survived_per_1k_tokens=d.get("defender_survived_per_1k_tokens"),
         defender_survived_per_dollar=d.get("defender_survived_per_dollar"),
+        defender_entropy_gain_per_1k_tokens=d.get("defender_entropy_gain_per_1k_tokens"),
     )
 
 
@@ -156,6 +157,11 @@ def _matchup_summary_from_dict(d: dict[str, Any]) -> MatchupSummary:
         total_estimated_cost=d.get("total_estimated_cost"),
         attacker_estimated_cost=d.get("attacker_estimated_cost"),
         defender_estimated_cost=d.get("defender_estimated_cost"),
+        entropy_gain_trials=d.get("entropy_gain_trials", 0),
+        mean_initial_entropy_bits=d.get("mean_initial_entropy_bits"),
+        mean_final_entropy_bits=d.get("mean_final_entropy_bits"),
+        mean_entropy_gain_bits=d.get("mean_entropy_gain_bits"),
+        defender_entropy_gain_tokens=d.get("defender_entropy_gain_tokens"),
         efficiency=_efficiency_from_dict(d.get("efficiency")),
     )
 

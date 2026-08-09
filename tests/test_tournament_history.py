@@ -62,6 +62,18 @@ def test_save_list_load_delete_round_trip(tmp_path: Any) -> None:
     stored_summary = stored.matchups[0].summary
     assert stored_summary.attacker_estimated_cost == matchup.summary.attacker_estimated_cost
     assert stored_summary.defender_estimated_cost == matchup.summary.defender_estimated_cost
+    assert stored_summary.entropy_gain_trials == matchup.summary.entropy_gain_trials
+    assert stored_summary.mean_initial_entropy_bits == matchup.summary.mean_initial_entropy_bits
+    assert stored_summary.mean_final_entropy_bits == matchup.summary.mean_final_entropy_bits
+    assert stored_summary.mean_entropy_gain_bits == matchup.summary.mean_entropy_gain_bits
+    assert (
+        stored_summary.defender_entropy_gain_tokens
+        == matchup.summary.defender_entropy_gain_tokens
+    )
+    assert (
+        stored_summary.efficiency.defender_entropy_gain_per_1k_tokens
+        == matchup.summary.efficiency.defender_entropy_gain_per_1k_tokens
+    )
 
     experiments, missing = hydrate_experiments(stored.matchups[0], history_mgr)
     assert len(experiments) == len(matchup.experiments)

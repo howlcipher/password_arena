@@ -389,7 +389,14 @@ def tournament_report_markdown(
             f"attacker solved/sec={eff.attacker_solved_per_second}, "
             f"attacker solved/$={eff.attacker_solved_per_dollar}, "
             f"defender survived/1k tokens={eff.defender_survived_per_1k_tokens}, "
-            f"defender survived/$={eff.defender_survived_per_dollar}"
+            f"defender survived/$={eff.defender_survived_per_dollar}, "
+            f"defender entropy gain/1k tokens={eff.defender_entropy_gain_per_1k_tokens}"
+        )
+        lines.append(
+            "- **Defender entropy trajectory (complete comparable trials only):** "
+            f"trials={s.entropy_gain_trials}, initial={s.mean_initial_entropy_bits}, "
+            f"final={s.mean_final_entropy_bits}, gain={s.mean_entropy_gain_bits}, "
+            f"tokens={s.defender_entropy_gain_tokens}"
         )
         if m.replay:
             lines.append(
@@ -457,6 +464,12 @@ def tournament_report_csv(
             "estimated_cost",
             "attacker_estimated_cost",
             "defender_estimated_cost",
+            "entropy_gain_trials",
+            "mean_initial_entropy_bits",
+            "mean_final_entropy_bits",
+            "mean_entropy_gain_bits",
+            "defender_entropy_gain_tokens",
+            "defender_entropy_gain_per_1k_tokens",
             "deterministic_replay",
         ]
     )
@@ -504,6 +517,12 @@ def tournament_report_csv(
                 cell(s.total_estimated_cost),
                 cell(s.attacker_estimated_cost),
                 cell(s.defender_estimated_cost),
+                s.entropy_gain_trials,
+                cell(s.mean_initial_entropy_bits),
+                cell(s.mean_final_entropy_bits),
+                cell(s.mean_entropy_gain_bits),
+                cell(s.defender_entropy_gain_tokens),
+                cell(s.efficiency.defender_entropy_gain_per_1k_tokens),
                 m.replay.deterministic if m.replay else "",
             ]
         )

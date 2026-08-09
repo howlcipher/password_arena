@@ -89,12 +89,19 @@ def compute_efficiency(
     attacker_total_latency_ms: float,
     attacker_estimated_cost: float | None,
     defender_estimated_cost: float | None,
+    defender_entropy_gain_bits: float | None = None,
+    defender_entropy_gain_tokens: int | None = None,
 ) -> EfficiencyMetrics:
     """Transparent per-role efficiency ratios. Never divide by zero or unavailable data.
 
     Cost denominators are role-specific (attacker cost for the attacker ratio,
     defender cost for the defender ratio) -- never the combined matchup cost,
     which would attribute the other role's spend to this one.
+
+    `defender_entropy_gain_bits` is the sum of final-minus-initial entropy for
+    complete, fully comparable trials only. Its token denominator covers that
+    exact same trial set. This keeps a partial or fallback-contaminated
+    trajectory from being presented as a measured defender improvement.
     """
 
     def ratio(numerator: int, denominator: float) -> float | None:
@@ -117,6 +124,54 @@ def compute_efficiency(
             if defender_cost_denominator
             else None
         ),
+        defender_entropy_gain_per_1k_tokens=(
+            defender_entropy_gain_bits * 1000 / defender_entropy_gain_tokens
+            if defender_entropy_gain_bits is not None
+            and defender_entropy_gain_tokens is not None
+            and defender_entropy_gain_tokens > 0
+            else None
+        ),
+    )
+
+
+def _entropy_gain_trial(
+    config: MatchupConfig, experiment: ExperimentResult
+) -> tuple[float, float, float, int | None] | None:
+    """Return one complete comparable trial's entropy trajectory and defender tokens.
+
+    A first-to-last entropy difference is meaningful only over a complete
+    scheduled trajectory. Unlike round-level rates, it cannot safely use a
+    partial trial or skip a fallback round in the middle, because either would
+    change the start/end comparison. A rule-based defender has a known zero
+    model-token total; a non-rule-based defender with no usage record has
+    unavailable token metrics rather than a fabricated zero.
+    """
+    rounds = experiment.rounds
+    if (
+        experiment.interruption_reason is not None
+        or len(rounds) != config.rounds
+        or not rounds
+        or any(not round_result.comparable for round_result in rounds)
+    ):
+        return None
+
+    defender_tokens = 0
+    token_metrics_available = True
+    for round_result in rounds:
+        if round_result.defender_usage is not None:
+            defender_tokens += (
+                round_result.defender_usage.input_tokens + round_result.defender_usage.output_tokens
+            )
+        elif config.defender.provider != "rule_based":
+            token_metrics_available = False
+
+    initial_entropy = rounds[0].strength.entropy_bits
+    final_entropy = rounds[-1].strength.entropy_bits
+    return (
+        initial_entropy,
+        final_entropy,
+        final_entropy - initial_entropy,
+        defender_tokens if token_metrics_available else None,
     )
 
 
@@ -163,6 +218,11 @@ def aggregate_matchup(
     attacker_total_cost = 0.0
     defender_cost_known = True
     defender_total_cost = 0.0
+    initial_entropy_bits: list[float] = []
+    final_entropy_bits: list[float] = []
+    entropy_gain_bits: list[float] = []
+    defender_entropy_gain_tokens = 0
+    entropy_gain_token_metrics_known = True
 
     for experiment in experiments:
         seed = experiment.config.seed
@@ -228,6 +288,17 @@ def aggregate_matchup(
                 else:
                     defender_total_cost += r.defender_usage.estimated_cost
 
+        entropy_trial = _entropy_gain_trial(config, experiment)
+        if entropy_trial is not None:
+            initial_entropy, final_entropy, entropy_gain, trial_defender_tokens = entropy_trial
+            initial_entropy_bits.append(initial_entropy)
+            final_entropy_bits.append(final_entropy)
+            entropy_gain_bits.append(entropy_gain)
+            if trial_defender_tokens is None:
+                entropy_gain_token_metrics_known = False
+            else:
+                defender_entropy_gain_tokens += trial_defender_tokens
+
     comparable_trials = trials - len(trial_exclusions)
     excluded_trials = len(trial_exclusions)
     excluded_rounds = len(round_exclusions)
@@ -248,6 +319,11 @@ def aggregate_matchup(
         if attacker_cost_known and defender_cost_known
         else None
     )
+    entropy_gain_token_total = (
+        defender_entropy_gain_tokens
+        if entropy_gain_bits and entropy_gain_token_metrics_known
+        else None
+    )
 
     efficiency = compute_efficiency(
         rounds_solved=rounds_solved,
@@ -257,6 +333,8 @@ def aggregate_matchup(
         attacker_total_latency_ms=sum(attacker_latencies),
         attacker_estimated_cost=attacker_estimated_cost,
         defender_estimated_cost=defender_estimated_cost,
+        defender_entropy_gain_bits=sum(entropy_gain_bits) if entropy_gain_bits else None,
+        defender_entropy_gain_tokens=entropy_gain_token_total,
     )
 
     summary = MatchupSummary(
@@ -304,6 +382,13 @@ def aggregate_matchup(
         total_estimated_cost=total_estimated_cost,
         attacker_estimated_cost=attacker_estimated_cost,
         defender_estimated_cost=defender_estimated_cost,
+        entropy_gain_trials=len(entropy_gain_bits),
+        mean_initial_entropy_bits=(
+            statistics.mean(initial_entropy_bits) if initial_entropy_bits else None
+        ),
+        mean_final_entropy_bits=statistics.mean(final_entropy_bits) if final_entropy_bits else None,
+        mean_entropy_gain_bits=statistics.mean(entropy_gain_bits) if entropy_gain_bits else None,
+        defender_entropy_gain_tokens=entropy_gain_token_total,
         efficiency=efficiency,
     )
 

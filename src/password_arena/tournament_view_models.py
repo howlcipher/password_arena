@@ -393,6 +393,14 @@ def build_efficiency_data(results: Sequence[MatchupLike]) -> pd.DataFrame:
                 "Combined Latency ms": latency,
                 "Attacker Latency ms": s.attacker_mean_latency_ms,
                 "Defender Latency ms": s.defender_mean_latency_ms,
+                "Entropy Gain Trials": s.entropy_gain_trials,
+                "Mean Initial Entropy (bits)": s.mean_initial_entropy_bits,
+                "Mean Final Entropy (bits)": s.mean_final_entropy_bits,
+                "Mean Entropy Gain (bits)": s.mean_entropy_gain_bits,
+                "Defender Tokens for Entropy Gain": s.defender_entropy_gain_tokens,
+                "Defender Entropy Gain/1K Tokens": (
+                    s.efficiency.defender_entropy_gain_per_1k_tokens
+                ),
             }
         )
 

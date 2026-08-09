@@ -119,6 +119,23 @@ def render_efficiency(results: list) -> None:
     if df.empty:
         return
 
+    st.caption(
+        "Entropy gain is final minus initial estimated entropy across complete, fully "
+        "comparable trials. It is a within-benchmark trajectory, not a security guarantee "
+        "or a comparison across different tournament configurations."
+    )
+
+    strength_columns = [
+        "Matchup",
+        "Entropy Gain Trials",
+        "Mean Initial Entropy (bits)",
+        "Mean Final Entropy (bits)",
+        "Mean Entropy Gain (bits)",
+        "Defender Tokens for Entropy Gain",
+        "Defender Entropy Gain/1K Tokens",
+    ]
+    st.dataframe(df[strength_columns], hide_index=True, use_container_width=True)
+
     def _scatter(x_col: str, y_col: str, title: str) -> None:
         st.markdown(f"**{title}**")
         if df[x_col].notna().any():
@@ -151,6 +168,32 @@ def render_efficiency(results: list) -> None:
         _scatter("Defender Tokens", "Survival Rate", "Defender Survival Rate vs Tokens")
     with d3:
         _scatter("Defender Latency ms", "Survival Rate", "Defender Survival Rate vs Latency")
+
+    strength_data = df.dropna(
+        subset=["Defender Tokens for Entropy Gain", "Mean Entropy Gain (bits)"]
+    )
+    if strength_data.empty:
+        st.info("No defender entropy-gain trajectory with measured token usage is available.")
+    else:
+        chart = (
+            alt.Chart(strength_data)
+            .mark_circle(size=90)
+            .encode(
+                x=alt.X("Defender Tokens for Entropy Gain:Q", title="Defender tokens"),
+                y=alt.Y("Mean Entropy Gain (bits):Q", title="Mean entropy gain (bits)"),
+                tooltip=[
+                    "Matchup:N",
+                    "Entropy Gain Trials:Q",
+                    "Mean Initial Entropy (bits):Q",
+                    "Mean Final Entropy (bits):Q",
+                    "Mean Entropy Gain (bits):Q",
+                    "Defender Tokens for Entropy Gain:Q",
+                    "Defender Entropy Gain/1K Tokens:Q",
+                ],
+            )
+            .properties(title="Defender Entropy Gain vs Tokens")
+        )
+        st.altair_chart(chart, use_container_width=True)
 
 
 def render_thinking_comparison(results: list) -> None:

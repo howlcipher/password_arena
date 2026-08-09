@@ -348,6 +348,7 @@ class EfficiencyMetrics:
     attacker_solved_per_dollar: float | None = None
     defender_survived_per_1k_tokens: float | None = None
     defender_survived_per_dollar: float | None = None
+    defender_entropy_gain_per_1k_tokens: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -429,6 +430,14 @@ class MatchupSummary:
     total_estimated_cost: float | None = None
     attacker_estimated_cost: float | None = None
     defender_estimated_cost: float | None = None
+    # A trajectory is usable only when its trial completed with every scheduled
+    # round comparable. It is intentionally separate from round-level headline
+    # statistics, which can include valid rounds from an interrupted trial.
+    entropy_gain_trials: int = 0
+    mean_initial_entropy_bits: float | None = None
+    mean_final_entropy_bits: float | None = None
+    mean_entropy_gain_bits: float | None = None
+    defender_entropy_gain_tokens: int | None = None
     efficiency: EfficiencyMetrics = field(default_factory=EfficiencyMetrics)
 
 

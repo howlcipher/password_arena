@@ -28,8 +28,10 @@ from password_arena.tournament import (
 )
 
 
-def _strength() -> StrengthReport:
-    return StrengthReport(entropy_bits=10.0, score=1, character_pool=26, pattern_penalty=0.0)
+def _strength(entropy_bits: float = 10.0) -> StrengthReport:
+    return StrengthReport(
+        entropy_bits=entropy_bits, score=1, character_pool=26, pattern_penalty=0.0
+    )
 
 
 def _attack(solved: bool, guesses: int) -> AttackResult:
@@ -48,13 +50,14 @@ def _round(
     attacker_usage: RoleUsage | None = None,
     defender_usage: RoleUsage | None = None,
     comparable: bool = True,
+    entropy_bits: float = 10.0,
 ) -> RoundResult:
     return RoundResult(
         round_number=number,
         difficulty=1,
         password_display="****",
         password_length=4,
-        strength=_strength(),
+        strength=_strength(entropy_bits),
         attack=_attack(solved, guesses),
         defender_strategy="dictionary-word",
         defender_note="note",
@@ -424,6 +427,188 @@ def test_efficiency_uses_role_specific_cost_not_combined() -> None:
     )
     assert eff.attacker_solved_per_dollar == pytest.approx(10.0)
     assert eff.defender_survived_per_dollar == pytest.approx(5 / 9)
+
+
+def test_entropy_gain_efficiency_uses_complete_comparable_trials_and_real_tokens() -> None:
+    """IMP-027: pool measured gain and defender tokens across repeated trials.
+
+    Trial one gains 4 bits on 100 defender tokens; trial two gains 9 bits on
+    100 tokens. The mean trajectory is 6.5 bits, while efficiency is the
+    pooled 13-bit gain over 200 tokens: 65 bits/1K tokens.
+    """
+    config = MatchupConfig(
+        attacker=RoleConfig(provider="rule_based"),
+        defender=RoleConfig(provider="mock", model="test-defender"),
+        rounds=2,
+        seeds=(1, 2),
+    )
+    usage = RoleUsage(input_tokens=20, output_tokens=30)
+    result = aggregate_matchup(
+        config,
+        [
+            _experiment(
+                1,
+                [
+                    _round(1, False, 1, defender_usage=usage, entropy_bits=10),
+                    _round(2, False, 1, defender_usage=usage, entropy_bits=14),
+                ],
+            ),
+            _experiment(
+                2,
+                [
+                    _round(1, False, 1, defender_usage=usage, entropy_bits=20),
+                    _round(2, False, 1, defender_usage=usage, entropy_bits=29),
+                ],
+            ),
+        ],
+        [],
+    )
+
+    summary = result.summary
+    assert summary.entropy_gain_trials == 2
+    assert summary.mean_initial_entropy_bits == pytest.approx(15.0)
+    assert summary.mean_final_entropy_bits == pytest.approx(21.5)
+    assert summary.mean_entropy_gain_bits == pytest.approx(6.5)
+    assert summary.defender_entropy_gain_tokens == 200
+    assert summary.efficiency.defender_entropy_gain_per_1k_tokens == pytest.approx(65.0)
+
+
+def test_entropy_gain_efficiency_preserves_measured_zero_and_negative_movement() -> None:
+    config = MatchupConfig(
+        attacker=RoleConfig(provider="rule_based"),
+        defender=RoleConfig(provider="mock", model="test-defender"),
+        rounds=2,
+        seeds=(1,),
+    )
+    usage = RoleUsage(input_tokens=50, output_tokens=50)
+
+    zero = aggregate_matchup(
+        config,
+        [
+            _experiment(
+                1,
+                [
+                    _round(1, False, 1, defender_usage=usage, entropy_bits=10),
+                    _round(2, False, 1, defender_usage=usage, entropy_bits=10),
+                ],
+            )
+        ],
+        [],
+    ).summary
+    assert zero.mean_entropy_gain_bits == 0.0
+    assert zero.efficiency.defender_entropy_gain_per_1k_tokens == 0.0
+
+    negative = aggregate_matchup(
+        config,
+        [
+            _experiment(
+                1,
+                [
+                    _round(1, False, 1, defender_usage=usage, entropy_bits=15),
+                    _round(2, False, 1, defender_usage=usage, entropy_bits=10),
+                ],
+            )
+        ],
+        [],
+    ).summary
+    assert negative.mean_entropy_gain_bits == -5.0
+    assert negative.efficiency.defender_entropy_gain_per_1k_tokens == -25.0
+
+
+def test_entropy_gain_efficiency_is_unavailable_for_missing_or_zero_defender_tokens() -> None:
+    config = MatchupConfig(
+        attacker=RoleConfig(provider="rule_based"),
+        defender=RoleConfig(provider="mock", model="test-defender"),
+        rounds=2,
+        seeds=(1,),
+    )
+    rounds = [_round(1, False, 1, entropy_bits=10), _round(2, False, 1, entropy_bits=14)]
+    missing = aggregate_matchup(config, [_experiment(1, rounds)], []).summary
+    assert missing.mean_entropy_gain_bits == 4.0
+    assert missing.defender_entropy_gain_tokens is None
+    assert missing.efficiency.defender_entropy_gain_per_1k_tokens is None
+
+    partial_metrics = aggregate_matchup(
+        config,
+        [
+            _experiment(
+                1,
+                [
+                    _round(1, False, 1, entropy_bits=10),
+                    _round(
+                        2,
+                        False,
+                        1,
+                        defender_usage=RoleUsage(input_tokens=50, output_tokens=50),
+                        entropy_bits=14,
+                    ),
+                ],
+            )
+        ],
+        [],
+    ).summary
+    assert partial_metrics.defender_entropy_gain_tokens is None
+    assert partial_metrics.efficiency.defender_entropy_gain_per_1k_tokens is None
+
+    zero_usage = RoleUsage(input_tokens=0, output_tokens=0)
+    zero = aggregate_matchup(
+        config,
+        [
+            _experiment(
+                1,
+                [
+                    _round(1, False, 1, defender_usage=zero_usage, entropy_bits=10),
+                    _round(2, False, 1, defender_usage=zero_usage, entropy_bits=14),
+                ],
+            )
+        ],
+        [],
+    ).summary
+    assert zero.defender_entropy_gain_tokens == 0
+    assert zero.efficiency.defender_entropy_gain_per_1k_tokens is None
+
+
+def test_entropy_gain_excludes_interrupted_and_non_comparable_trial_trajectories() -> None:
+    config = MatchupConfig(
+        attacker=RoleConfig(provider="rule_based"),
+        defender=RoleConfig(provider="mock", model="test-defender"),
+        rounds=2,
+        seeds=(1, 2, 3),
+    )
+    usage = RoleUsage(input_tokens=25, output_tokens=25)
+    result = aggregate_matchup(
+        config,
+        [
+            _experiment(
+                1,
+                [
+                    _round(1, False, 1, defender_usage=usage, entropy_bits=10),
+                    _round(2, False, 1, defender_usage=usage, entropy_bits=14),
+                ],
+            ),
+            _experiment(
+                2,
+                [_round(1, False, 1, defender_usage=usage, entropy_bits=30)],
+                interruption_reason="provider interrupted",
+            ),
+            _experiment(
+                3,
+                [
+                    _round(1, False, 1, defender_usage=usage, entropy_bits=1),
+                    _round(2, False, 1, defender_usage=usage, comparable=False, entropy_bits=100),
+                ],
+            ),
+        ],
+        [],
+    )
+
+    summary = result.summary
+    assert summary.entropy_gain_trials == 1
+    assert summary.mean_initial_entropy_bits == 10.0
+    assert summary.mean_final_entropy_bits == 14.0
+    assert summary.mean_entropy_gain_bits == 4.0
+    assert summary.defender_entropy_gain_tokens == 100
+    assert summary.efficiency.defender_entropy_gain_per_1k_tokens == 40.0
 
 
 def test_replay_metadata_deterministic_flag() -> None:
