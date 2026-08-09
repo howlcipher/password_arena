@@ -110,6 +110,11 @@ def _recorded_versions(
     tournament: StoredTournament, attribute: str
 ) -> tuple[tuple[str, ...], int]:
     """Return non-empty replay values and the count unavailable for one field."""
+    if not tournament.matchups:
+        # No matchup means no recorded execution metadata. Treat it exactly as
+        # unavailable rather than allowing two empty version sets to look equal.
+        return (), 1
+
     versions: set[str] = set()
     unavailable = 0
     for matchup in tournament.matchups:

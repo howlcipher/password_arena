@@ -196,6 +196,13 @@ def test_saved_tournament_comparison_treats_old_missing_metadata_as_unavailable(
     assert all("version metadata unavailable" in item for item in result.metadata_differences)
 
 
+def test_saved_tournament_comparison_treats_empty_tournaments_as_metadata_unavailable() -> None:
+    result = compare_stored_tournaments(_stored(()), _stored(()))
+    assert not result.identical
+    assert len(result.metadata_differences) == 5
+    assert all("version metadata unavailable" in item for item in result.metadata_differences)
+
+
 def test_saved_tournament_comparison_reports_history_schema_separately() -> None:
     result = compare_stored_tournaments(
         _stored((_replay(),), schema_version="2.0"), _stored((_replay(),))
