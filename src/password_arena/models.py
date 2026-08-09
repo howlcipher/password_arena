@@ -6,6 +6,8 @@ from typing import Any, Protocol
 
 from password_arena.providers import ThinkingLevel
 
+ARENA_EVENT_SCHEMA_VERSION = "1.0"
+
 
 class RoundOutcome(enum.StrEnum):
     COMPLETED = "completed"
@@ -150,6 +152,8 @@ class RoleUsage:
     latency_ms: float = 0.0
     estimated_cost: float | None = None
     fallback_used: bool = False
+    requested_thinking_level: ThinkingLevel | None = None
+    effective_thinking_level: ThinkingLevel | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -281,11 +285,21 @@ class ExperimentResult:
 
             for meta_key in ["defender_metadata", "attacker_metadata", "evaluator_metadata"]:
                 if round_data.get(meta_key):
-                    round_data[meta_key] = RoleMetadata(**round_data[meta_key])
+                    metadata = round_data[meta_key].copy()
+                    if metadata.get("thinking_level") is not None:
+                        metadata["thinking_level"] = ThinkingLevel(metadata["thinking_level"])
+                    round_data[meta_key] = RoleMetadata(**metadata)
 
             for usage_key in ["attacker_usage", "defender_usage"]:
                 if round_data.get(usage_key):
-                    round_data[usage_key] = RoleUsage(**round_data[usage_key])
+                    usage = round_data[usage_key].copy()
+                    for thinking_key in [
+                        "requested_thinking_level",
+                        "effective_thinking_level",
+                    ]:
+                        if usage.get(thinking_key) is not None:
+                            usage[thinking_key] = ThinkingLevel(usage[thinking_key])
+                    round_data[usage_key] = RoleUsage(**usage)
 
             # Handle backward compatibility: older runs may have report embedded
             if "report" in round_data:

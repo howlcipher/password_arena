@@ -261,7 +261,7 @@ class MockProvider:
                 latency_ms=100.0,
                 estimated_cost=self._estimated_cost,
                 retries=0,
-                requested_thinking_level=ThinkingLevel.AUTO,
+                requested_thinking_level=request.thinking_level,
                 effective_thinking_level=self._effective_thinking,
                 fallback_used=self._fallback_used,
             ),

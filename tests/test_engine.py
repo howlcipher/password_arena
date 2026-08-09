@@ -168,8 +168,12 @@ def test_mock_backend_populates_usage_via_build_arena_engine() -> None:
 
     assert round_result.attacker_usage is not None
     assert round_result.attacker_usage.input_tokens > 0
+    assert round_result.attacker_usage.requested_thinking_level is not None
+    assert round_result.attacker_usage.effective_thinking_level is not None
     assert round_result.defender_usage is not None
     assert round_result.defender_usage.input_tokens > 0
+    assert round_result.defender_usage.requested_thinking_level is not None
+    assert round_result.defender_usage.effective_thinking_level is not None
     assert round_result.comparable is True
 
 
