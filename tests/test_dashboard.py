@@ -1,9 +1,12 @@
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from streamlit.testing.v1 import AppTest
+from streamlit.testing.v1.element_tree import DownloadButton
+
+from password_arena.huggingface_catalog import OpenModelInfo
 
 DASHBOARD_PATH = Path(__file__).resolve().parent.parent / "src" / "password_arena" / "dashboard.py"
 
@@ -78,6 +81,40 @@ def test_run_tournament_renders_all_result_tabs_without_error(
     assert "Thinking-Level Comparison" in subheader_texts
 
 
+def test_completed_tournament_has_public_dataset_downloads(
+    tmp_path: Any, monkeypatch: Any
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(str(DASHBOARD_PATH))
+    at.run(timeout=30)
+    at = _run_a_tiny_rule_based_tournament(at, rounds_per_match=2)
+    assert not at.exception
+
+    assert any(s.value == "Public Benchmark Dataset" for s in at.subheader)
+    metrics = {metric.label: metric.value for metric in at.metric}
+    assert metrics["Total public rows"] == "6"
+    assert metrics["Comparable public rows"] == "6"
+    assert metrics["Excluded public rows"] == "0"
+
+    download_buttons = [
+        cast(DownloadButton, item) for item in at.get("download_button")
+    ]
+    public_downloads = {
+        item.label: item for item in download_buttons if "public" in item.label.lower()
+    }
+    assert set(public_downloads) == {
+        "Download public JSONL",
+        "Download public CSV",
+    }
+    assert not public_downloads["Download public JSONL"].proto.disabled
+    assert not public_downloads["Download public CSV"].proto.disabled
+    card = next(
+        item for item in download_buttons if item.label == "Download Dataset Card"
+    )
+    assert not card.proto.disabled
+    assert any("not uploaded" in info.value for info in at.info)
+
+
 def _run_a_tiny_rule_based_tournament(
     at: AppTest, *, rounds_per_match: int | None = None
 ) -> AppTest:
@@ -125,6 +162,45 @@ def test_load_saved_tournament_from_history_renders_without_error(
     subheader_texts = {s.value for s in at.subheader}
     assert "Tournament Overview" in subheader_texts
     assert "Matchup Matrix" in subheader_texts
+
+
+def test_saved_tournament_missing_linked_experiment_disables_public_export(
+    tmp_path: Any, monkeypatch: Any
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(str(DASHBOARD_PATH))
+    at.run(timeout=30)
+    at = _run_a_tiny_rule_based_tournament(at, rounds_per_match=1)
+    assert not at.exception
+
+    experiment_files = sorted((tmp_path / ".password_arena_history").glob("*.json"))
+    assert experiment_files
+    experiment_files[0].unlink()
+
+    at.run(timeout=30)
+    saved = next(m for m in at.multiselect if m.label == "Saved tournaments")
+    saved.set_value(saved.options[:1])
+    at.run(timeout=30)
+    next(b for b in at.button if b.label == "Load tournament details").click()
+    at.run(timeout=60)
+    assert not at.exception
+
+    assert any(
+        "Public export is disabled because 1 linked experiment" in warning.value
+        for warning in at.warning
+    )
+    public_labels = {
+        "Download public JSONL",
+        "Download public CSV",
+        "Download Dataset Card",
+    }
+    public_downloads = [
+        cast(DownloadButton, item)
+        for item in at.get("download_button")
+        if cast(DownloadButton, item).label in public_labels
+    ]
+    assert {item.label for item in public_downloads} == public_labels
+    assert all(item.proto.disabled for item in public_downloads)
 
 
 def test_compare_two_tournaments_renders_without_error(tmp_path: Any, monkeypatch: Any) -> None:
@@ -292,6 +368,107 @@ def test_tournament_preflight_gate_disables_run_for_unchecked_hosted_provider() 
     assert any(i.value == "Configuration changed. Status: Not checked." for i in at.info)
     run_button = next(b for b in at.button if b.label == "Run Tournament")
     assert run_button.disabled
+
+
+def test_huggingface_search_is_explicit_and_selection_keeps_provider_semantics(
+    monkeypatch: Any,
+) -> None:
+    from password_arena.huggingface_catalog import HuggingFaceCatalog
+
+    calls: list[dict[str, Any]] = []
+
+    def fake_search(
+        self: HuggingFaceCatalog,
+        query: str,
+        *,
+        pipeline_tag: str | None,
+        limit: int,
+        sort: str,
+    ) -> tuple[OpenModelInfo, ...]:
+        del self
+        calls.append(
+            {
+                "query": query,
+                "pipeline_tag": pipeline_tag,
+                "limit": limit,
+                "sort": sort,
+            }
+        )
+        return (
+            OpenModelInfo(
+                model_id="acme/synthetic-generator",
+                author="acme",
+                pipeline_tag="text-generation",
+                library_name="transformers",
+                downloads=123,
+                likes=7,
+                tags=("synthetic", "safetensors"),
+                gated=False,
+                private=False,
+                inference_warm=True,
+            ),
+        )
+
+    monkeypatch.setattr(HuggingFaceCatalog, "search_models", fake_search)
+
+    at = AppTest.from_file(str(DASHBOARD_PATH))
+    at.run(timeout=10)
+    assert not at.exception
+    assert calls == []
+    assert not any(button.label == "Search Hugging Face" for button in at.button)
+
+    provider_select = next(s for s in at.selectbox if s.key == "defender_provider")
+    provider_select.select("openai")
+    at.run(timeout=10)
+    assert not at.exception
+    assert calls == []
+
+    query_input = next(t for t in at.text_input if t.key == "defender_hf_query")
+    query_input.set_value("synthetic")
+    at.run(timeout=10)
+    assert not at.exception
+    assert calls == []
+
+    task_select = next(s for s in at.selectbox if s.key == "defender_hf_task")
+    task_select.select("text-generation")
+    at.run(timeout=10)
+    assert not at.exception
+    assert calls == []
+
+    search_button = next(b for b in at.button if b.key == "defender_hf_search")
+    search_button.click()
+    at.run(timeout=10)
+    assert not at.exception
+    assert calls == [
+        {
+            "query": "synthetic",
+            "pipeline_tag": "text-generation",
+            "limit": 10,
+            "sort": "downloads",
+        }
+    ]
+
+    result_frame = next(
+        frame
+        for frame in at.dataframe
+        if "Model ID" in frame.value.columns
+        and "acme/synthetic-generator" in frame.value["Model ID"].to_list()
+    )
+    assert result_frame.value.iloc[0]["Inference warm"] == "YES"
+    assert result_frame.value.iloc[0]["Execution support"] == "UNKNOWN"
+
+    result_select = next(s for s in at.selectbox if s.key == "defender_hf_result")
+    result_select.select("acme/synthetic-generator")
+    at.run(timeout=10)
+    assert not at.exception
+    assert len(calls) == 1
+
+    provider_select = next(s for s in at.selectbox if s.key == "defender_provider")
+    model_select = next(s for s in at.selectbox if s.key == "defender_model_select")
+    model_input = next(t for t in at.text_input if t.key == "defender_model_input")
+    assert provider_select.value == "openai"
+    assert model_select.value == "Other (manual input)"
+    assert model_input.value == "acme/synthetic-generator"
 
 
 def _find_profile_name_input(at: AppTest) -> Any:
