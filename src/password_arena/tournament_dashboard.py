@@ -11,7 +11,7 @@ from password_arena.reporting import (
     tournament_report_markdown,
 )
 from password_arena.tournament import build_tournament_matrix, run_matchup
-from password_arena.tournament_comparison import compare_tournament_configs
+from password_arena.tournament_comparison import compare_stored_tournaments
 from password_arena.tournament_history import TournamentHistoryManager
 from password_arena.tournament_view_models import available_filter_options, filter_results
 from password_arena.tournament_views import (
@@ -301,32 +301,24 @@ def render_tournament_history() -> None:
             st.divider()
             st.subheader("Comparison")
 
-            st.markdown("#### Configuration Differences")
-            comparison = compare_tournament_configs(stored_a.config, stored_b.config)
+            st.markdown("#### Comparability")
+            comparison = compare_stored_tournaments(stored_a, stored_b)
             if comparison.identical:
                 st.success(
-                    "Every compared configuration field matches "
-                    "(generator, budgets, seeds, and role configurations)."
+                    "Benchmark configuration and recorded execution metadata match "
+                    "(generator, budgets, seeds, roles, and versions)."
                 )
+            elif comparison.configuration_identical:
+                msg = (
+                    "Benchmark configuration matches, but execution metadata differs:\n"
+                    + "\n".join(f"- {d}" for d in comparison.metadata_differences)
+                )
+                st.warning(msg)
             else:
                 msg = "Tournaments differ and may not be directly comparable:\n" + "\n".join(
                     f"- {d}" for d in comparison.differences
                 )
                 st.warning(msg)
-
-            if stored_a.schema_version != stored_b.schema_version:
-                st.warning(
-                    f"Storage schema versions differ ({stored_a.schema_version} vs "
-                    f"{stored_b.schema_version}) -- older schema versions may have been "
-                    "aggregated under different statistical rules."
-                )
-
-            st.caption(
-                "Prompt version and capability-registry version are not compared: they are "
-                "not currently persisted at the tournament level (only per-matchup "
-                "ReplayMetadata at run time), so two tournaments run under different prompt "
-                "or capability-registry versions could be reported as identical above."
-            )
 
             c1, c2 = st.columns(2)
             with c1:

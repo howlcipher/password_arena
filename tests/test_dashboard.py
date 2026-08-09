@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Any
 
@@ -156,6 +157,38 @@ def test_compare_two_tournaments_renders_without_error(tmp_path: Any, monkeypatc
         "Tournaments differ and may not be directly comparable" in w.value for w in at.warning
     )
     assert any("rounds_per_match" in w.value for w in at.warning)
+
+
+def test_compare_saved_tournaments_explains_replay_version_difference(
+    tmp_path: Any, monkeypatch: Any
+) -> None:
+    """IMP-029: the history UI must distinguish matching benchmark settings
+    from a persisted replay-version difference, not issue a generic verdict."""
+    monkeypatch.chdir(tmp_path)
+    at = AppTest.from_file(str(DASHBOARD_PATH))
+    at.run(timeout=30)
+    at = _run_a_tiny_rule_based_tournament(at)
+    at = _run_a_tiny_rule_based_tournament(at)
+
+    stored_files = sorted((tmp_path / ".password_arena_tournaments").glob("*.json"))
+    assert len(stored_files) == 2
+    stored_data = json.loads(stored_files[0].read_text(encoding="utf-8"))
+    stored_data["matchups"][0]["replay"]["attacker_prompt_version"] = "test-prompt-2"
+    stored_files[0].write_text(json.dumps(stored_data), encoding="utf-8")
+
+    at.run(timeout=30)
+    saved = next(m for m in at.multiselect if m.label == "Saved tournaments")
+    saved.set_value(saved.options[:2])
+    at.run(timeout=30)
+    compare_button = next(b for b in at.button if b.label == "Compare Tournaments")
+    compare_button.click()
+    at.run(timeout=60)
+
+    assert any(
+        "Benchmark configuration matches, but execution metadata differs" in warning.value
+        and "Attacker prompt version" in warning.value
+        for warning in at.warning
+    )
 
 
 def test_thinking_level_selector_is_capability_aware() -> None:

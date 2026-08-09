@@ -1,25 +1,12 @@
-"""Pure structural comparison of two `TournamentConfig`s (IMP-013 audit item).
+"""Comparability checks for tournament configurations and saved tournament runs.
 
-The Tournament history UI used to decide "directly comparable" by checking
-only four scalar fields (rounds_per_match, seeds, max_guesses,
-generator_version). That is not enough to justify the claim: differing
-provider/model/thinking-level role configurations, differing budgets, or a
-differing retry policy all invalidate a head-to-head comparison just as much
-as a differing round count does. `compare_tournament_configs` checks every
-field that plausibly affects comparability and returns a structured result
-instead of a single boolean, so the caller can show exactly what differs
-rather than a blanket "not comparable" verdict.
-
-Known gap: prompt version (`ATTACKER_PROMPT_VERSION`/`DEFENDER_PROMPT_VERSION`)
-and `CAPABILITY_REGISTRY_VERSION` are NOT compared here, because they are not
-part of `TournamentConfig` and are not currently persisted anywhere at the
-tournament level -- `ReplayMetadata` (which carries them) is built per-matchup
-at run time and `StoredMatchup` does not persist it. Two tournaments run under
-different prompt/capability-registry versions could therefore be reported as
-"identical" by this function even though they are not truly comparable. This
-is a real limitation, not an oversight; closing it requires persisting
-`ReplayMetadata` (or at least its version fields) on `StoredMatchup`, which is
-out of scope for this function. Tracked as a follow-up (see backlog).
+`compare_tournament_configs` deliberately owns only fields on
+`TournamentConfig`. Saved history has a second comparability layer:
+`ReplayMetadata` is persisted per `StoredMatchup` as of tournament-history
+schema 2.1, so `compare_stored_tournaments` compares the set of recorded
+execution versions across every matchup. It never chooses the first matchup's
+metadata. Older history without replay metadata is reported as unavailable,
+not assumed to match a newer or another old tournament.
 """
 
 from __future__ import annotations
@@ -27,12 +14,46 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from password_arena.models import RoleConfig, TournamentConfig
+from password_arena.tournament_history import StoredTournament
 
 
 @dataclass(frozen=True, slots=True)
 class ConfigComparison:
+    """Comparison result for values that belong to `TournamentConfig` alone."""
+
     identical: bool
     differences: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class StoredTournamentComparison:
+    """Complete saved-tournament comparability result.
+
+    `metadata_differences` includes unavailable and mixed replay metadata as
+    comparability concerns even when the known version sets happen to overlap.
+    Consequently `identical` means both configuration and execution metadata
+    are fully known, homogeneous within each tournament, and equal between
+    tournaments.
+    """
+
+    configuration: ConfigComparison
+    metadata_differences: tuple[str, ...]
+
+    @property
+    def configuration_identical(self) -> bool:
+        return self.configuration.identical
+
+    @property
+    def execution_metadata_identical(self) -> bool:
+        return not self.metadata_differences
+
+    @property
+    def identical(self) -> bool:
+        return self.configuration_identical and self.execution_metadata_identical
+
+    @property
+    def differences(self) -> tuple[str, ...]:
+        return self.configuration.differences + self.metadata_differences
 
 
 def _role_signature(role: RoleConfig) -> tuple[str, str | None, str, float | None, int | None]:
@@ -56,10 +77,13 @@ def _compare_role_sets(
 
 
 def compare_tournament_configs(a: TournamentConfig, b: TournamentConfig) -> ConfigComparison:
-    """Structured diff of every `TournamentConfig` field that affects whether
-    two tournaments' results can be meaningfully compared. Seed sets are
-    compared as sets (trial order does not affect aggregate comparability);
-    everything else is compared exactly."""
+    """Compare every `TournamentConfig` field affecting benchmark conditions.
+
+    Seed sets are compared as sets because trial order does not alter aggregate
+    comparability; all other configuration values are compared exactly.
+    Execution versions intentionally do not belong here. Use
+    `compare_stored_tournaments` when saved matchup replay metadata is present.
+    """
     differences: list[str] = []
 
     def _cmp(label: str, va: object, vb: object) -> None:
@@ -80,3 +104,80 @@ def compare_tournament_configs(a: TournamentConfig, b: TournamentConfig) -> Conf
     _compare_role_sets("defenders", a.defenders, b.defenders, differences)
 
     return ConfigComparison(identical=not differences, differences=tuple(differences))
+
+
+def _recorded_versions(
+    tournament: StoredTournament, attribute: str
+) -> tuple[tuple[str, ...], int]:
+    """Return non-empty replay values and the count unavailable for one field."""
+    versions: set[str] = set()
+    unavailable = 0
+    for matchup in tournament.matchups:
+        replay = matchup.replay
+        value = getattr(replay, attribute) if replay is not None else None
+        if not value:
+            unavailable += 1
+        else:
+            versions.add(value)
+    return tuple(sorted(versions)), unavailable
+
+
+def _version_display(versions: tuple[str, ...], unavailable: int) -> str:
+    if not versions:
+        return "version metadata unavailable"
+    display = "{" + ", ".join(versions) + "}"
+    if unavailable:
+        return f"{display}; version metadata unavailable for {unavailable} matchup(s)"
+    return display
+
+
+def _compare_replay_versions(a: StoredTournament, b: StoredTournament) -> tuple[str, ...]:
+    metadata_differences: list[str] = []
+    fields = (
+        ("Application version", "application_version"),
+        ("Experiment/schema version", "schema_version"),
+        ("Attacker prompt version", "attacker_prompt_version"),
+        ("Defender prompt version", "defender_prompt_version"),
+        ("Capability-registry version", "capability_registry_version"),
+    )
+    for label, attribute in fields:
+        versions_a, unavailable_a = _recorded_versions(a, attribute)
+        versions_b, unavailable_b = _recorded_versions(b, attribute)
+        display_a = _version_display(versions_a, unavailable_a)
+        display_b = _version_display(versions_b, unavailable_b)
+        if unavailable_a or unavailable_b:
+            metadata_differences.append(
+                f"{label}: A = {display_a}; B = {display_b} "
+                "(version metadata unavailable; direct comparability cannot be established)"
+            )
+        elif len(versions_a) > 1 or len(versions_b) > 1:
+            metadata_differences.append(
+                f"{label}: A = {display_a}; B = {display_b} "
+                "(mixed version metadata within a tournament)"
+            )
+        elif versions_a != versions_b:
+            metadata_differences.append(f"{label}: A = {display_a}; B = {display_b}")
+
+    if a.schema_version != b.schema_version:
+        metadata_differences.append(
+            "Tournament history schema version: "
+            f"A = {a.schema_version!r}; B = {b.schema_version!r}"
+        )
+    return tuple(metadata_differences)
+
+
+def compare_stored_tournaments(
+    a: StoredTournament, b: StoredTournament
+) -> StoredTournamentComparison:
+    """Compare saved benchmarks' configuration and every persisted replay version.
+
+    Each execution field is derived as a set over all matchups in each saved
+    tournament. Missing replay metadata remains an explicit unavailable state,
+    preserving compatibility with pre-2.1 history while preventing an
+    unsupported claim that old runs used the same code or prompts.
+    """
+    configuration = compare_tournament_configs(a.config, b.config)
+    return StoredTournamentComparison(
+        configuration=configuration,
+        metadata_differences=_compare_replay_versions(a, b),
+    )
