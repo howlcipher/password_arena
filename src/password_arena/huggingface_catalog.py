@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from importlib import import_module
 from typing import Any, Protocol, cast
 
 HUGGINGFACE_TASK_FILTERS = ("All", "text-generation", "text2text-generation")
@@ -69,12 +70,12 @@ HubClientFactory = Callable[[str | bool], HubClient]
 
 def _default_client_factory(token: str | bool) -> HubClient:
     try:
-        from huggingface_hub import HfApi  # type: ignore[import-not-found]
+        huggingface_hub = import_module("huggingface_hub")
     except ImportError:
         raise HuggingFaceCatalogDependencyError(
             "Hugging Face discovery requires the optional 'hf' extra."
         ) from None
-    return cast(HubClient, HfApi(token=token))
+    return cast(HubClient, huggingface_hub.HfApi(token=token))
 
 
 def _optional_string(value: Any) -> str | None:

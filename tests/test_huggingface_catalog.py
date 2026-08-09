@@ -3,6 +3,7 @@ from typing import Any
 
 import pytest
 
+import password_arena.huggingface_catalog as catalog_module
 from password_arena.huggingface_catalog import (
     HuggingFaceCatalog,
     HuggingFaceCatalogDependencyError,
@@ -220,6 +221,21 @@ def test_missing_dependency_has_safe_installation_error() -> None:
 
     with pytest.raises(HuggingFaceCatalogDependencyError, match="optional 'hf' extra"):
         HuggingFaceCatalog(client_factory=missing_factory).search_models(
+            "model", pipeline_tag="All", limit=5, sort="downloads"
+        )
+
+
+def test_default_factory_normalizes_missing_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing_import(name: str) -> Any:
+        assert name == "huggingface_hub"
+        raise ModuleNotFoundError("test-only missing optional package")
+
+    monkeypatch.setattr(catalog_module, "import_module", missing_import)
+
+    with pytest.raises(HuggingFaceCatalogDependencyError, match="optional 'hf' extra"):
+        HuggingFaceCatalog().search_models(
             "model", pipeline_tag="All", limit=5, sort="downloads"
         )
 
