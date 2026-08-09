@@ -2,6 +2,14 @@ from collections.abc import Sequence
 
 import streamlit as st
 
+from password_arena.dataset_export import (
+    PublicBenchmarkSource,
+    PublicDatasetSafetyError,
+    build_public_benchmark_dataset,
+    export_public_dataset_csv,
+    export_public_dataset_jsonl,
+    generate_dataset_card,
+)
 from password_arena.history import HistoryManager
 from password_arena.models import MatchupLike, TournamentConfig
 from password_arena.providers import ThinkingLevel
@@ -12,7 +20,12 @@ from password_arena.reporting import (
 )
 from password_arena.tournament import build_tournament_matrix, run_matchup
 from password_arena.tournament_comparison import compare_stored_tournaments
-from password_arena.tournament_history import TournamentHistoryManager
+from password_arena.tournament_history import (
+    TOURNAMENT_SCHEMA_VERSION,
+    StoredMatchup,
+    TournamentHistoryManager,
+    hydrate_experiments,
+)
 from password_arena.tournament_view_models import available_filter_options, filter_results
 from password_arena.tournament_views import (
     render_efficiency,
@@ -130,7 +143,18 @@ def render_tournament_tab() -> None:
 
         status_text.text(f"Tournament complete. Saved as {t_id}.")
 
-        _render_results(t_id, timestamp, config, results)
+        public_sources = tuple(
+            PublicBenchmarkSource(matchup=result, experiments=result.experiments)
+            for result in results
+        )
+        _render_results(
+            t_id,
+            timestamp,
+            config,
+            results,
+            public_sources=public_sources,
+            tournament_storage_schema_version=TOURNAMENT_SCHEMA_VERSION,
+        )
 
     st.divider()
     render_tournament_history()
@@ -187,7 +211,14 @@ def _render_filter_bar(results: Sequence[MatchupLike], key_prefix: str) -> list[
 
 
 def _render_results(
-    tournament_id: str, timestamp: str, config: TournamentConfig, results: Sequence[MatchupLike]
+    tournament_id: str,
+    timestamp: str,
+    config: TournamentConfig,
+    results: Sequence[MatchupLike],
+    *,
+    public_sources: Sequence[PublicBenchmarkSource] | None = None,
+    public_export_missing_count: int = 0,
+    tournament_storage_schema_version: str = TOURNAMENT_SCHEMA_VERSION,
 ) -> None:
     filtered_results = _render_filter_bar(results, key_prefix=tournament_id)
     st.divider()
@@ -242,6 +273,135 @@ def _render_results(
             use_container_width=True,
         )
 
+    _render_public_benchmark_downloads(
+        tournament_id,
+        timestamp,
+        public_sources,
+        missing_experiment_count=public_export_missing_count,
+        tournament_storage_schema_version=tournament_storage_schema_version,
+    )
+
+
+def _public_download_buttons(
+    tournament_id: str,
+    *,
+    jsonl_data: str,
+    csv_data: str,
+    card_data: str,
+    disabled: bool,
+) -> None:
+    dl1, dl2, dl3 = st.columns(3)
+    with dl1:
+        st.download_button(
+            "Download public JSONL",
+            data=jsonl_data,
+            file_name=f"password-arena-public-{tournament_id}.jsonl",
+            mime="application/x-ndjson",
+            disabled=disabled,
+            key=f"{tournament_id}_public_jsonl",
+            use_container_width=True,
+        )
+    with dl2:
+        st.download_button(
+            "Download public CSV",
+            data=csv_data,
+            file_name=f"password-arena-public-{tournament_id}.csv",
+            mime="text/csv",
+            disabled=disabled,
+            key=f"{tournament_id}_public_csv",
+            use_container_width=True,
+        )
+    with dl3:
+        st.download_button(
+            "Download Dataset Card",
+            data=card_data,
+            file_name=f"password-arena-public-{tournament_id}-dataset-card.md",
+            mime="text/markdown",
+            disabled=disabled,
+            key=f"{tournament_id}_public_dataset_card",
+            use_container_width=True,
+        )
+
+
+def _render_public_benchmark_downloads(
+    tournament_id: str,
+    timestamp: str,
+    public_sources: Sequence[PublicBenchmarkSource] | None,
+    *,
+    missing_experiment_count: int,
+    tournament_storage_schema_version: str,
+) -> None:
+    st.divider()
+    st.subheader("Public Benchmark Dataset")
+    st.info(
+        "Synthetic targets only. Public files contain scalar allowlisted metrics, "
+        "never passwords, candidates, prompts, events, notes, model prose, or "
+        "reasoning content. Downloads are generated locally and are not uploaded."
+    )
+
+    if missing_experiment_count > 0 or public_sources is None:
+        count = missing_experiment_count
+        st.warning(
+            "Public export is disabled because "
+            f"{count} linked experiment(s) could not be hydrated. No partial dataset "
+            "will be published."
+        )
+        st.caption("Row counts are unavailable until every linked experiment is present.")
+        _public_download_buttons(
+            tournament_id,
+            jsonl_data="",
+            csv_data="",
+            card_data="",
+            disabled=True,
+        )
+        return
+
+    try:
+        dataset = build_public_benchmark_dataset(
+            tournament_id,
+            timestamp,
+            public_sources,
+            tournament_storage_schema_version=tournament_storage_schema_version,
+        )
+        jsonl_data = export_public_dataset_jsonl(dataset)
+        csv_data = export_public_dataset_csv(dataset)
+        card_data = generate_dataset_card(dataset)
+    except PublicDatasetSafetyError:
+        st.error("Public export was blocked by fail-closed safety validation.")
+        _public_download_buttons(
+            tournament_id,
+            jsonl_data="",
+            csv_data="",
+            card_data="",
+            disabled=True,
+        )
+        return
+
+    metric1, metric2, metric3 = st.columns(3)
+    metric1.metric("Total public rows", dataset.summary.total_rows)
+    metric2.metric("Comparable public rows", dataset.summary.comparable_rows)
+    metric3.metric("Excluded public rows", dataset.summary.excluded_rows)
+    _public_download_buttons(
+        tournament_id,
+        jsonl_data=jsonl_data,
+        csv_data=csv_data,
+        card_data=card_data,
+        disabled=False,
+    )
+
+
+def _hydrate_public_sources(
+    matchups: Sequence[StoredMatchup], history_mgr: HistoryManager
+) -> tuple[tuple[PublicBenchmarkSource, ...], tuple[str, ...]]:
+    """Hydrate every matchup link; callers must block export if any are missing."""
+    sources: list[PublicBenchmarkSource] = []
+    missing_ids: list[str] = []
+    for matchup in matchups:
+        experiments, missing = hydrate_experiments(matchup, history_mgr)
+        sources.append(PublicBenchmarkSource(matchup=matchup, experiments=experiments))
+        missing_ids.extend(missing)
+    return tuple(sources), tuple(missing_ids)
+
 
 def render_tournament_history() -> None:
     st.subheader("Tournament History")
@@ -279,24 +439,39 @@ def render_tournament_history() -> None:
                 st.rerun()
                 
         if st.session_state.get("loaded_tournament") == selected_id:
-            stored = tourney_mgr.load(selected_id)
-            if stored.missing_experiment_ids:
+            history_mgr = HistoryManager()
+            stored = tourney_mgr.load(selected_id, history_mgr=history_mgr)
+            public_sources, missing_ids = _hydrate_public_sources(
+                stored.matchups, history_mgr
+            )
+            if missing_ids:
                 st.warning(
-                    f"{len(stored.missing_experiment_ids)} linked experiment(s) are no longer "
+                    f"{len(missing_ids)} linked experiment(s) are no longer "
                     "in single-run history and could not be hydrated."
                 )
             
             st.divider()
             st.subheader(f"Tournament: {selected_id[:8]}")
-            _render_results(selected_id, stored.timestamp, stored.config, stored.matchups)
+            _render_results(
+                selected_id,
+                stored.timestamp,
+                stored.config,
+                stored.matchups,
+                public_sources=public_sources,
+                public_export_missing_count=len(missing_ids),
+                tournament_storage_schema_version=stored.schema_version,
+            )
             
     elif len(selected_labels) == 2:
         id_a = labels[selected_labels[0]]
         id_b = labels[selected_labels[1]]
         
         if st.button("Compare Tournaments", type="primary"):
-            stored_a = tourney_mgr.load(id_a)
-            stored_b = tourney_mgr.load(id_b)
+            history_mgr = HistoryManager()
+            stored_a = tourney_mgr.load(id_a, history_mgr=history_mgr)
+            stored_b = tourney_mgr.load(id_b, history_mgr=history_mgr)
+            sources_a, missing_a = _hydrate_public_sources(stored_a.matchups, history_mgr)
+            sources_b, missing_b = _hydrate_public_sources(stored_b.matchups, history_mgr)
             
             st.divider()
             st.subheader("Comparison")
@@ -323,7 +498,23 @@ def render_tournament_history() -> None:
             c1, c2 = st.columns(2)
             with c1:
                 st.markdown(f"**Tournament A ({id_a[:8]})**")
-                _render_results(id_a, stored_a.timestamp, stored_a.config, stored_a.matchups)
+                _render_results(
+                    id_a,
+                    stored_a.timestamp,
+                    stored_a.config,
+                    stored_a.matchups,
+                    public_sources=sources_a,
+                    public_export_missing_count=len(missing_a),
+                    tournament_storage_schema_version=stored_a.schema_version,
+                )
             with c2:
                 st.markdown(f"**Tournament B ({id_b[:8]})**")
-                _render_results(id_b, stored_b.timestamp, stored_b.config, stored_b.matchups)
+                _render_results(
+                    id_b,
+                    stored_b.timestamp,
+                    stored_b.config,
+                    stored_b.matchups,
+                    public_sources=sources_b,
+                    public_export_missing_count=len(missing_b),
+                    tournament_storage_schema_version=stored_b.schema_version,
+                )

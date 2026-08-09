@@ -240,8 +240,12 @@ class OpenAIProvider(AgentBackend):
             latency_ms=latency_ms,
             estimated_cost=estimated_cost,
             retries=0,
-            requested_thinking_level=ThinkingLevel.AUTO,
-            effective_thinking_level=ThinkingLevel.AUTO,
+            requested_thinking_level=request.thinking_level,
+            effective_thinking_level=(
+                request.thinking_level
+                if self._capabilities.thinking_supported
+                else ThinkingLevel.AUTO
+            ),
             structured_validation_success=success,
         )
 

@@ -10,6 +10,7 @@ import password_arena
 from password_arena.attacker import AdaptiveAttacker
 from password_arena.defender import AdaptiveDefender
 from password_arena.models import (
+    ARENA_EVENT_SCHEMA_VERSION,
     ArenaConfig,
     ArenaEvent,
     ExperimentResult,
@@ -48,6 +49,8 @@ def _to_role_usage(metrics: UsageMetrics | None) -> RoleUsage | None:
         latency_ms=metrics.latency_ms,
         estimated_cost=metrics.estimated_cost,
         fallback_used=metrics.fallback_used,
+        requested_thinking_level=metrics.requested_thinking_level,
+        effective_thinking_level=metrics.effective_thinking_level,
     )
 
 
@@ -197,7 +200,7 @@ class ArenaEngine:
             experiment_id=self._experiment_id,
             timestamp=datetime.datetime.now(datetime.UTC).isoformat(),
             application_version=password_arena.__version__,
-            schema_version="1.0",
+            schema_version=ARENA_EVENT_SCHEMA_VERSION,
             event_type=event_type,
             round_id=round_id,
             payload=payload,

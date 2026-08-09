@@ -712,3 +712,117 @@ metadata is an explicit direct-comparability concern; it is never collapsed to t
 first matchup. History created before replay persistence remains loadable and is
 shown as "version metadata unavailable" rather than assumed equal. Tournament
 History now renders configuration-only and execution-metadata differences distinctly.
+
+---
+
+## IMP-030 — Hugging Face Hub open-model discovery
+
+**Priority:** P1
+**Status:** Done
+
+**Implementation note:**
+Added the standalone optional `hf` dependency, a lazy metadata-only
+`HuggingFaceCatalog`, safe error normalization, explicit `HF_TOKEN` handling, and a
+reusable Streamlit discovery component. Search occurs only on the dedicated button;
+selection populates manual model input without changing `ProviderRegistry` or adding
+an execution backend. Docker installs the dashboard and discovery extras.
+
+**Validation performed:**
+Fake-client catalog tests cover metadata normalization, filters, sorts, limits,
+gated and missing fields, dependency and transport failures, lazy client creation,
+explicit anonymous token behavior, and the list-only API boundary. Streamlit AppTests
+prove no initial or ordinary-rerun search and unchanged execution-provider semantics.
+The optional install was resolved with a package dry run. `ruff check .`,
+`mypy src/password_arena`, and all 209 tests passed.
+
+Add an optional, explicit Hugging Face Hub catalog search that helps users discover
+open models without changing the provider registry or implying that a discovered
+model can execute in Password Arena.
+
+**Acceptance criteria**
+
+- `huggingface_hub` is an optional dependency and the default installation remains
+  offline-safe.
+- Catalog searches occur only after an explicit user action and call only the Hub
+  model-listing API.
+- Missing Hub metadata remains unavailable rather than being inferred.
+- Selecting a result fills the existing manual model field without registering an
+  execution provider.
+- Hub and transport failures are translated into safe messages that cannot leak
+  tokens, headers, or response bodies.
+- Tests use injected fake clients and make no network calls.
+
+---
+
+## IMP-031 — Public benchmark dataset export and Dataset Card
+
+**Priority:** P1
+**Status:** Done
+
+**Implementation note:**
+Added a versioned immutable round schema, typed matchup/experiment sources, JSONL and
+CSV serializers, Dataset Card generation, requested/effective thinking usage, and a
+fail-closed validator. Public rows are scalar-allowlisted and source targets are held
+only as fingerprints for final leak detection. Tournament UI downloads require full
+saved-history hydration and remain disabled when any linked experiment is missing.
+
+**Validation performed:**
+Dataset tests cover row counts, provenance versions, role/model/thinking metadata,
+null and CSV-blank semantics, comparability, exclusion reasons, interrupted and
+preflight behavior, parseable formats, Dataset Card statements, tampered payloads,
+secret patterns, and absence of targets, candidates, tokens, headers, prompts,
+environment secrets, and reasoning content. AppTests cover enabled complete exports
+and disabled incomplete saved exports. `ruff check .`, `mypy src/password_arena`,
+and all 209 tests passed.
+
+Add a versioned, round-level public benchmark export for tournament results with a
+fixed scalar allowlist, fail-closed safety validation, JSONL and CSV formats, and a
+Hugging Face-compatible Dataset Card.
+
+**Acceptance criteria**
+
+- Every recorded tournament round is exported, including non-comparable rounds;
+  unstarted rounds and preflight failures do not create synthetic rows.
+- Rows contain only documented scalar metrics and provenance fields, never source
+  passwords, candidates, prompts, events, notes, or model prose.
+- Missing values remain JSON `null` and blank CSV cells.
+- Every serialization passes fail-closed payload validation immediately before it
+  is returned.
+- Saved-tournament export is unavailable unless every linked experiment hydrates.
+- Tournament results provide JSONL, CSV, and Dataset Card downloads with clear
+  comparable and excluded counts.
+- Tests cover schema semantics, missing metrics, exclusion reasons, and secret
+  leakage regressions.
+
+---
+
+## IMP-032 — Hugging Face deployment readiness
+
+**Priority:** P2
+**Status:** Proposed
+
+Define packaging, hosted-demo, secrets, resource-limit, and operational-readiness
+requirements for a future Hugging Face Space without weakening local-only benchmark
+execution or publishing data automatically.
+
+---
+
+## IMP-033 — Hugging Face Inference execution provider
+
+**Priority:** P2
+**Status:** Proposed
+
+Evaluate an explicit Hugging Face Inference provider adapter behind the existing
+`ProviderRegistry`, including capability validation, availability normalization,
+cost semantics, and deterministic fake-client tests.
+
+---
+
+## IMP-034 — vLLM/OpenAI-compatible local backend
+
+**Priority:** P2
+**Status:** Proposed
+
+Add a separately configured local vLLM or OpenAI-compatible backend with localhost
+defaults, explicit remote-endpoint warnings, capability checks, and bounded arena
+execution.

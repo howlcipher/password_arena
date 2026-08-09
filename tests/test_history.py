@@ -53,3 +53,29 @@ def test_loaded_experiment_role_config_thinking_level_is_a_real_enum(tmp_path: A
     assert isinstance(loaded.config.attacker_config.thinking_level, ThinkingLevel)
     assert loaded.config.attacker_config.thinking_level == ThinkingLevel.HIGH
     assert loaded.config.attacker_config.thinking_level.value == "high"
+
+
+def test_role_usage_thinking_levels_round_trip_through_history(tmp_path: Any) -> None:
+    from password_arena.engine import PreflightFailure, build_arena_engine
+
+    hm = HistoryManager(storage_dir=tmp_path)
+    config = ArenaConfig(
+        rounds=1,
+        max_guesses=10,
+        attacker_config=RoleConfig(provider="mock"),
+        defender_config=RoleConfig(provider="mock"),
+    )
+    engine = build_arena_engine(config)
+    assert not isinstance(engine, PreflightFailure)
+    result = engine.run()
+    hm.save(result)
+
+    loaded = hm.load(result.experiment_id)
+    attacker_usage = loaded.rounds[0].attacker_usage
+    defender_usage = loaded.rounds[0].defender_usage
+    assert attacker_usage is not None
+    assert defender_usage is not None
+    assert attacker_usage.requested_thinking_level == ThinkingLevel.AUTO
+    assert attacker_usage.effective_thinking_level == ThinkingLevel.AUTO
+    assert defender_usage.requested_thinking_level == ThinkingLevel.AUTO
+    assert defender_usage.effective_thinking_level == ThinkingLevel.AUTO

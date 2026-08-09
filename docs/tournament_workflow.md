@@ -20,6 +20,9 @@ through BUG-015 in `bugs.md`).
   configurations; configuration replay (re-running the same config, no reproducibility
   claim) for any hosted-model configuration.
 - **Cross-model reports:** JSON, Markdown, and CSV exports (`reporting.tournament_report_*`).
+- **Public benchmark downloads:** Versioned round-level JSONL and CSV plus a
+  Hugging Face-compatible Dataset Card, generated locally with fail-closed safety
+  validation and no upload.
 
 ## How to use the Tournament Dashboard
 1. Run `password-arena --ui` to start the Streamlit application. The **Tournament**
@@ -27,15 +30,20 @@ through BUG-015 in `bugs.md`).
    the **Arena** tab first (BUG-016).
 2. Navigate to the **Tournament** tab.
 3. Select any combination of attacker roles and defender roles.
-4. Configure standard constraints: rounds per match, trials (seeds), and max guesses.
-5. For any non-`rule_based` role, click **Test connections** to run a preflight
+4. For a non-`rule_based` role, optionally expand **Discover open models on Hugging
+   Face**. Enter a query and click **Search Hugging Face**. Merely opening the
+   control or changing another widget performs no Hub request. Selecting a result
+   copies its exact ID into **Other (manual input)** and does not change the chosen
+   execution provider or imply execution support.
+5. Configure standard constraints: rounds per match, trials (seeds), and max guesses.
+6. For any non-`rule_based` role, click **Test connections** to run a preflight
    availability check. This never happens automatically -- provider checks only run
    in response to this explicit click, never on an ordinary widget interaction
    elsewhere on the page (BUG-023). Changing a role's provider/model/thinking level
    invalidates the cached result and requires re-checking. `Run Tournament` stays
    disabled until the current configuration's preflight is confirmed available (or
    every role is `rule_based`, which needs no check at all).
-6. Click **Run Tournament**.
+7. Click **Run Tournament**.
 
 The UI automatically filters out self-play matches (e.g. a model defending against
 itself) if selected, and executes the complete matchup matrix in sequence.
@@ -45,6 +53,13 @@ comparable-only) applies once, upstream of all four result tabs (Overview &
 Leaderboard, Matchup Heatmap, Efficiency, Thinking Levels) -- every chart consumes
 the same filtered subset. Downloadable JSON/Markdown/CSV reports intentionally use
 the unfiltered result set, since they are the canonical record, not a view.
+
+The **Public Benchmark Dataset** section separately shows total, comparable, and
+excluded row counts. Its JSONL and CSV files contain every recorded round, including
+recorded non-comparable rounds; they do not invent rows for preflight failures or
+unstarted interrupted rounds. The Dataset Card documents the methodology and safety
+contract. These three public downloads are generated locally. Nothing is uploaded
+to Hugging Face.
 
 ## Metric semantics
 
@@ -176,6 +191,13 @@ under `"2.0"` (no `replay`/exclusion-record fields yet) with `None`/`()` default
 and reports any linked experiment that can no longer be found
 (`missing_experiment_ids`) rather than raising.
 
+Public export from a saved tournament has a stricter completeness rule than the
+aggregate views. The dashboard hydrates every `experiment_id` for every stored
+matchup before building the dataset. If even one link is missing, it reports the
+missing count, leaves all three public download buttons disabled, and does not build
+or expose a partial dataset. Ordinary aggregate reports remain available because
+their existing semantics do not require round hydration.
+
 ## Replay
 
 `replay_matchup()` re-runs a matchup's stored configuration. Exact reproduction is
@@ -197,6 +219,12 @@ password data -- so they cannot contain API keys, auth headers, environment
 variables, unredacted passwords, or chain-of-thought. Reports accept either a
 freshly-run matchup or one reloaded from tournament history (`MatchupLike` in
 `models.py`) interchangeably.
+
+The public JSONL/CSV/Dataset Card path is intentionally separate from
+`reporting.tournament_report_*`. It requires full round records but applies the fixed
+allowlist and fail-closed validation defined in
+[DATASET_EXPORT.md](DATASET_EXPORT.md). Missing metrics use JSON null and blank CSV
+cells, not the aggregate reports' literal `"unavailable"` marker.
 
 ## Comparing tournaments
 

@@ -10,6 +10,7 @@ from password_arena.providers import (
     AvailabilityState,
     ProviderError,
     ProviderRequest,
+    ThinkingLevel,
 )
 
 
@@ -61,6 +62,19 @@ def test_openai_provider_unpriced_model_cost_is_unavailable(mock_client: Any) ->
     response = provider.generate(ProviderRequest(prompt="hello"))
     assert response.metrics.input_tokens == 100
     assert response.metrics.estimated_cost is None
+
+
+def test_openai_provider_records_requested_and_effective_thinking(mock_client: Any) -> None:
+    provider = OpenAIProvider(model="o1-preview", client=mock_client)
+
+    response = provider.generate(
+        ProviderRequest(prompt="hello", thinking_level=ThinkingLevel.HIGH)
+    )
+
+    assert response.metrics.requested_thinking_level == ThinkingLevel.HIGH
+    assert response.metrics.effective_thinking_level == ThinkingLevel.HIGH
+    kwargs = mock_client.chat.completions.create.call_args.kwargs
+    assert kwargs["reasoning_effort"] == "high"
 
 
 def test_openai_provider_error_mapping(mock_client: Any) -> None:

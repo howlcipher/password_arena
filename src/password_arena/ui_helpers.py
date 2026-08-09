@@ -1,6 +1,15 @@
+from typing import cast
+
 import pandas as pd
 import streamlit as st
 
+from password_arena.huggingface_catalog import (
+    HUGGINGFACE_SORT_OPTIONS,
+    HUGGINGFACE_TASK_FILTERS,
+    HuggingFaceCatalog,
+    HuggingFaceCatalogError,
+    OpenModelInfo,
+)
 from password_arena.models import RoleConfig
 from password_arena.preflight import (
     all_available,
@@ -94,6 +103,142 @@ def _known_models_for_provider(provider: str) -> list[str]:
     # string rather than a fixed per-model registry (see their provider
     # modules) -- there is no curated list to enumerate for them here.
     return []
+
+
+def get_huggingface_execution_status(provider: str, model_id: str) -> str:
+    """Whether the current execution provider explicitly recognizes a Hub ID.
+
+    Discovery and execution are separate. Heuristic capability inference is not
+    enough for a ``YES`` result; only an exact ID in an existing provider registry
+    qualifies. Rule-based execution never executes a discovered model.
+    """
+    if provider == "rule_based":
+        return "NO"
+    return "YES" if model_id in _known_models_for_provider(provider) else "UNKNOWN"
+
+
+def _yes_no_unknown(value: bool | None) -> str:
+    if value is None:
+        return "UNKNOWN"
+    return "YES" if value else "NO"
+
+
+def _huggingface_result_row(model: OpenModelInfo, provider: str) -> dict[str, object]:
+    return {
+        "Model ID": model.model_id,
+        "Author": model.author,
+        "Task": model.pipeline_tag,
+        "Library": model.library_name,
+        "Downloads": model.downloads,
+        "Likes": model.likes,
+        "Tags": ", ".join(model.tags) if model.tags is not None else None,
+        "Gated": model.gated,
+        "Private": _yes_no_unknown(model.private),
+        "Inference warm": _yes_no_unknown(model.inference_warm),
+        "Execution support": get_huggingface_execution_status(provider, model.model_id),
+    }
+
+
+def render_huggingface_model_discovery(prefix: str, provider: str) -> None:
+    """Render an explicit metadata search that never changes provider semantics.
+
+    The catalog object is constructed only inside the search-button branch. Merely
+    rendering this component, changing a role, or interacting with another widget
+    cannot read ``HF_TOKEN`` or perform a Hub request.
+    """
+    if provider == "rule_based":
+        return
+
+    results_key = f"{prefix}_hf_results"
+    error_key = f"{prefix}_hf_error"
+    selected_key = f"{prefix}_hf_result"
+    applied_key = f"{prefix}_hf_applied_selection"
+    placeholder = "Select a discovered model"
+
+    with st.expander("Discover open models on Hugging Face", expanded=False):
+        st.caption(
+            "Discovery reads public Hub metadata only. A result is not an execution "
+            "provider and does not prove this provider can run it."
+        )
+        query = st.text_input("Search query", key=f"{prefix}_hf_query")
+        search_col1, search_col2, search_col3 = st.columns(3)
+        with search_col1:
+            task = st.selectbox(
+                "Task filter", HUGGINGFACE_TASK_FILTERS, key=f"{prefix}_hf_task"
+            )
+        with search_col2:
+            sort = st.selectbox(
+                "Sort", HUGGINGFACE_SORT_OPTIONS, key=f"{prefix}_hf_sort"
+            )
+        with search_col3:
+            limit = st.number_input(
+                "Result limit",
+                min_value=1,
+                max_value=100,
+                value=10,
+                step=1,
+                key=f"{prefix}_hf_limit",
+            )
+
+        if st.button("Search Hugging Face", key=f"{prefix}_hf_search"):
+            try:
+                search_results = HuggingFaceCatalog().search_models(
+                    query,
+                    pipeline_tag=task,
+                    limit=int(limit),
+                    sort=sort,
+                )
+            except HuggingFaceCatalogError as exc:
+                st.session_state[results_key] = ()
+                st.session_state[error_key] = str(exc)
+            except Exception:
+                st.session_state[results_key] = ()
+                st.session_state[error_key] = (
+                    "Hugging Face model search failed. Please retry later."
+                )
+            else:
+                st.session_state[results_key] = search_results
+                st.session_state[error_key] = None
+                valid_selections = {model.model_id for model in search_results}
+                if st.session_state.get(selected_key) not in valid_selections:
+                    st.session_state[selected_key] = placeholder
+
+        error = st.session_state.get(error_key)
+        if error:
+            st.error(error)
+
+        stored_results = st.session_state.get(results_key)
+        if stored_results is None:
+            return
+        if not isinstance(stored_results, tuple) or not all(
+            isinstance(model, OpenModelInfo) for model in stored_results
+        ):
+            st.error("Stored Hugging Face search results are invalid. Search again.")
+            return
+        results = cast(tuple[OpenModelInfo, ...], stored_results)
+        if not results:
+            if not error:
+                st.info("No models matched this search.")
+            return
+
+        st.dataframe(
+            pd.DataFrame(_huggingface_result_row(model, provider) for model in results),
+            use_container_width=True,
+            hide_index=True,
+        )
+        selected = st.selectbox(
+            "Discovered model",
+            [placeholder, *(model.model_id for model in results)],
+            key=selected_key,
+        )
+        if selected != placeholder and st.session_state.get(applied_key) != selected:
+            st.session_state[f"{prefix}_model_input"] = selected
+            st.session_state[f"{prefix}_model_select"] = "Other (manual input)"
+            st.session_state[applied_key] = selected
+            st.success(
+                f"Selected {selected} for manual input. Execution support remains "
+                f"{get_huggingface_execution_status(provider, selected)}."
+            )
 
 
 def _render_model_select_with_manual_fallback(
@@ -235,6 +380,7 @@ def render_role_config(
     thinking = ThinkingLevel.AUTO
 
     if prov != "rule_based":
+        render_huggingface_model_discovery(prefix, prov)
         if prov == "ollama":
             model = _render_ollama_model_picker(prefix, default_model)
         else:
