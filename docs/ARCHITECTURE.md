@@ -31,9 +31,12 @@ depend on Streamlit:
   aggregation (`aggregate_matchup`, `compute_efficiency`, `calculate_confidence_interval`,
   `replay_matchup`). Each trial is executed through the same `build_arena_engine`
   path used by single-experiment runs -- no duplicated engine logic.
-- `tournament_comparison.py` -- pure structural comparison of two
-  `TournamentConfig`s (`compare_tournament_configs`), returning a structured
-  diff rather than a single boolean. No Streamlit dependency.
+- `tournament_comparison.py` -- pure configuration comparison
+  (`compare_tournament_configs`) plus saved-tournament comparison
+  (`compare_stored_tournaments`). The latter composes the former with sets of
+  persisted per-matchup replay versions; missing or mixed versions are explicit
+  comparability concerns, never silently collapsed to one matchup. No Streamlit
+  dependency.
 - `tournament_history.py` -- persistence (`TournamentHistoryManager`: save/list/
   load/delete), schema versioning, and linking back to full experiments stored in
   `history.py`'s `HistoryManager`.

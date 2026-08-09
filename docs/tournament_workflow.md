@@ -130,6 +130,10 @@ also crashed report generation for any loaded tournament (BUG-026). Both are now
 persisted as of schema `"2.1"`; tournaments saved under `"2.0"` or earlier load
 with `None`/`()` defaults for these fields rather than raising.
 
+Schema `"2.2"` additionally persists optional entropy-trajectory summary fields.
+Older files load those measurements as unavailable (`None` and zero qualifying
+trials), rather than inventing a historical strength change.
+
 ### Confidence intervals
 
 The 95% confidence interval is a Wilson score interval computed over the
@@ -144,14 +148,27 @@ not a rigorous guarantee.
 Transparent, role-specific ratios -- never a single blended "AI score":
 `attacker_solved_per_1k_tokens`, `attacker_solved_per_second`,
 `attacker_solved_per_dollar`, `defender_survived_per_1k_tokens`,
-`defender_survived_per_dollar`. Each is `None` (never a fabricated value) when its
-denominator is zero or unavailable.
+`defender_survived_per_dollar`, and `defender_entropy_gain_per_1k_tokens`. Each is
+`None` (never a fabricated value) when its denominator is zero or unavailable.
+
+Defender entropy gain is measured per **complete, fully comparable trial** as
+`final_round_entropy_bits - initial_round_entropy_bits`. The matchup reports the
+mean initial entropy, mean final entropy, and mean gain across those trials. Its
+token-efficiency ratio is `sum(trial entropy gain) / sum(defender input + output
+tokens for the same qualifying trials) * 1000`. Interrupted trials, incomplete
+trials, and any trial containing a fallback/non-comparable round contribute no
+trajectory or tokens to this metric. A rule-based defender therefore has a known
+zero-token denominator and no ratio; a hosted defender with missing usage metrics
+also has no ratio. A value of `0` means measured zero entropy movement. Because
+difficulty intentionally changes over a tournament, this is a within-benchmark
+trajectory only: do not compare it across mismatched generator, round, seed, or
+other benchmark configurations.
 
 ## Persistence
 
 `TournamentHistoryManager` supports the full lifecycle: `save`, `list_runs`, `load`,
 `delete`. Matchup metadata, replay metadata, and exclusion records are saved
-directly (schema `"2.1"`); links to full round logs (`experiment_ids`) point into
+directly (schema `"2.2"`); links to full round logs (`experiment_ids`) point into
 single-experiment history (`HistoryManager`), which stores the round-by-round data
 itself. `load()` tolerates JSON saved before this rewrite (schema version < `"2.0"`)
 by mapping old field names onto their nearest new equivalent, tolerates JSON saved
@@ -184,14 +201,12 @@ freshly-run matchup or one reloaded from tournament history (`MatchupLike` in
 ## Comparing tournaments
 
 Selecting two saved tournaments in Tournament History and clicking **Compare
-Tournaments** runs `compare_tournament_configs()` (`tournament_comparison.py`), a
-pure function that checks every `TournamentConfig` field that plausibly affects
-comparability -- generator version/mode, seed set, rounds per match, all budget
-fields, and every attacker/defender role configuration (provider, model, thinking
-level, temperature, max tokens) present in either tournament -- and returns a
-structured list of differences, not a single "comparable" boolean. Storage schema
-version mismatches are flagged separately. **Known limitation:** prompt version and
-capability-registry version are not currently compared here (see IMP-029 in
-`improvements.md`) -- they are not part of `TournamentConfig`, only of each
-matchup's `ReplayMetadata`, and this function does not yet reconcile per-matchup
-version metadata into a single tournament-level verdict.
+Tournaments** runs `compare_stored_tournaments()` (`tournament_comparison.py`). It
+composes `compare_tournament_configs()` -- generator version/mode, seed set, rounds
+per match, budgets, and role configuration -- with all persisted per-matchup replay
+metadata: application version, experiment/schema version, attacker prompt version,
+defender prompt version, and capability-registry version. Each field is rendered as
+the set actually represented by each tournament, for example `A = {1.0, 1.1}` vs
+`B = {1.1}`. Mixed sets and unavailable old metadata are explicit comparability
+concerns, not silently treated as a matching version. Tournament-history schema
+versions are also reported separately.

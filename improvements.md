@@ -592,30 +592,28 @@ secrets (`RoleConfig` has no secret-bearing fields). Tested in
 `tests/test_reporting.py::test_tournament_report_json_includes_version_metadata` and
 `tests/test_tournament.py::test_replay_metadata_carries_prompt_and_capability_registry_versions`.
 
-Known limitation (tracked separately, see IMP-029): these version fields are only
-persisted on a freshly-run `MatchupResult`'s `ReplayMetadata`, not on
-`StoredMatchup` at the tournament-history level in a way `compare_tournament_configs`
-can consult -- two saved tournaments run under different prompt/capability-registry
-versions are not currently flagged as such by the history comparison feature.
+Saved-tournament comparison now consumes the same persisted `StoredMatchup.replay`
+metadata through `compare_stored_tournaments()` (IMP-029), so version differences
+are visible in Tournament History rather than silently reported as identical.
 
 ---
 
 ## IMP-027 — Model efficiency dashboard
 
 **Priority:** P2  
-**Status:** In Progress (visualization landed; one criterion still genuinely open)
+**Status:** Done
 
 Visualize performance per token, second, and estimated cost.
 
 **Acceptance criteria, re-audited individually against the Tournament UI correctness sprint's actual result:**
 
-- Dashboard includes password-strength gain per 1,000 tokens where meaningful. ❌ **Still not done.**
-  This would require a new aggregate metric (mean entropy/strength gain per matchup)
-  that does not exist anywhere in `MatchupSummary` today -- strength/entropy is only
-  tracked per-round (`RoundResult.strength`), never aggregated at the tournament level.
-  Adding it means extending core tournament aggregation semantics, not just the UI,
-  which is a larger change than this UI-focused sprint's mandate covers. Left
-  explicitly open rather than claimed done.
+- Dashboard includes password-strength gain per 1,000 tokens where meaningful. ✅
+  `mean_entropy_gain_bits` is the complete, fully comparable trial's final minus
+  initial estimated entropy, averaged across qualifying trials. The ratio uses the
+  sum of those gains over the defender input-plus-output tokens from exactly those
+  trials, multiplied by 1,000. Interrupted, incomplete, or fallback-contaminated
+  trials are excluded; missing/zero token denominators produce `None`, while a
+  measured zero gain remains `0`.
 - Attacker success and defender survival can be compared against latency and cost. ✅
   The Efficiency tab now has six scatter charts, not two: attacker solve rate vs.
   attacker cost/tokens/latency, and defender survival rate vs. defender
@@ -638,16 +636,18 @@ Visualize performance per token, second, and estimated cost.
 
 **Implementation note**
 
+`tournament.py::aggregate_matchup` owns the entropy trajectory semantics and
 `tournament.py::compute_efficiency` computes transparent, role-specific ratios
 (`attacker_solved_per_1k_tokens`, `attacker_solved_per_second`,
 `attacker_solved_per_dollar`, `defender_survived_per_1k_tokens`,
-`defender_survived_per_dollar`), never a blended single score, and never divides by
-a zero/unavailable denominator, using role-specific cost denominators as of this
-sprint (previously divided by the combined matchup cost). The dashboard
+`defender_survived_per_dollar`, `defender_entropy_gain_per_1k_tokens`), never a
+blended single score, and never divides by a zero/unavailable denominator, using
+role-specific cost denominators as of this sprint (previously divided by the
+combined matchup cost). The dashboard
 visualization (`tournament_views.py::render_efficiency`,
 `tournament_view_models.py::build_efficiency_data`) and the filter bar landed this
-sprint. Left **In Progress**, not Done, solely because of the strength-gain-per-token
-criterion above -- do not mark Done until that lands.
+sprint. Tests cover positive, zero, negative, missing-token, zero-token,
+interrupted, fallback, and repeated-trial trajectories.
 
 ---
 
@@ -685,18 +685,12 @@ UI, not core orchestration).
 ## IMP-029 — Persist replay metadata on StoredMatchup so version comparability is checkable across saved tournaments
 
 **Priority:** P2  
-**Status:** Open
+**Status:** Done
 
-`compare_tournament_configs()` (IMP-013 audit / BUG-024) cannot compare prompt
-version or capability-registry version between two saved tournaments, because
-that metadata lives only in `ReplayMetadata`, which is built fresh at run time
-and (until BUG-026's fix) was never persisted on `StoredMatchup` at all.
-BUG-026 fixed the *dropping* of `ReplayMetadata` on save -- `StoredMatchup` now
-carries it -- but `compare_tournament_configs()` still only accepts bare
-`TournamentConfig` objects, which have no version fields to compare. Two
-tournaments run under different `ATTACKER_PROMPT_VERSION` /
-`CAPABILITY_REGISTRY_VERSION` values can therefore still be reported as
-"identical" by the history comparison feature today.
+`compare_tournament_configs()` (IMP-013 audit / BUG-024) remains the focused
+comparison for fields that belong to `TournamentConfig`. The saved-history layer
+now composes it with persisted `StoredMatchup.replay` metadata through
+`compare_stored_tournaments()`.
 
 **Acceptance criteria**
 
@@ -704,17 +698,17 @@ tournaments run under different `ATTACKER_PROMPT_VERSION` /
   application version, schema version, attacker/defender prompt version, and
   capability-registry version, sourced from each tournament's matchups'
   `ReplayMetadata` (now persisted per BUG-026) rather than from
-  `TournamentConfig` alone.
+  `TournamentConfig` alone. ✅
 - Two tournaments whose matchups carry different prompt or capability-registry
-  versions are flagged as a difference, not silently reported as comparable.
+  versions are flagged as a difference, not silently reported as comparable. ✅
 - Existing `TournamentConfig`-level comparison behavior (generator, budgets,
-  seeds, role configs) is unchanged.
+  seeds, role configs) is unchanged. ✅
 
 **Implementation note**
 
-Not started. Deliberately left out of the Tournament UI correctness sprint that
-discovered and scoped it (BUG-024/BUG-026), since it requires deciding how to
-reconcile *per-matchup* replay metadata (different matchups within one
-tournament could theoretically have been run under different code versions, if
-a tournament were resumed after a code deploy) into a single tournament-level
-comparability verdict -- a design question, not a mechanical fix.
+`compare_stored_tournaments()` derives a set for every replay field across every
+matchup in each saved tournament and reports the actual sets. A mixed set or missing
+metadata is an explicit direct-comparability concern; it is never collapsed to the
+first matchup. History created before replay persistence remains loadable and is
+shown as "version metadata unavailable" rather than assumed equal. Tournament
+History now renders configuration-only and execution-metadata differences distinctly.

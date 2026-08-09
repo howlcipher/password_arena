@@ -20,6 +20,7 @@ The MVP deliberately uses transparent, rule-based agents. That makes the experim
 - Runtime per attack
 - Attacker strategy selection
 - Defender password-family progression
+- Defender entropy change per recorded model token for complete comparable tournament trials
 - Agent observations across rounds
 - Two-sided audit reports showing defender decisions, attacker budget allocation, outcomes, and learning updates
 
@@ -30,7 +31,7 @@ The MVP deliberately uses transparent, rule-based agents. That makes the experim
 - **Multi-Model Support:** Configure AI-vs-AI matchups using Gemini, OpenAI, Anthropic, Ollama, and Rule-Based agents. Thinking-level choices are restricted to what the selected model's own capability registry accepts, not shown unconditionally.
 - **Tournament Engine:** Build robust multi-model evaluation matrices, run repeated trials, and enforce budget constraints (cost, time, tokens). Provider availability is checked only on an explicit "Test connections" click, cached until the configuration changes -- never on every widget interaction.
 - **Evaluator:** calculates strength indicators and captures experiment metrics.
-- **Dashboard:** visualizes learning curves, generates weighted leaderboards, plots per-role efficiency, filters results by role/provider/model/thinking-level/comparability, and exports experiment and tournament JSON/Markdown/CSV.
+- **Dashboard:** visualizes learning curves, generates weighted leaderboards, plots per-role efficiency (including defender entropy gain per 1K tokens when measured), filters results by role/provider/model/thinking-level/comparability, compares saved execution versions, and exports experiment and tournament JSON/Markdown/CSV.
 
 The MVP performs persistent-state adaptation; it does not claim to retrain model weights.
 

@@ -56,3 +56,10 @@ Each report also carries version metadata via `ReplayMetadata`: application
 version, schema version, and -- since the Tournament UI correctness sprint --
 attacker prompt version, defender prompt version, and capability-registry
 version, letting results be traced to exactly what code produced them.
+
+Tournament summaries also include a defender entropy trajectory for complete,
+fully comparable trials: mean initial entropy, mean final entropy, mean gain,
+the matching defender input-plus-output-token total, and entropy gain per 1K
+tokens. The ratio is unavailable when token measurements are missing or zero;
+zero means a measured zero entropy change. It is a within-configuration
+trajectory, not a security guarantee or a cross-configuration score.
