@@ -827,9 +827,11 @@ Add a separately configured local vLLM or OpenAI-compatible backend with localho
 defaults, explicit remote-endpoint warnings, capability checks, and bounded arena
 execution.
 
-## [IMP-031] Benchmark calibration / weak-target sanity checks
-**Type:** Feature
-**Priority:** Medium
+## IMP-035 — Benchmark calibration / weak-target sanity checks
+
+**Priority:** P1
+**Status:** Done
+
 **Description:** Benchmark 002 revealed that survival rate alone is insufficient because bounded attackers may lack strategies to exploit trivially weak targets (e.g. length 2 random strings).
 **Acceptance Criteria:**
 - benchmark reports identify weak targets that survive despite low entropy/short length.

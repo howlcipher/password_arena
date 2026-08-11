@@ -192,6 +192,7 @@ def _replay_metadata_from_dict(d: dict[str, Any] | None) -> ReplayMetadata | Non
         attacker_prompt_version=d.get("attacker_prompt_version", ""),
         defender_prompt_version=d.get("defender_prompt_version", ""),
         capability_registry_version=d.get("capability_registry_version", ""),
+        benchmark_protocol_version=d.get("benchmark_protocol_version"),
     )
 
 
@@ -225,9 +226,7 @@ def _stored_matchup_from_dict(d: dict[str, Any]) -> StoredMatchup:
     )
 
 
-def _parse_stored_tournament(
-    data: dict[str, Any], history_mgr: HistoryManager
-) -> StoredTournament:
+def _parse_stored_tournament(data: dict[str, Any], history_mgr: HistoryManager) -> StoredTournament:
     matchups = tuple(_stored_matchup_from_dict(m) for m in data.get("matchups", []))
     missing: list[str] = []
     for m in matchups:

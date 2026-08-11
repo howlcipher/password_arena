@@ -30,7 +30,7 @@ from password_arena.models import (
 )
 from password_arena.tournament_history import TOURNAMENT_SCHEMA_VERSION
 
-PASSWORD_ARENA_DATASET_SCHEMA_VERSION = "1.0.0"
+PASSWORD_ARENA_DATASET_SCHEMA_VERSION = "1.1.0"
 
 PublicScalar: TypeAlias = str | int | float | bool | None
 
@@ -69,6 +69,7 @@ class PublicBenchmarkRow:
     attacker_prompt_version: str | None
     defender_prompt_version: str | None
     capability_registry_version: str | None
+    benchmark_protocol_version: str | None
 
     tournament_id: str
     matchup_id: str
@@ -108,16 +109,14 @@ class PublicBenchmarkRow:
     defender_password_length: int
     defender_entropy_bits: float
     defender_strength_score: int
+    calibration_warning: str | None
 
     comparable: bool
     exclusion_reason: str | None
 
     def to_dict(self) -> dict[str, PublicScalar]:
         """Return fields in the one canonical public-column order."""
-        return {
-            column: getattr(self, column)
-            for column in PUBLIC_BENCHMARK_COLUMNS
-        }
+        return {column: getattr(self, column) for column in PUBLIC_BENCHMARK_COLUMNS}
 
 
 PUBLIC_BENCHMARK_COLUMNS = tuple(field.name for field in fields(PublicBenchmarkRow))
@@ -137,9 +136,7 @@ def _enum_text(value: object | None) -> str | None:
     return enum_value if isinstance(enum_value, str) else str(enum_value)
 
 
-def _role_metadata(
-    recorded: RoleMetadata | None, configured: RoleConfig
-) -> RoleMetadata:
+def _role_metadata(recorded: RoleMetadata | None, configured: RoleConfig) -> RoleMetadata:
     return recorded or RoleMetadata.from_role_config(configured)
 
 
@@ -232,9 +229,8 @@ def _build_row(
         replay_schema_version=replay.schema_version if replay else None,
         attacker_prompt_version=replay.attacker_prompt_version if replay else None,
         defender_prompt_version=replay.defender_prompt_version if replay else None,
-        capability_registry_version=(
-            replay.capability_registry_version if replay else None
-        ),
+        capability_registry_version=(replay.capability_registry_version if replay else None),
+        benchmark_protocol_version=replay.benchmark_protocol_version if replay else None,
         tournament_id=tournament_id,
         matchup_id=source.matchup.matchup_id,
         experiment_id=experiment.experiment_id,
@@ -271,6 +267,7 @@ def _build_row(
         defender_password_length=round_result.password_length,
         defender_entropy_bits=round_result.strength.entropy_bits,
         defender_strength_score=round_result.strength.score,
+        calibration_warning=round_result.calibration_warning,
         comparable=round_result.comparable,
         exclusion_reason=_recorded_exclusion_reason(source, experiment, round_result),
     )
@@ -342,9 +339,7 @@ _SECRET_PATTERNS = (
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
     re.compile(r"\bAIza[0-9A-Za-z_-]{30,}\b"),
     re.compile(r"(?i)\bauthorization\s*:\s*(?:bearer|basic)\s+\S+"),
-    re.compile(
-        r"(?i)\b(?:api[_-]?key|access[_-]?token|hf_token)\s*[:=]\s*\S+"
-    ),
+    re.compile(r"(?i)\b(?:api[_-]?key|access[_-]?token|hf_token)\s*[:=]\s*\S+"),
 )
 
 
@@ -366,9 +361,7 @@ def _rows_from_serialized(
                     continue
                 item = json.loads(line)
                 if not isinstance(item, dict):
-                    raise PublicDatasetSafetyError(
-                        "Public dataset JSONL rows must be objects."
-                    )
+                    raise PublicDatasetSafetyError("Public dataset JSONL rows must be objects.")
                 parsed.append(item)
             return parsed
 
@@ -402,17 +395,11 @@ def _validate_rows(rows: Sequence[Mapping[str, object]]) -> None:
 
         for value in row.values():
             if isinstance(value, (dict, list, tuple, set, frozenset)):
-                raise PublicDatasetSafetyError(
-                    "Public dataset values must be scalar."
-                )
+                raise PublicDatasetSafetyError("Public dataset values must be scalar.")
             if value is not None and not isinstance(value, (str, int, float, bool)):
-                raise PublicDatasetSafetyError(
-                    "Public dataset values must be scalar."
-                )
+                raise PublicDatasetSafetyError("Public dataset values must be scalar.")
             if isinstance(value, float) and not math.isfinite(value):
-                raise PublicDatasetSafetyError(
-                    "Public dataset values must be finite."
-                )
+                raise PublicDatasetSafetyError("Public dataset values must be finite.")
 
 
 def validate_public_dataset_payload(
@@ -436,26 +423,18 @@ def validate_public_dataset_payload(
                 else json.dumps(rows, ensure_ascii=False, allow_nan=False)
             )
         except (TypeError, ValueError):
-            raise PublicDatasetSafetyError(
-                "Public dataset serialization is invalid."
-            ) from None
+            raise PublicDatasetSafetyError("Public dataset serialization is invalid.") from None
 
     _validate_rows(rows)
 
     for pattern in _SECRET_PATTERNS:
         if pattern.search(serialization):
-            raise PublicDatasetSafetyError(
-                "Public dataset contains a secret-like token pattern."
-            )
+            raise PublicDatasetSafetyError("Public dataset contains a secret-like token pattern.")
 
     fingerprints = set(source_secret_fingerprints)
-    fingerprints.update(
-        _secret_fingerprint(value) for value in source_secret_values if value
-    )
+    fingerprints.update(_secret_fingerprint(value) for value in source_secret_values if value)
     if fingerprints:
-        scalar_text = [
-            str(value) for row in rows for value in row.values() if value is not None
-        ]
+        scalar_text = [str(value) for row in rows for value in row.values() if value is not None]
         scan_values = [serialization, *scalar_text]
         for length, expected_digest in fingerprints:
             for value in scan_values:

@@ -106,9 +106,7 @@ def compare_tournament_configs(a: TournamentConfig, b: TournamentConfig) -> Conf
     return ConfigComparison(identical=not differences, differences=tuple(differences))
 
 
-def _recorded_versions(
-    tournament: StoredTournament, attribute: str
-) -> tuple[tuple[str, ...], int]:
+def _recorded_versions(tournament: StoredTournament, attribute: str) -> tuple[tuple[str, ...], int]:
     """Return non-empty replay values and the count unavailable for one field."""
     if not tournament.matchups:
         # No matchup means no recorded execution metadata. Treat it exactly as
@@ -144,6 +142,7 @@ def _compare_replay_versions(a: StoredTournament, b: StoredTournament) -> tuple[
         ("Attacker prompt version", "attacker_prompt_version"),
         ("Defender prompt version", "defender_prompt_version"),
         ("Capability-registry version", "capability_registry_version"),
+        ("Benchmark protocol version", "benchmark_protocol_version"),
     )
     for label, attribute in fields:
         versions_a, unavailable_a = _recorded_versions(a, attribute)
@@ -165,8 +164,7 @@ def _compare_replay_versions(a: StoredTournament, b: StoredTournament) -> tuple[
 
     if a.schema_version != b.schema_version:
         metadata_differences.append(
-            "Tournament history schema version: "
-            f"A = {a.schema_version!r}; B = {b.schema_version!r}"
+            f"Tournament history schema version: A = {a.schema_version!r}; B = {b.schema_version!r}"
         )
     return tuple(metadata_differences)
 

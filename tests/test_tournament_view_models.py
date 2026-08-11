@@ -370,12 +370,8 @@ def test_thinking_comparison_is_weighted_across_matchups() -> None:
     high = RoleConfig(provider="openai", model="m1", thinking_level=ThinkingLevel.HIGH)
     low = RoleConfig(provider="openai", model="m1", thinking_level=ThinkingLevel.LOW)
 
-    high_matchup_a = _matchup(
-        attacker=high, defender=_defender("d1"), round_outcomes=[True] * 100
-    )
-    high_matchup_b = _matchup(
-        attacker=high, defender=_defender("d2"), round_outcomes=[True] * 100
-    )
+    high_matchup_a = _matchup(attacker=high, defender=_defender("d1"), round_outcomes=[True] * 100)
+    high_matchup_b = _matchup(attacker=high, defender=_defender("d2"), round_outcomes=[True] * 100)
     low_matchup = _matchup(attacker=low, defender=_defender("d3"), round_outcomes=[False] * 2)
 
     att_df, _ = build_thinking_comparison_data([high_matchup_a, high_matchup_b, low_matchup])
@@ -430,9 +426,7 @@ def test_filter_results_by_provider_matches_either_role_by_default() -> None:
         round_outcomes=[True],
     )
 
-    filtered = filter_results(
-        [openai_attacker, openai_defender, neither_openai], provider="openai"
-    )
+    filtered = filter_results([openai_attacker, openai_defender, neither_openai], provider="openai")
     assert len(filtered) == 2
 
 

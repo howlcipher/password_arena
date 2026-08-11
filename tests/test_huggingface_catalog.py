@@ -95,9 +95,7 @@ def test_search_preserves_missing_metadata_as_unknown() -> None:
 
 
 def test_search_preserves_gated_approval_mode() -> None:
-    client = FakeHubClient(
-        [SimpleNamespace(id="acme/gated", gated="manual", inference="cold")]
-    )
+    client = FakeHubClient([SimpleNamespace(id="acme/gated", gated="manual", inference="cold")])
 
     model = HuggingFaceCatalog(client=client).search_models(
         "gated", pipeline_tag="All", limit=1, sort="last modified"
@@ -117,9 +115,7 @@ def test_search_preserves_gated_approval_mode() -> None:
         ("newest", "created_at"),
     ],
 )
-def test_supported_sort_names_are_forwarded(
-    requested: str, forwarded: str
-) -> None:
+def test_supported_sort_names_are_forwarded(requested: str, forwarded: str) -> None:
     client = FakeHubClient()
 
     HuggingFaceCatalog(client=client).search_models(
@@ -235,9 +231,7 @@ def test_default_factory_normalizes_missing_dependency(
     monkeypatch.setattr(catalog_module, "import_module", missing_import)
 
     with pytest.raises(HuggingFaceCatalogDependencyError, match="optional 'hf' extra"):
-        HuggingFaceCatalog().search_models(
-            "model", pipeline_tag="All", limit=5, sort="downloads"
-        )
+        HuggingFaceCatalog().search_models("model", pipeline_tag="All", limit=5, sort="downloads")
 
 
 def test_search_calls_only_list_models() -> None:

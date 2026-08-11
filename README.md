@@ -138,6 +138,17 @@ The journal is an audit log, not a request for private model chain-of-thought. P
 
 [Read Benchmark 002 Report](results/benchmark-002/README.md) | [Dataset CSV](results/benchmark-002/benchmark-002.csv) | [Dataset JSONL](results/benchmark-002/benchmark-002.jsonl)
 
+### Benchmark 003 — Protocol Versioning & Calibration
+
+* added benchmark protocol version 1.1
+* integrated CalibrationPolicy to explicitly flag weak targets
+* bounded attacker configuration added exhaustive strategy for lengths 1-3
+* 45 comparable rounds
+* 0 actual attack solves
+* surfaced weak target survival as explicitly flagged calibration warnings rather than presenting misleading LLM success rates.
+
+[Read Benchmark 003 Report](results/benchmark-003/README.md) | [Dataset CSV](results/benchmark-003/benchmark-003.csv) | [Dataset JSONL](results/benchmark-003/benchmark-003.jsonl)
+
 ## Configuration
 | Setting | Purpose | Default |
 |---|---|---:|

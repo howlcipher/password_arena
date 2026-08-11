@@ -173,12 +173,17 @@ def test_tournament_report_csv_shows_unavailable_not_zero_for_unknown_cost() -> 
     matchup = aggregate_matchup(matchup_config, [experiment], [])
     assert matchup.summary.total_estimated_cost is None
 
-    csv_text = tournament_report_csv("tid", "ts", TournamentConfig(
-        attackers=(matchup_config.attacker,),
-        defenders=(matchup_config.defender,),
-        seeds=(1,),
-        rounds_per_match=1,
-    ), [matchup])
+    csv_text = tournament_report_csv(
+        "tid",
+        "ts",
+        TournamentConfig(
+            attackers=(matchup_config.attacker,),
+            defenders=(matchup_config.defender,),
+            seeds=(1,),
+            rounds_per_match=1,
+        ),
+        [matchup],
+    )
     reader = csv.DictReader(io.StringIO(csv_text))
     row = next(reader)
     assert row["estimated_cost"] == "unavailable"

@@ -217,8 +217,7 @@ def build_attacker_leaderboard(results: Sequence[MatchupLike]) -> pd.DataFrame:
         rounds_completed = sum(m.summary.rounds_completed for m in matchups)
         rounds_solved = sum(m.summary.rounds_solved for m in matchups)
         tokens = sum(
-            m.summary.attacker_input_tokens + m.summary.attacker_output_tokens
-            for m in matchups
+            m.summary.attacker_input_tokens + m.summary.attacker_output_tokens for m in matchups
         )
         solve_rate = rounds_solved / rounds_completed if rounds_completed > 0 else None
         solves_per_1k_tokens = rounds_solved / (tokens / 1000) if tokens > 0 else None
@@ -265,8 +264,7 @@ def build_defender_leaderboard(results: Sequence[MatchupLike]) -> pd.DataFrame:
         rounds_completed = sum(m.summary.rounds_completed for m in matchups)
         rounds_resisted = sum(m.summary.rounds_resisted for m in matchups)
         tokens = sum(
-            m.summary.defender_input_tokens + m.summary.defender_output_tokens
-            for m in matchups
+            m.summary.defender_input_tokens + m.summary.defender_output_tokens for m in matchups
         )
         survival_rate = rounds_resisted / rounds_completed if rounds_completed > 0 else None
         survivals_per_1k_tokens = rounds_resisted / (tokens / 1000) if tokens > 0 else None

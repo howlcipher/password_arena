@@ -81,9 +81,7 @@ def test_run_tournament_renders_all_result_tabs_without_error(
     assert "Thinking-Level Comparison" in subheader_texts
 
 
-def test_completed_tournament_has_public_dataset_downloads(
-    tmp_path: Any, monkeypatch: Any
-) -> None:
+def test_completed_tournament_has_public_dataset_downloads(tmp_path: Any, monkeypatch: Any) -> None:
     monkeypatch.chdir(tmp_path)
     at = AppTest.from_file(str(DASHBOARD_PATH))
     at.run(timeout=30)
@@ -96,9 +94,7 @@ def test_completed_tournament_has_public_dataset_downloads(
     assert metrics["Comparable public rows"] == "6"
     assert metrics["Excluded public rows"] == "0"
 
-    download_buttons = [
-        cast(DownloadButton, item) for item in at.get("download_button")
-    ]
+    download_buttons = [cast(DownloadButton, item) for item in at.get("download_button")]
     public_downloads = {
         item.label: item for item in download_buttons if "public" in item.label.lower()
     }
@@ -108,9 +104,7 @@ def test_completed_tournament_has_public_dataset_downloads(
     }
     assert not public_downloads["Download public JSONL"].proto.disabled
     assert not public_downloads["Download public CSV"].proto.disabled
-    card = next(
-        item for item in download_buttons if item.label == "Download Dataset Card"
-    )
+    card = next(item for item in download_buttons if item.label == "Download Dataset Card")
     assert not card.proto.disabled
     assert any("not uploaded" in info.value for info in at.info)
 

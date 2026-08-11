@@ -24,6 +24,7 @@ from password_arena.models import (
 from password_arena.providers import CAPABILITY_REGISTRY_VERSION
 
 REPLAY_SCHEMA_VERSION = "1.0"
+BENCHMARK_PROTOCOL_VERSION = "1.1"
 
 
 def calculate_confidence_interval(
@@ -78,6 +79,7 @@ def build_replay_metadata(config: MatchupConfig) -> ReplayMetadata:
         attacker_prompt_version=ATTACKER_PROMPT_VERSION,
         defender_prompt_version=DEFENDER_PROMPT_VERSION,
         capability_registry_version=CAPABILITY_REGISTRY_VERSION,
+        benchmark_protocol_version=BENCHMARK_PROTOCOL_VERSION,
     )
 
 
@@ -114,15 +116,11 @@ def compute_efficiency(
         attacker_solved_per_1k_tokens=ratio(rounds_solved, attacker_total_tokens / 1000),
         attacker_solved_per_second=ratio(rounds_solved, attacker_total_latency_ms / 1000),
         attacker_solved_per_dollar=(
-            ratio(rounds_solved, attacker_cost_denominator)
-            if attacker_cost_denominator
-            else None
+            ratio(rounds_solved, attacker_cost_denominator) if attacker_cost_denominator else None
         ),
         defender_survived_per_1k_tokens=ratio(rounds_resisted, defender_total_tokens / 1000),
         defender_survived_per_dollar=(
-            ratio(rounds_resisted, defender_cost_denominator)
-            if defender_cost_denominator
-            else None
+            ratio(rounds_resisted, defender_cost_denominator) if defender_cost_denominator else None
         ),
         defender_entropy_gain_per_1k_tokens=(
             defender_entropy_gain_bits * 1000 / defender_entropy_gain_tokens
@@ -351,9 +349,7 @@ def aggregate_matchup(
         confidence_interval_upper=ci_upper,
         final_round_solved_count=final_round_solved_count,
         final_round_resisted_count=final_round_resisted_count,
-        mean_guesses_per_round=(
-            statistics.mean(guesses_per_round) if guesses_per_round else None
-        ),
+        mean_guesses_per_round=(statistics.mean(guesses_per_round) if guesses_per_round else None),
         median_guesses_per_round=(
             statistics.median(guesses_per_round) if guesses_per_round else None
         ),
@@ -361,9 +357,7 @@ def aggregate_matchup(
             statistics.stdev(guesses_per_round) if len(guesses_per_round) > 1 else None
         ),
         mean_guesses_to_solve=statistics.mean(guesses_to_solve) if guesses_to_solve else None,
-        median_guesses_to_solve=(
-            statistics.median(guesses_to_solve) if guesses_to_solve else None
-        ),
+        median_guesses_to_solve=(statistics.median(guesses_to_solve) if guesses_to_solve else None),
         mean_total_guesses_per_trial=(
             statistics.mean(total_guesses_per_trial) if total_guesses_per_trial else None
         ),

@@ -61,7 +61,7 @@ def render_arena_tab() -> None:
             default_model=st.session_state.get("defender_model", ""),
             default_thinking=st.session_state.get("defender_thinking", "auto"),
         )
-        
+
         attacker_config = render_role_config(
             prefix="attacker",
             label="Attacker",
@@ -80,7 +80,7 @@ def render_arena_tab() -> None:
                 for k in default_values:
                     if k in profile_data:
                         st.session_state[k] = profile_data[k]
-                
+
                 # Delete internal UI helper keys so they re-initialize from default_values
                 for k in list(st.session_state.keys()):
                     is_ui_key = (
@@ -90,7 +90,7 @@ def render_arena_tab() -> None:
                     )
                     if is_ui_key and k not in ["defender_thinking", "attacker_thinking"]:
                         del st.session_state[k]
-                            
+
                 st.success("Profile loaded! Settings applied.")
             except Exception as e:
                 st.error(f"Failed to load profile: {e}")

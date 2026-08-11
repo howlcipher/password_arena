@@ -224,7 +224,7 @@ def _build_dataset(source: PublicBenchmarkSource | None = None) -> PublicBenchma
 def test_dataset_format_values_are_stable() -> None:
     assert DatasetExportFormat.JSONL.value == "jsonl"
     assert DatasetExportFormat.CSV.value == "csv"
-    assert PASSWORD_ARENA_DATASET_SCHEMA_VERSION == "1.0.0"
+    assert PASSWORD_ARENA_DATASET_SCHEMA_VERSION == "1.1.0"
 
 
 def test_builds_one_row_per_recorded_round_with_versions_and_metrics() -> None:
@@ -468,9 +468,7 @@ def test_validator_rejects_any_source_password_or_candidate_in_serialization() -
 
 def test_exporters_fail_closed_for_tampered_rows() -> None:
     dataset = _build_dataset()
-    tampered_row = replace(
-        dataset.rows[0], attacker_model="hf_abcdefghijklmnopqrstuvwxyz123456"
-    )
+    tampered_row = replace(dataset.rows[0], attacker_model="hf_abcdefghijklmnopqrstuvwxyz123456")
     tampered = replace(dataset, rows=(tampered_row, *dataset.rows[1:]))
 
     with pytest.raises(PublicDatasetSafetyError):

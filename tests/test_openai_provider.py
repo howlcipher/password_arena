@@ -67,9 +67,7 @@ def test_openai_provider_unpriced_model_cost_is_unavailable(mock_client: Any) ->
 def test_openai_provider_records_requested_and_effective_thinking(mock_client: Any) -> None:
     provider = OpenAIProvider(model="o1-preview", client=mock_client)
 
-    response = provider.generate(
-        ProviderRequest(prompt="hello", thinking_level=ThinkingLevel.HIGH)
-    )
+    response = provider.generate(ProviderRequest(prompt="hello", thinking_level=ThinkingLevel.HIGH))
 
     assert response.metrics.requested_thinking_level == ThinkingLevel.HIGH
     assert response.metrics.effective_thinking_level == ThinkingLevel.HIGH

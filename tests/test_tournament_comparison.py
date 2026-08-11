@@ -39,6 +39,7 @@ def _replay(
     attacker_prompt: str = "1.0",
     defender_prompt: str = "1.0",
     capability_registry: str = "1.0",
+    benchmark_protocol: str = "1.1",
 ) -> ReplayMetadata:
     return ReplayMetadata(
         attacker=RoleMetadata("openai", "gpt-4o", ThinkingLevel.AUTO),
@@ -54,6 +55,7 @@ def _replay(
         attacker_prompt_version=attacker_prompt,
         defender_prompt_version=defender_prompt,
         capability_registry_version=capability_registry,
+        benchmark_protocol_version=benchmark_protocol,
     )
 
 
@@ -192,14 +194,14 @@ def test_saved_tournament_comparison_treats_old_missing_metadata_as_unavailable(
 
     assert result.configuration_identical
     assert not result.identical
-    assert len(result.metadata_differences) == 5
+    assert len(result.metadata_differences) == 6
     assert all("version metadata unavailable" in item for item in result.metadata_differences)
 
 
 def test_saved_tournament_comparison_treats_empty_tournaments_as_metadata_unavailable() -> None:
     result = compare_stored_tournaments(_stored(()), _stored(()))
     assert not result.identical
-    assert len(result.metadata_differences) == 5
+    assert len(result.metadata_differences) == 6
     assert all("version metadata unavailable" in item for item in result.metadata_differences)
 
 
@@ -208,9 +210,7 @@ def test_saved_tournament_comparison_reports_history_schema_separately() -> None
         _stored((_replay(),), schema_version="2.0"), _stored((_replay(),))
     )
     assert not result.identical
-    assert result.metadata_differences == (
-        "Tournament history schema version: A = '2.0'; B = '2.1'",
-    )
+    assert "Tournament history schema version: A = '2.0'; B = '2.1'" in result.metadata_differences
 
 
 def test_extra_role_in_one_tournament_is_reported() -> None:

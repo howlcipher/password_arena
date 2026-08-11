@@ -163,13 +163,9 @@ def render_huggingface_model_discovery(prefix: str, provider: str) -> None:
         query = st.text_input("Search query", key=f"{prefix}_hf_query")
         search_col1, search_col2, search_col3 = st.columns(3)
         with search_col1:
-            task = st.selectbox(
-                "Task filter", HUGGINGFACE_TASK_FILTERS, key=f"{prefix}_hf_task"
-            )
+            task = st.selectbox("Task filter", HUGGINGFACE_TASK_FILTERS, key=f"{prefix}_hf_task")
         with search_col2:
-            sort = st.selectbox(
-                "Sort", HUGGINGFACE_SORT_OPTIONS, key=f"{prefix}_hf_sort"
-            )
+            sort = st.selectbox("Sort", HUGGINGFACE_SORT_OPTIONS, key=f"{prefix}_hf_sort")
         with search_col3:
             limit = st.number_input(
                 "Result limit",

@@ -145,9 +145,7 @@ def render_efficiency(results: Sequence[MatchupLike]) -> None:
             chart = (
                 alt.Chart(df.dropna(subset=[x_col]))
                 .mark_circle(size=60)
-                .encode(
-                    x=f"{x_col}:Q", y=f"{y_col}:Q", tooltip=["Matchup", y_col, x_col]
-                )
+                .encode(x=f"{x_col}:Q", y=f"{y_col}:Q", tooltip=["Matchup", y_col, x_col])
             )
             st.altair_chart(chart, use_container_width=True)
         else:

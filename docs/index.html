@@ -93,9 +93,10 @@
             <div class="code-block-wrapper">
                 <div class="code-header">
                     <span>sys.report</span>
-                    <span>benchmark_002</span>
+                    <span>benchmark_003</span>
                 </div>
-                <pre><code>MODEL: Qwen3 4B
+                <pre><code>PROTOCOL VERSION: 1.1
+MODEL: Qwen3 4B
 RUNTIME: Ollama / local
 MATCHUPS: 3
 RECORDED ROUNDS: 45
@@ -112,11 +113,11 @@ ATTACK SOLVES: 0
             </div>
             
             <div class="warning-box" style="margin-top: 2rem; border-color: var(--accent-color);">
-                <span class="warning-title" style="color: var(--accent-color);">EVALUATION_FINDING</span>
-                <p>Benchmark 002 exposed an important limitation: A model defender can produce a weak target that still survives when the bounded attacker lacks the right strategy.</p>
-                <p>Therefore Password Arena evaluates:</p>
-                <p><code>solve/survival + entropy + target structure + strategy coverage + tokens + latency</code></p>
-                <p>rather than treating win rate as the entire story.</p>
+                <span class="warning-title" style="color: var(--accent-color);">CALIBRATION_FINDING</span>
+                <p>Benchmark 003 introduced Protocol 1.1 and the CalibrationPolicy to expose when a model defender generates an objectively weak target that still survives because the bounded attacker lacks the right strategy coverage.</p>
+                <p>Therefore Password Arena explicitly flags <code>VERY_SHORT_TARGET_SURVIVED</code> and <code>LOW_ENTROPY_TARGET_SURVIVED</code>:</p>
+                <p><code>solve/survival + calibration flag + entropy + tokens + latency</code></p>
+                <p>rather than treating LLM win rate as the entire story.</p>
             </div>
         </section>
 

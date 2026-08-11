@@ -16,7 +16,7 @@ from password_arena.providers import AgentBackend, ProviderRequest
 # Bump whenever the attacker's LLM-facing prompt text materially changes
 # (wording, schema, requested fields) -- lets reports and tournament
 # comparisons distinguish results produced under different prompts.
-ATTACKER_PROMPT_VERSION = "1.0"
+ATTACKER_PROMPT_VERSION = "1.1"
 
 
 def _dedupe(candidates: Iterator[str]) -> Iterator[str]:
@@ -124,6 +124,23 @@ class RandomStrategy:
             yield "".join(context.rng.choice(alphabet) for _ in range(context.password_length))
 
 
+class ExhaustiveShortStrategy:
+    @property
+    def name(self) -> str:
+        return "exhaustive_short"
+
+    @property
+    def supported_inputs(self) -> str:
+        return "password length"
+
+    def candidates(self, context: AttackContext) -> Iterator[str]:
+        # Trivial bounded search for up to length 3
+        alphabet = string.ascii_letters + string.digits + SYMBOLS
+        for length in range(1, 4):
+            for combo in itertools.product(alphabet, repeat=length):
+                yield "".join(combo)
+
+
 class StrategyRegistry:
     def __init__(self) -> None:
         self._strategies: dict[str, AttackStrategy] = {}
@@ -146,6 +163,7 @@ default_registry.register(CommonStrategy())
 default_registry.register(MutationStrategy())
 default_registry.register(PassphraseStrategy())
 default_registry.register(RandomStrategy())
+default_registry.register(ExhaustiveShortStrategy())
 
 
 @dataclass(slots=True)
@@ -160,7 +178,7 @@ class AdaptiveAttacker:
     backend: AgentBackend | None = None
     strategy_registry: StrategyRegistry = field(default_factory=lambda: default_registry)
     enabled_strategies: set[str] = field(
-        default_factory=lambda: {"common", "mutation", "passphrase", "random"}
+        default_factory=lambda: {"common", "mutation", "passphrase", "random", "exhaustive_short"}
     )
 
     def _strategy_weights(self, difficulty: int, max_guesses: int) -> dict[str, float]:
@@ -168,13 +186,37 @@ class AdaptiveAttacker:
             return self._strategy_weights_backend(difficulty, max_guesses)
 
         if difficulty <= 1:
-            base = {"common": 0.70, "mutation": 0.20, "passphrase": 0.08, "random": 0.02}
+            base = {
+                "common": 0.69,
+                "mutation": 0.20,
+                "passphrase": 0.08,
+                "random": 0.02,
+                "exhaustive_short": 0.01,
+            }
         elif difficulty <= 3:
-            base = {"common": 0.10, "mutation": 0.75, "passphrase": 0.10, "random": 0.05}
+            base = {
+                "common": 0.10,
+                "mutation": 0.74,
+                "passphrase": 0.10,
+                "random": 0.05,
+                "exhaustive_short": 0.01,
+            }
         elif difficulty <= 6:
-            base = {"common": 0.05, "mutation": 0.15, "passphrase": 0.75, "random": 0.05}
+            base = {
+                "common": 0.05,
+                "mutation": 0.15,
+                "passphrase": 0.74,
+                "random": 0.05,
+                "exhaustive_short": 0.01,
+            }
         else:
-            base = {"common": 0.01, "mutation": 0.04, "passphrase": 0.10, "random": 0.85}
+            base = {
+                "common": 0.01,
+                "mutation": 0.04,
+                "passphrase": 0.10,
+                "random": 0.84,
+                "exhaustive_short": 0.01,
+            }
 
         # Filter out disabled strategies
         base = {

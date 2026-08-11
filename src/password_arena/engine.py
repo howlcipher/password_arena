@@ -8,6 +8,7 @@ from typing import Any, NamedTuple
 
 import password_arena
 from password_arena.attacker import AdaptiveAttacker
+from password_arena.calibration import CalibrationPolicy
 from password_arena.defender import AdaptiveDefender
 from password_arena.models import (
     ARENA_EVENT_SCHEMA_VERSION,
@@ -276,6 +277,9 @@ class ArenaEngine:
                     else ""
                 )
 
+                policy = CalibrationPolicy()
+                calibration_warning = policy.evaluate(password, strength, attack.solved)
+
                 round_res = RoundResult(
                     round_number=index + 1,
                     difficulty=difficulty,
@@ -293,6 +297,7 @@ class ArenaEngine:
                     evaluator_metadata=evaluator_metadata,
                     attacker_usage=attacker_usage,
                     defender_usage=defender_usage,
+                    calibration_warning=calibration_warning,
                     comparable=comparable,
                 )
                 self.completed_rounds.append(round_res)

@@ -67,8 +67,7 @@ def test_save_list_load_delete_round_trip(tmp_path: Any) -> None:
     assert stored_summary.mean_final_entropy_bits == matchup.summary.mean_final_entropy_bits
     assert stored_summary.mean_entropy_gain_bits == matchup.summary.mean_entropy_gain_bits
     assert (
-        stored_summary.defender_entropy_gain_tokens
-        == matchup.summary.defender_entropy_gain_tokens
+        stored_summary.defender_entropy_gain_tokens == matchup.summary.defender_entropy_gain_tokens
     )
     assert (
         stored_summary.efficiency.defender_entropy_gain_per_1k_tokens

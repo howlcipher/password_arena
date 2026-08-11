@@ -174,6 +174,7 @@ class RoundResult:
     evaluator_metadata: RoleMetadata | None = None
     attacker_usage: RoleUsage | None = None
     defender_usage: RoleUsage | None = None
+    calibration_warning: str | None = None
     comparable: bool = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -388,6 +389,7 @@ class ReplayMetadata:
     attacker_prompt_version: str
     defender_prompt_version: str
     capability_registry_version: str
+    benchmark_protocol_version: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

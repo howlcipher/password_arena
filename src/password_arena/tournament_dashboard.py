@@ -58,7 +58,7 @@ def render_tournament_tab() -> None:
         trials_count = st.number_input("Repeated Trials (Seeds)", min_value=1, value=3)
     with c3:
         max_guesses = st.number_input("Max Guesses", min_value=1, max_value=100000, value=100)
-        
+
     st.subheader("Budgets & Limits (Optional)")
     l1, l2, l3, l4 = st.columns(4)
     with l1:
@@ -103,7 +103,7 @@ def render_tournament_tab() -> None:
     matrix = build_tournament_matrix(config, exclude_self=exclude_self)
     total_experiments = len(matrix) * trials_count
     max_rounds = total_experiments * rounds_per_match
-    
+
     st.info(
         f"**Estimated Scale:** {len(matrix)} Matchups | {total_experiments} Experiments | "
         f"Max {max_rounds} Scored Rounds\n\n"
@@ -116,9 +116,7 @@ def render_tournament_tab() -> None:
             st.error("No valid matchups generated (perhaps only self-play was selected).")
             return
 
-        st.success(
-            f"Running {len(matrix)} matchups ({total_experiments} total experiments)..."
-        )
+        st.success(f"Running {len(matrix)} matchups ({total_experiments} total experiments)...")
 
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -224,9 +222,9 @@ def _render_results(
     st.divider()
 
     # Use tabbed layout for views
-    t1, t2, t3, t4 = st.tabs([
-        "Overview & Leaderboard", "Matchup Heatmap", "Efficiency", "Thinking Levels"
-    ])
+    t1, t2, t3, t4 = st.tabs(
+        ["Overview & Leaderboard", "Matchup Heatmap", "Efficiency", "Thinking Levels"]
+    )
 
     with t1:
         render_overview(filtered_results)
@@ -417,13 +415,13 @@ def render_tournament_history() -> None:
         ]
         for run in runs
     }
-    
+
     st.write("Select one or two tournaments to view or compare.")
     selected_labels = st.multiselect("Saved tournaments", list(labels.keys()), max_selections=2)
-    
+
     if not selected_labels:
         return
-        
+
     if len(selected_labels) == 1:
         selected_id = labels[selected_labels[0]]
         col1, col2 = st.columns([1, 1])
@@ -437,19 +435,17 @@ def render_tournament_history() -> None:
                     del st.session_state["loaded_tournament"]
                 st.success(f"Deleted {selected_id}.")
                 st.rerun()
-                
+
         if st.session_state.get("loaded_tournament") == selected_id:
             history_mgr = HistoryManager()
             stored = tourney_mgr.load(selected_id, history_mgr=history_mgr)
-            public_sources, missing_ids = _hydrate_public_sources(
-                stored.matchups, history_mgr
-            )
+            public_sources, missing_ids = _hydrate_public_sources(stored.matchups, history_mgr)
             if missing_ids:
                 st.warning(
                     f"{len(missing_ids)} linked experiment(s) are no longer "
                     "in single-run history and could not be hydrated."
                 )
-            
+
             st.divider()
             st.subheader(f"Tournament: {selected_id[:8]}")
             _render_results(
@@ -461,18 +457,18 @@ def render_tournament_history() -> None:
                 public_export_missing_count=len(missing_ids),
                 tournament_storage_schema_version=stored.schema_version,
             )
-            
+
     elif len(selected_labels) == 2:
         id_a = labels[selected_labels[0]]
         id_b = labels[selected_labels[1]]
-        
+
         if st.button("Compare Tournaments", type="primary"):
             history_mgr = HistoryManager()
             stored_a = tourney_mgr.load(id_a, history_mgr=history_mgr)
             stored_b = tourney_mgr.load(id_b, history_mgr=history_mgr)
             sources_a, missing_a = _hydrate_public_sources(stored_a.matchups, history_mgr)
             sources_b, missing_b = _hydrate_public_sources(stored_b.matchups, history_mgr)
-            
+
             st.divider()
             st.subheader("Comparison")
 
