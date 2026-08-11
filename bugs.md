@@ -820,3 +820,31 @@ Give the metric selectbox an explicit, per-tournament-unique key.
 ### Validation performed
 
 `tests/test_dashboard.py::test_compare_two_tournaments_renders_without_error`. Ran `pytest`.
+
+---
+
+## BUG-028 — Missing type arguments for generic type `list` in tournament_views.py
+
+**Priority:** P2  
+**Status:** Resolved  
+**Resolved in:** Benchmark smoke-test sprint
+
+### Reproduction
+
+Run `mypy src/password_arena tests` on `main`.
+
+### Impact
+
+The `list` type hint in several function signatures inside `tournament_views.py` caused five `mypy` strict-mode errors (`Missing type arguments for generic type "list" [type-arg]`). This caused the pre-flight test suite checks to fail, blocking benchmarking workflows which strictly require tests to pass before proceeding.
+
+### Expected resolution
+
+Use `Sequence[MatchupLike]` instead of `list` to satisfy both the type constraints expected by `build_overview` and mypy's generic type requirements.
+
+### Resolution
+
+Changed `results: list` to `results: Sequence[MatchupLike]` in the signatures of `render_overview`, `render_leaderboards`, `render_heatmap`, `render_efficiency`, and `render_thinking_comparison` within `tournament_views.py`. Added corresponding imports.
+
+### Validation performed
+
+Ran `mypy src/password_arena tests`. It passed with "Success: no issues found in 45 source files".

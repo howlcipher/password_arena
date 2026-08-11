@@ -5,6 +5,9 @@ recreate or weaken any of it; it only renders already-correct data."""
 import altair as alt
 import streamlit as st
 
+from collections.abc import Sequence
+from password_arena.models import MatchupLike
+
 from password_arena.tournament_view_models import (
     HEATMAP_METRICS,
     build_attacker_leaderboard,
@@ -24,7 +27,7 @@ def _cost_display(value: float | None) -> str:
     return "unavailable" if value is None else f"${value:.4f}"
 
 
-def render_overview(results: list) -> None:
+def render_overview(results: Sequence[MatchupLike]) -> None:
     st.subheader("Tournament Overview")
 
     overview = build_overview(results)
@@ -48,7 +51,7 @@ def render_overview(results: list) -> None:
         )
 
 
-def render_leaderboards(results: list) -> None:
+def render_leaderboards(results: Sequence[MatchupLike]) -> None:
     st.subheader("Leaderboards")
     st.caption(
         "Rates are aggregated as sum(events) / sum(comparable rounds) across each "
@@ -68,7 +71,7 @@ def render_leaderboards(results: list) -> None:
         st.dataframe(def_df, use_container_width=True, hide_index=True)
 
 
-def render_heatmap(results: list, *, key_prefix: str) -> None:
+def render_heatmap(results: Sequence[MatchupLike], *, key_prefix: str) -> None:
     st.subheader("Matchup Matrix")
 
     metric = st.selectbox("Metric", list(HEATMAP_METRICS), key=f"{key_prefix}_heatmap_metric")
@@ -112,7 +115,7 @@ def render_heatmap(results: list, *, key_prefix: str) -> None:
     st.altair_chart((cells + labels).properties(height=400), use_container_width=True)
 
 
-def render_efficiency(results: list) -> None:
+def render_efficiency(results: Sequence[MatchupLike]) -> None:
     st.subheader("Efficiency")
 
     df = build_efficiency_data(results)
@@ -196,7 +199,7 @@ def render_efficiency(results: list) -> None:
         st.altair_chart(chart, use_container_width=True)
 
 
-def render_thinking_comparison(results: list) -> None:
+def render_thinking_comparison(results: Sequence[MatchupLike]) -> None:
     st.subheader("Thinking-Level Comparison")
 
     att_df, dfd_df = build_thinking_comparison_data(results)
