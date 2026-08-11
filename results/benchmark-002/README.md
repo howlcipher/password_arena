@@ -1,93 +1,71 @@
----
-pretty_name: Password Arena Public Benchmark
-license: mit
-language:
-  - en
-tags:
-  - synthetic
-  - cybersecurity
-  - benchmark
----
+# Password Arena — Benchmark 002
 
-# Password Arena Public Benchmark
+## What we tested
 
-## Purpose
+* Qwen3 4B via local Ollama
+* rule-based deterministic baseline
+* seeds 42, 43, 44
+* 5 rounds each
+* 500 guesses
+* deterministic-test
+* generator version benchmark
 
-This dataset documents bounded Password Arena attacker-versus-defender experiments
-for reproducible analysis and educational comparison. Dataset schema version:
-`1.0.0`.
+## Matchups
 
-## Synthetic source
+We tested three distinct configurations to measure role-specific behavior:
+1. `ollama/qwen3:4b` attacker -> `rule_based/v1` defender
+2. `rule_based/v1` attacker -> `ollama/qwen3:4b` defender
+3. `ollama/qwen3:4b` attacker -> `ollama/qwen3:4b` defender
 
-All targets are generated synthetically inside Password Arena.
-No real credentials are tested, collected, imported, or included. The export contains
-45
-recorded rounds: 45 comparable and 0
-excluded from headline comparison.
+## Headline results
 
-## Methodology
+| Attacker | Defender | Rounds | Comparable | Excluded | Solved | Solve rate | Survival rate | Mean attacker latency | Mean defender latency | Attacker tokens | Defender tokens |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `ollama/qwen3:4b` | `rule_based/v1` | 15 | 15 | 0 | 0 | 0.0% | 100.0% | 12903.0 ms | N/A | In: 2017, Out: 6867 | N/A |
+| `rule_based/v1` | `ollama/qwen3:4b` | 15 | 15 | 0 | 0 | 0.0% | 100.0% | N/A | 4381.8 ms | N/A | In: 2760, Out: 1718 |
+| `ollama/qwen3:4b` | `ollama/qwen3:4b` | 15 | 15 | 0 | 0 | 0.0% | 100.0% | 13115.1 ms | 4344.8 ms | In: 1991, Out: 7201 | In: 2715, Out: 1729 |
 
-Each row represents one round that actually completed far enough to create a recorded
-round result. Preflight failures and unstarted interrupted rounds do not create rows.
-Repeated trials use recorded seeds and generator settings. The deterministic test mode
-supports exact generator replay; hosted models are stochastic even with repeated seeds.
+*(Note: Rule-based agents operate natively without token or network latency measurements, hence N/A).*
 
-## Attacker and defender roles
+## Resource-constrained environment
 
-The defender chooses a synthetic password family. The attacker selects and executes a
-bounded strategy plan against an in-memory equality check. Provider-generated prose is
-not an execution record and is not exported.
+This benchmark successfully executed a local LLM under strict isolation to validate the environment constraints.
+* **Host CPU:** Ryzen 5 1600
+* **Host RAM:** 24 GB
+* **Model:** Qwen3 4B via Ollama
+* **Isolation:** dedicated resource-limited Distrobox (podman container)
+* **Constraints:** 10 GB container memory ceiling enforced; exact peak model footprint not reliably measured due to mmap semantics. CPU limits applied.
+* **Context:** 4K
+* **Concurrency:** one loaded model, one parallel request
 
-## Comparability
+## Most important finding
 
-`comparable` preserves the recorded round flag. `exclusion_reason` comes only from a
-matching recorded round-exclusion record. A null reason means unavailable or unknown;
-the exporter does not infer a reason for legacy data.
+**All attacks may have been resisted, but survival rate alone does not indicate defender quality.**
 
-## Solve rate
+During testing, the benchmark exposed an important limitation in relying solely on survival metrics:
+A bounded strategy attacker may fail to guess a weak synthetic target.
 
-Solve rate is the share of comparable recorded rounds solved within the configured
-guess budget. Bounded benchmark performance is not evidence of real-world cracking,
-account compromise, or performance against authentication systems.
+For instance, the weakest Qwen defender generated this target:
+- Length: 2
+- Entropy: 6.58 bits
+- Family: `cryptographic-random`
+- Survived 500 guesses against the Qwen3 4B attacker (and also survived against the rule-based attacker).
 
-## Entropy and strength
+This exposes a calibration limitation. A length=2 string is trivial to brute-force, but a bounded agent targeting complex password patterns may entirely omit simple exhaustive searches from its strategy. Therefore solve/survival rate must be interpreted alongside entropy, password length, family, and strategy coverage.
 
-Entropy bits and strength score are Password Arena's structural estimates for synthetic
-targets. They are comparative heuristics, not guarantees of real-world password safety
-or exact crack time.
+## What Benchmark 002 proves
 
-## Model and thinking metadata
+* Password Arena can run a real local LLM in both roles.
+* Ollama integration works end-to-end.
+* public dataset export works with real model metrics.
+* role-specific tokens and latency are captured.
+* local benchmarking can operate under a hard resource ceiling.
+* real benchmarking surfaced a methodological limitation.
 
-Provider and model IDs identify the recorded role configuration. Requested thinking is
-the recorded request setting. Effective thinking is null when no provider call occurred
-or when the provider did not record it. Provider and model behavior can change over time.
+## What Benchmark 002 does NOT prove
 
-## Tokens, latency, and cost
-
-Input, output, and reasoning token fields are numeric usage counts, never reasoning
-content. Latency and estimated cost are included only when recorded. JSON null and blank
-CSV cells mean unavailable; unavailable values are not zero.
-
-## Intended uses
-
-Use this dataset for synthetic benchmark analysis, reproducibility checks, educational
-visualization, and comparison of bounded strategy behavior.
-
-## Prohibited uses
-
-Do not use this dataset or Password Arena for real credential collection, breach-dump
-ingestion, login targeting, credential stuffing, distributed guessing, or claims about
-compromising real accounts.
-
-## Limitations
-
-The password generators and attack strategies are intentionally bounded and synthetic.
-Hosted models are stochastic, repeated rounds may not be independent, capability data
-can become stale, and provider and model behavior can change over time.
-
-## Security guarantees
-
-The public schema is a fixed scalar allowlist. It excludes passwords, candidates,
-prompts, events, notes, learning text, model prose, private reasoning, credentials,
-authorization headers, environment values, and API tokens. Every JSONL and CSV payload
-is validated immediately before return. Export is local and performs no upload.
+* Qwen3 is not “uncrackable.”
+* 100% survival does not mean every generated password was strong (as shown by the weak target finding).
+* three seeds are not sufficient for broad model-ranking claims.
+* these are synthetic bounded attacks, not real authentication attacks.
+* latency reflects a deliberately resource-constrained local environment.

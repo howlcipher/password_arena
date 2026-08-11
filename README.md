@@ -10,7 +10,7 @@ The project explores a practical question:
 
 > Can an attacker agent improve its strategy while a defender agent learns that predictable human-style passwords are weaker than cryptographically secure randomness?
 
-The MVP deliberately uses transparent, rule-based agents. That makes the experiment reproducible (when using `deterministic-test` generator mode) and establishes a trustworthy baseline before optional LLM or reinforcement-learning agents are added.
+The project includes transparent, rule-based agents to establish a reproducible and trustworthy baseline (when using `deterministic-test` generator mode), alongside support for local and hosted LLM agents.
 
 ## What it measures
 
@@ -119,7 +119,24 @@ The journal is an audit log, not a request for private model chain-of-thought. P
 
 ## Benchmark results
 
-- [Benchmark 001](results/benchmark-001/README.md) — first end-to-end smoke benchmark using available rule-based, local, and hosted model backends.
+### Benchmark 001 — Deterministic baseline
+
+* rule vs rule
+* 15 comparable rounds
+* establishes deterministic baseline
+
+[Read Benchmark 001](results/benchmark-001/README.md)
+
+### Benchmark 002 — Qwen3 4B / Ollama
+
+* first local LLM benchmark
+* 3 role configurations
+* 45 comparable rounds
+* no exclusions
+* 0 actual attack solves
+* exposed an important calibration finding where weak targets can survive if the bounded attacker lacks the right strategy.
+
+[Read Benchmark 002 Report](results/benchmark-002/README.md) | [Dataset CSV](results/benchmark-002/benchmark-002.csv) | [Dataset JSONL](results/benchmark-002/benchmark-002.jsonl)
 
 ## Configuration
 | Setting | Purpose | Default |
