@@ -6,9 +6,9 @@
     <title>Password Arena - WOPR Terminal</title>
     
     <!-- SEO and Social Media Meta Tags -->
-    <meta name="description" content="Password Arena: A safe, local adversarial-learning sandbox where a defender creates increasingly difficult synthetic passwords and an attacker adapts its bounded guessing strategy.">
+    <meta name="description" content="A provider-neutral adversarial AI evaluation framework for benchmarking attacker and defender agents under controlled synthetic constraints.">
     <meta property="og:title" content="Password Arena">
-    <meta property="og:description" content="Shall we play a game? Local adversarial-learning sandbox for passwords.">
+    <meta property="og:description" content="A provider-neutral adversarial AI evaluation framework for benchmarking attacker and defender agents under controlled synthetic constraints.">
     <meta property="og:image" content="./assets/social_media.jpg">
     <meta property="og:type" content="website">
     
@@ -30,6 +30,7 @@
         </button>
         <ul class="nav-links" id="nav-links">
             <li><a href="#about">ABOUT</a></li>
+            <li><a href="benchmarks.html">RESULTS</a></li>
             <li><a href="#metrics">METRICS</a></li>
             <li><a href="#quickstart">INITIALIZE</a></li>
             <li><a href="https://github.com/howlcipher/password_arena" target="_blank">SOURCE_CODE</a></li>
@@ -59,7 +60,7 @@
             <blockquote class="terminal-quote">
                 Can an attacker agent improve its strategy while a defender agent learns that predictable human-style passwords are weaker than cryptographically secure randomness?
             </blockquote>
-            <p>The MVP deliberately uses transparent, rule-based agents. That makes the experiment reproducible and establishes a trustworthy baseline before optional LLM or reinforcement-learning agents are added.</p>
+            <p>The framework establishes a reproducible and trustworthy baseline using rule-based agents, while natively supporting evaluation of local and hosted LLM models in both attacker and defender roles.</p>
         </section>
 
         <section id="metrics" class="split-section">
@@ -79,11 +80,43 @@
             <div class="data-panel">
                 <h2>> CURRENT_ARCHITECTURE</h2>
                 <ul class="hacker-list">
-                    <li><strong>Adaptive defender:</strong> escalates from dictionary words to CSPRNG-generated passwords.</li>
-                    <li><strong>Adaptive attacker:</strong> ranks common-password, mutation, passphrase, and bounded-random strategies.</li>
-                    <li><strong>Evaluator:</strong> calculates strength indicators and captures metrics.</li>
-                    <li><strong>Dashboard:</strong> visualizes learning curves and exports JSON.</li>
+                    <li><strong>Provider-neutral AI benchmarking:</strong> evaluate rule-based, Ollama, Gemini, OpenAI, and Anthropic models.</li>
+                    <li><strong>Tournament Engine:</strong> orchestrate multi-model matrices with thinking-level controls.</li>
+                    <li><strong>Evaluator:</strong> calculates strength indicators and captures token/latency metrics with comparability tracking.</li>
+                    <li><strong>Dashboard & Export:</strong> visualizes learning curves, Hugging Face model discovery, Dataset Card generation, and fail-closed public JSONL/CSV export.</li>
                 </ul>
+            </div>
+        </section>
+
+        <section id="results" class="terminal-section">
+            <h2>> LIVE_BENCHMARK_RESULTS</h2>
+            <div class="code-block-wrapper">
+                <div class="code-header">
+                    <span>sys.report</span>
+                    <span>benchmark_002</span>
+                </div>
+                <pre><code>MODEL: Qwen3 4B
+RUNTIME: Ollama / local
+MATCHUPS: 3
+RECORDED ROUNDS: 45
+COMPARABLE: 45
+EXCLUDED: 0
+ATTACK SOLVES: 0
+
+[MATCHUP 1] ollama/qwen3:4b (atk) vs rule_based/v1 (def)   | SOLVE: 0/15
+[MATCHUP 2] rule_based/v1 (atk)   vs ollama/qwen3:4b (def) | SOLVE: 0/15
+[MATCHUP 3] ollama/qwen3:4b (atk) vs ollama/qwen3:4b (def) | SOLVE: 0/15
+
+> <a href="benchmarks.html" style="color: var(--accent-color); text-decoration: underline;">VIEW FULL BENCHMARK DATA</a>
+</code></pre>
+            </div>
+            
+            <div class="warning-box" style="margin-top: 2rem; border-color: var(--accent-color);">
+                <span class="warning-title" style="color: var(--accent-color);">EVALUATION_FINDING</span>
+                <p>Benchmark 002 exposed an important limitation: A model defender can produce a weak target that still survives when the bounded attacker lacks the right strategy.</p>
+                <p>Therefore Password Arena evaluates:</p>
+                <p><code>solve/survival + entropy + target structure + strategy coverage + tokens + latency</code></p>
+                <p>rather than treating win rate as the entire story.</p>
             </div>
         </section>
 
