@@ -2,12 +2,12 @@
 not zero" logic lives in `tournament_view_models.py` -- this module must not
 recreate or weaken any of it; it only renders already-correct data."""
 
+from collections.abc import Sequence
+
 import altair as alt
 import streamlit as st
 
-from collections.abc import Sequence
 from password_arena.models import MatchupLike
-
 from password_arena.tournament_view_models import (
     HEATMAP_METRICS,
     build_attacker_leaderboard,
