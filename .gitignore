@@ -29,3 +29,8 @@ results/*.db
 .password_arena_history/
 *.json
 !config.example.json
+
+# Allowlist Benchmark 001 safe artifacts
+!results/benchmark-001/*.jsonl
+!results/benchmark-001/*.csv
+!results/benchmark-001/*.json

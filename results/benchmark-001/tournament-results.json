@@ -1,0 +1,114 @@
+{
+  "tournament_id": "c7eea54d012c476a9b177d955717a05f",
+  "timestamp": "2026-08-11T18:43:14.894673+00:00",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "rounds_per_match": 5,
+  "max_guesses": 500,
+  "generator_mode": "deterministic-test",
+  "generator_version": "benchmark",
+  "matchups": [
+    {
+      "matchup_id": "4ab2e76e9b2441de8286042b9919b2ec",
+      "attacker": {
+        "provider": "rule_based",
+        "model": "rule_based",
+        "thinking_level": "auto"
+      },
+      "defender": {
+        "provider": "rule_based",
+        "model": "rule_based",
+        "thinking_level": "auto"
+      },
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "rounds_per_match": 5,
+      "max_guesses": 500,
+      "generator_mode": "deterministic-test",
+      "generator_version": "benchmark",
+      "is_comparable": true,
+      "non_comparable_reason": null,
+      "trials": 3,
+      "comparable_trials": 3,
+      "excluded_trials": 0,
+      "excluded_rounds": 0,
+      "rounds_completed": 15,
+      "rounds_solved": 0,
+      "rounds_resisted": 15,
+      "solve_rate": 0.0,
+      "survival_rate": 1.0,
+      "confidence_interval": [
+        0.0,
+        0.20388926630434784
+      ],
+      "guesses": {
+        "mean_per_round": 500,
+        "median_per_round": 500,
+        "std_per_round": 0.0,
+        "mean_to_solve": null,
+        "median_to_solve": null,
+        "mean_total_per_trial": 2500
+      },
+      "tokens": {
+        "attacker_input": 0,
+        "attacker_output": 0,
+        "attacker_reasoning": null,
+        "defender_input": 0,
+        "defender_output": 0,
+        "defender_reasoning": null
+      },
+      "latency_ms": {
+        "attacker_mean": null,
+        "defender_mean": null
+      },
+      "estimated_cost": {
+        "total": 0.0,
+        "attacker": 0.0,
+        "defender": 0.0
+      },
+      "efficiency": {
+        "attacker_solved_per_1k_tokens": null,
+        "attacker_solved_per_second": null,
+        "attacker_solved_per_dollar": null,
+        "defender_survived_per_1k_tokens": null,
+        "defender_survived_per_dollar": null,
+        "defender_entropy_gain_per_1k_tokens": null
+      },
+      "replay": {
+        "attacker": {
+          "provider": "rule_based",
+          "model": "rule_based",
+          "thinking_level": "auto"
+        },
+        "defender": {
+          "provider": "rule_based",
+          "model": "rule_based",
+          "thinking_level": "auto"
+        },
+        "seeds": [
+          42,
+          43,
+          44
+        ],
+        "rounds_per_match": 5,
+        "max_guesses": 500,
+        "generator_mode": "deterministic-test",
+        "generator_version": "benchmark",
+        "application_version": "0.1.0",
+        "schema_version": "1.0",
+        "deterministic": true,
+        "attacker_prompt_version": "1.0",
+        "defender_prompt_version": "1.0",
+        "capability_registry_version": "1.0"
+      },
+      "excluded_trial_records": [],
+      "excluded_round_records": []
+    }
+  ]
+}
