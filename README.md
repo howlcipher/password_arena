@@ -117,8 +117,11 @@ Every round documents the experiment from three views:
 
 The journal is an audit log, not a request for private model chain-of-thought. Passwords and matched candidates remain redacted unless `reveal_passwords` is explicitly enabled. Export it from the dashboard or with `--report results/run.md`.
 
-## Configuration
+## Benchmark results
 
+- [Benchmark 001](results/benchmark-001/README.md) — first end-to-end smoke benchmark using available rule-based, local, and hosted model backends.
+
+## Configuration
 | Setting | Purpose | Default |
 |---|---|---:|
 | `rounds` | Number of attacker-versus-defender rounds | 8 |
