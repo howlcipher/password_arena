@@ -826,3 +826,14 @@ cost semantics, and deterministic fake-client tests.
 Add a separately configured local vLLM or OpenAI-compatible backend with localhost
 defaults, explicit remote-endpoint warnings, capability checks, and bounded arena
 execution.
+
+## [IMP-031] Benchmark calibration / weak-target sanity checks
+**Type:** Feature
+**Priority:** Medium
+**Description:** Benchmark 002 revealed that survival rate alone is insufficient because bounded attackers may lack strategies to exploit trivially weak targets (e.g. length 2 random strings).
+**Acceptance Criteria:**
+- benchmark reports identify weak targets that survive despite low entropy/short length.
+- dashboards visually distinguish survival from target strength.
+- calibration fixtures prove attackers can exploit deliberately trivial targets where appropriate.
+- no real credentials or unbounded guessing allowed.
+- bounded synthetic-only safety rules remain completely unchanged.
