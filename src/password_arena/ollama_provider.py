@@ -163,6 +163,8 @@ class OllamaProvider:
                 latency_ms = (time.monotonic() - start_time) * 1000.0
 
                 content = data.get("response", "")
+                if not content.strip() and data.get("thinking"):
+                    content = data.get("thinking", "")
                 parsed_data, success, error_msg = parse_and_validate_json(
                     content, request.structured_schema
                 )
