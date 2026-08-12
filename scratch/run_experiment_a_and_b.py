@@ -1,21 +1,20 @@
-import sys
-import json
 from pathlib import Path
 
-from password_arena.models import RoleConfig, TournamentConfig, MatchupConfig
+from password_arena.dataset_export import (
+    PublicBenchmarkSource,
+    build_public_benchmark_dataset,
+    export_public_dataset_csv,
+    export_public_dataset_jsonl,
+    generate_dataset_card,
+)
+from password_arena.models import MatchupConfig, RoleConfig, TournamentConfig
+from password_arena.reporting import tournament_report_markdown
 from password_arena.tournament import run_matchup
 from password_arena.tournament_history import TournamentHistoryManager
-from password_arena.reporting import tournament_report_markdown
-from password_arena.dataset_export import (
-    generate_dataset_card,
-    build_public_benchmark_dataset,
-    export_public_dataset_jsonl,
-    export_public_dataset_csv,
-    PublicBenchmarkSource,
-)
+
 
 def run_experiment(title, policies, output_dir_name):
-    manager = TournamentHistoryManager()
+    TournamentHistoryManager()
     
     matchups = []
     

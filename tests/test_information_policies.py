@@ -1,16 +1,6 @@
-import pytest
 
 from password_arena.engine import build_arena_engine
 from password_arena.models import ArenaConfig, RoleConfig
-from password_arena.information_policy import (
-    FrozenPolicy,
-    SelfOnlyPolicy,
-    AttackerObservesDefenderPolicy,
-    DefenderObservesAttackerPolicy,
-    MutualBoundedPolicy,
-    MutualFullPolicy,
-    LegacyCurrentPolicy,
-)
 
 
 def test_frozen_policy():
@@ -42,7 +32,7 @@ def test_self_only_policy():
         information_policy_id="self_only",
     )
     engine = build_arena_engine(config)
-    result = engine.run()
+    engine.run()
     
     assert len(engine.attacker.observations) == 2
     assert len(engine.defender.observations) == 2
@@ -62,12 +52,13 @@ def test_attacker_observes_defender_policy():
         information_policy_id="attacker_observes_defender",
     )
     engine = build_arena_engine(config)
-    result = engine.run()
+    engine.run()
     
     obs_a = engine.attacker.observations[0]
     assert obs_a.defender_family is not None
     assert obs_a.entropy_bits is not None
-    assert obs_a.exact_synthetic_target is not None # Provided by rule_based generator mode which reveals target internally
+    # Provided by rule_based generator mode which reveals target internally
+    assert obs_a.exact_synthetic_target is not None
     
     obs_d = engine.defender.observations[0]
     assert len(obs_d.attacker_strategies) == 0
@@ -79,7 +70,7 @@ def test_defender_observes_attacker_policy():
         information_policy_id="defender_observes_attacker",
     )
     engine = build_arena_engine(config)
-    result = engine.run()
+    engine.run()
     
     obs_a = engine.attacker.observations[0]
     assert obs_a.defender_family is None
@@ -95,7 +86,7 @@ def test_mutual_bounded_policy():
         information_policy_id="mutual_bounded",
     )
     engine = build_arena_engine(config)
-    result = engine.run()
+    engine.run()
     
     obs_a = engine.attacker.observations[0]
     assert obs_a.defender_family is not None
@@ -111,7 +102,7 @@ def test_mutual_full_policy():
         information_policy_id="mutual_full",
     )
     engine = build_arena_engine(config)
-    result = engine.run()
+    engine.run()
     
     obs_a = engine.attacker.observations[0]
     assert obs_a.defender_family is not None

@@ -1,19 +1,16 @@
-import sys
-import json
 import datetime
 from pathlib import Path
 
-from password_arena.engine import build_arena_engine
-from password_arena.models import RoleConfig, ArenaConfig, MatchupConfig
-from password_arena.reporting import tournament_report_markdown
 from password_arena.dataset_export import (
-    generate_dataset_card,
-    build_public_benchmark_dataset,
-    export_public_dataset_jsonl,
-    export_public_dataset_csv,
     PublicBenchmarkSource,
+    build_public_benchmark_dataset,
+    export_public_dataset_csv,
+    export_public_dataset_jsonl,
+    generate_dataset_card,
 )
-from password_arena.tournament_history import MatchupResult
+from password_arena.engine import build_arena_engine
+from password_arena.models import ArenaConfig, MatchupConfig, RoleConfig
+from password_arena.reporting import tournament_report_markdown
 
 
 def run_experiment_c():
@@ -28,7 +25,6 @@ def run_experiment_c():
     attacker = RoleConfig(provider="ollama", model="qwen3:4b", thinking_level="auto")
     defender = RoleConfig(provider="ollama", model="qwen3:4b", thinking_level="auto")
     
-    matchups = []
     
     # We create a MatchupResult for the entire benchmark, containing all experiments across seeds and campaigns
     all_experiments = []
