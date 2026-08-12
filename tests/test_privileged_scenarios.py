@@ -3,7 +3,13 @@ from unittest.mock import MagicMock
 
 from password_arena.engine import build_arena_engine
 from password_arena.models import ArenaConfig
-from password_arena.providers import ProviderResponse, UsageMetrics, AvailabilityResult, AvailabilityState, ProviderRequest, AgentBackend
+from password_arena.providers import (
+    AvailabilityResult,
+    AvailabilityState,
+    ProviderRequest,
+    ProviderResponse,
+    UsageMetrics,
+)
 
 
 class MockBackend:
@@ -19,7 +25,9 @@ class MockBackend:
 
     def _default_generate(self, req: ProviderRequest) -> ProviderResponse:
         self.last_prompt = req.prompt
-        return ProviderResponse(req.prompt, self.provider_name, self.model_id, {}, UsageMetrics(0, 0))
+        return ProviderResponse(
+            req.prompt, self.provider_name, self.model_id, {}, UsageMetrics(0, 0)
+        )
 
 
 def test_attacker_privileged() -> None:
@@ -29,7 +37,11 @@ def test_attacker_privileged() -> None:
     engine.attacker.backend = MockBackend("mock-attacker")  # type: ignore[assignment]
     engine.attacker.backend.generate = MagicMock(  # type: ignore[method-assign, union-attr]
         return_value=ProviderResponse(
-            "", "mock", "mock", {"weights": {"common": 1.0}, "reasoning": "test"}, UsageMetrics(0, 0)
+            "",
+            "mock",
+            "mock",
+            {"weights": {"common": 1.0}, "reasoning": "test"},
+            UsageMetrics(0, 0),
         )
     )
     engine.run()
@@ -117,7 +129,11 @@ def test_normal_control() -> None:
     engine.attacker.backend = MockBackend("mock-attacker")  # type: ignore[assignment]
     engine.attacker.backend.generate = MagicMock(  # type: ignore[method-assign, union-attr]
         return_value=ProviderResponse(
-            "", "mock", "mock", {"weights": {"common": 1.0}, "reasoning": "test"}, UsageMetrics(0, 0)
+            "",
+            "mock",
+            "mock",
+            {"weights": {"common": 1.0}, "reasoning": "test"},
+            UsageMetrics(0, 0),
         )
     )
     engine.run()
