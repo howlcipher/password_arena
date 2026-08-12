@@ -119,6 +119,14 @@ The journal is an audit log, not a request for private model chain-of-thought. P
 
 ## Benchmark results
 
+> **Methodology Warning:** Results generated under different protocol versions should not be interpreted as directly interchangeable. Protocol and strategy changes are versioned and documented. 
+> 
+> | Protocol generation | Benchmarks | Key difference |
+> |---|---|---|
+> | 1.0 | 001-002 | initial bounded benchmark |
+> | 1.1 | 003+ | calibration-aware attacker coverage |
+> | later extensions | 004+ | information policy / privilege controls |
+
 ### Benchmark 001 — Deterministic baseline
 
 * rule vs rule
@@ -185,6 +193,41 @@ The journal is an audit log, not a request for private model chain-of-thought. P
 [Read Benchmark 004 Report](results/benchmark-004/benchmark-summary.md) | [Dataset CSV](results/benchmark-004/public-dataset.csv) | [Dataset JSONL](results/benchmark-004/public-dataset.jsonl)
 [Read Benchmark 005 Report](results/benchmark-005/benchmark-summary.md) | [Dataset CSV](results/benchmark-005/public-dataset.csv) | [Dataset JSONL](results/benchmark-005/public-dataset.jsonl)
 [Read Benchmark 006 Report](results/benchmark-006/benchmark-summary.md) | [Dataset CSV](results/benchmark-006/public-dataset.csv) | [Dataset JSONL](results/benchmark-006/public-dataset.jsonl)
+
+### Benchmark 007 — Privileged Information & Oracle Controls
+
+* normal current-generation control produced measurable solves (13.3%)
+* attacker privilege changed solve rate modestly (16.7%)
+* defender privilege altered attacker success (6.7%)
+* mutual privilege did not improve the attacker (0.0%)
+* oracle achieved 100% one-guess solves (oracle != leaderboard result)
+
+[Read Benchmark 007 Report](results/benchmark-007/README.md) | [Dataset CSV](results/benchmark-007/public-dataset.csv) | [Dataset JSONL](results/benchmark-007/public-dataset.jsonl)
+
+## What we have learned so far
+
+In these Qwen3 4B local experiments, the following patterns have emerged:
+
+### 1. Survival alone is misleading
+Benchmark 002 showed very weak targets can survive if attacker strategy coverage is incomplete.
+
+### 2. Calibration matters
+Benchmark 003 added protocol/calibration controls so weak-target survival is explicitly surfaced.
+
+### 3. More context can hurt
+Benchmarks 004–006 showed that `qwen3:4b` often produced lower defender entropy and much higher token usage under self-learning/mutual-context modes than under `frozen`.
+
+### 4. Historical knowledge can help, but inefficiently
+Cross-run memory improved some defender behavior but at a large token cost.
+
+### 5. LLM runs drift
+Fresh replication preserved some macro outcomes while latency/tokens/entropy varied.
+
+### 6. Information asymmetry matters
+Benchmark 007 shows privileged information changes outcomes.
+
+### 7. Oracle controls separate benchmark failure from model failure
+The oracle path proves the solve pipeline itself can succeed deterministically when the target is known.
 
 
 ## Configuration
