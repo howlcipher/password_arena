@@ -854,7 +854,7 @@ Ran `pytest`, `ruff check .`, and `mypy`. Successfully executed matrix across se
 ## IMP-037 — Second Local Model Cross-Comparison
 
 **Priority:** P1
-**Status:** Ready
+**Status:** Done
 
 **Description:** The next major research question is to determine whether the context-overload, drift, memory-efficiency, and privilege effects observed so far are specific to `qwen3:4b`, or if they appear in another small local model.
 
@@ -871,3 +871,26 @@ Ran `pytest`, `ruff check .`, and `mypy`. Successfully executed matrix across se
   6. defender_privileged
 - Compare results against Qwen3 4B findings.
 - Do not run all 001-007 protocols again.
+
+**Implementation note:** Selected `gemma3:4b` (Google, 4.3B params, Q4_K_M). Qualified
+with 20/20 (100%) schema-valid structured-output calls before benchmarking; no
+fallback model needed. Ran as Benchmark 008: a fresh matched Qwen3-4B-vs-Qwen3-4B and
+Gemma-3-4B-vs-Gemma-3-4B comparison (not reused historical Qwen numbers) across the
+required six-scenario matrix, 3 seeds x 5 rounds x 500 guesses each, under identical
+current-generation code/protocol — 173 comparable rounds (83 Qwen, 90 Gemma) plus an
+optional 27-round exploratory cross-model pilot. Headline finding: the context-overload
+mechanism generalized (added cross-agent context never improved either model's solve
+rate or defender entropy) but its magnitude did not — Qwen's defender entropy collapsed
+from ~80-96 bits to ~36 bits under mutual-information sharing, while Gemma's stayed flat
+at ~37-43 bits throughout. Gemma was the more reliable participant in this run (0/18
+trials interrupted vs Qwen's 3/18). Privilege effects (attacker_privileged/
+defender_privileged vs normal_control) did not clearly replicate at this compact scale
+for either model — reported as inconclusive, not a null result. One notable
+infrastructure finding during setup: the `ollama-arena` container was found running
+GPU-accelerated (Vulkan, AMD Radeon RX 580) rather than CPU-only as intended, likely
+true of Benchmarks 002-007 as well; documented in `results/benchmark-008/README.md`
+rather than silently corrected, per an explicit decision made during this benchmark.
+Validation performed: `ruff check .`, `mypy src/password_arena tests`, `pytest`,
+`python -m build`, `password-arena --rounds 1 --max-guesses 10`, and `docker build`
+all passed on the branch before merge. See `results/benchmark-008/README.md` and
+`results/benchmark-008/model-comparison.md` for full findings.
