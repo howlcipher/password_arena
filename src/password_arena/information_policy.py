@@ -29,6 +29,9 @@ class AttackerObservation:
     # Only in mutual_full
     defender_policy_metadata: dict[str, str] | None = None
     exact_synthetic_target: str | None = None
+    
+    # Security / Boundary
+    boundary_responses: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +56,9 @@ class DefenderObservation:
     # Only in mutual_full
     complete_safe_attack_plan: tuple[StrategyBudget, ...] = ()
     safe_usage_metrics: dict[str, float] | None = None
+
+    # Security / Boundary
+    boundary_responses: tuple[str, ...] = ()
 
 
 class InformationPolicy(Protocol):
@@ -93,6 +99,7 @@ class SelfOnlyPolicy:
             guesses_used=round_result.attack.guesses_used,
             winning_strategy=round_result.attack.winning_strategy,
             strategy_plan=round_result.attack.plan,
+            boundary_responses=round_result.attacker_boundary_responses,
         )
 
     def create_defender_observation(self, round_result: RoundResult) -> DefenderObservation | None:
@@ -102,6 +109,7 @@ class SelfOnlyPolicy:
             outcome=round_result.attack.outcome,
             family_choice=round_result.defender_strategy,
             strength_score=round_result.strength.score,
+            boundary_responses=round_result.defender_boundary_responses,
         )
 
 
@@ -128,6 +136,7 @@ class AttackerObservesDefenderPolicy:
                 if round_result.password_display != "•" * len(round_result.password_display)
                 else None
             ),
+            boundary_responses=round_result.attacker_boundary_responses,
         )
 
     def create_defender_observation(self, round_result: RoundResult) -> DefenderObservation | None:
@@ -156,6 +165,7 @@ class DefenderObservesAttackerPolicy:
             strategy_allocations=round_result.attack.plan,
             guesses_used=round_result.attack.guesses_used,
             winning_strategy=round_result.attack.winning_strategy,
+            boundary_responses=round_result.defender_boundary_responses,
         )
 
 
@@ -178,6 +188,7 @@ class MutualBoundedPolicy:
             entropy_bits=round_result.strength.entropy_bits,
             strength_score=round_result.strength.score,
             exact_synthetic_target=None,  # Never
+            boundary_responses=round_result.attacker_boundary_responses,
         )
 
     def create_defender_observation(self, round_result: RoundResult) -> DefenderObservation | None:
@@ -210,6 +221,7 @@ class MutualFullPolicy:
             exact_synthetic_target=round_result.password_display
             if round_result.password_display != "•" * len(round_result.password_display)
             else None,  # Engine needs to supply unmasked.
+            boundary_responses=round_result.attacker_boundary_responses,
         )
 
     def create_defender_observation(self, round_result: RoundResult) -> DefenderObservation | None:
@@ -231,6 +243,7 @@ class MutualFullPolicy:
             winning_strategy=round_result.attack.winning_strategy,
             complete_safe_attack_plan=round_result.attack.plan,
             safe_usage_metrics=usage,
+            boundary_responses=round_result.defender_boundary_responses,
         )
 
 
