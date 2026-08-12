@@ -149,6 +149,44 @@ The journal is an audit log, not a request for private model chain-of-thought. P
 
 [Read Benchmark 003 Report](results/benchmark-003/README.md) | [Dataset CSV](results/benchmark-003/benchmark-003.csv) | [Dataset JSONL](results/benchmark-003/benchmark-003.jsonl)
 
+### Benchmark 004, 005, and 006 — Co-Adaptation and Information Policy Matrix
+
+* benchmarked 7 information-sharing policies using `qwen3:4b` locally
+* matrix of primary (004), zero-knowledge replication (005), and cross-run accumulated knowledge (006)
+* 420 comparable rounds across multiple seeds
+* explicitly measured the impact of model context and transparency on adversarial success
+
+#### Research Findings
+
+1. **Does information sharing improve adversarial adaptation?**
+   For this local 4B parameter model, information sharing did not lead to any attacker success (0 solves). For the defender, providing more information (mutual sharing) paradoxically reduced overall password entropy gain (from ~106 bits in `frozen` to ~34-36 bits in `mutual` sharing), suggesting the model was overwhelmed or distracted by the additional structured context.
+
+2. **Does self-learning help when neither agent sees the other's detailed behavior?**
+   No, the `self_only` policy performed significantly worse for the defender (24.77 bits entropy gain) compared to the `frozen` baseline (106.49 bits), showing that self-observation alone actually degraded generator performance for this specific 4B model.
+
+3. **Does one-way learning favor attacker or defender?**
+   One-way learning favored the defender *only* when the attacker received the information (`attacker_observes_defender`), which surprisingly resulted in a higher defender entropy gain (65.0 bits) than when the defender received the attacker's information (`defender_observes_attacker` at 34.29 bits).
+
+4. **Does mutual information sharing create useful co-adaptation?**
+   No evidence of useful co-adaptation was found. Mutual sharing policies consumed drastically more tokens (~10k-14k vs ~2k) but produced lower quality passwords and identical (zero) solve rates.
+
+5. **Is full transparency actually better than bounded structured information?**
+   Full transparency (`mutual_full`) performed similarly to bounded sharing (`mutual_bounded`) in entropy gain (36.35 vs 34.29) but heavily increased token cost (14.5k vs 10k tokens), showing no meaningful performance benefit over bounded structured information.
+
+6. **If we repeat the exact same experiment from zero knowledge, how reproducible are the results?**
+   Results are highly reproducible at a macro level (0.00 solve rates across all policies). However, token usage, latency, and exact generated entropy fluctuate across replications due to token generation variance.
+
+7. **If agents are allowed to carry SAFE knowledge from a completed campaign into a new campaign, how much do they improve?**
+   Continuous multi-campaign learning (`benchmark-006`) yielded an average entropy gain of 55.18, which is an improvement over the single-campaign `mutual_bounded` run (34.29). Accumulating safe knowledge over longer time horizons helped the defender model adjust gradually better than in single runs.
+
+8. **How much additional efficiency/entropy is gained by carrying over safe learning?**
+   The extended multi-run campaigns consumed roughly 70k tokens to gain ~55 bits of entropy. This is drastically less efficient per-token than the single-run `frozen` baseline (106 bits for ~2.3k tokens), proving that while learning is possible, this small model struggles to leverage historical observations efficiently.
+
+[Read Benchmark 004 Report](results/benchmark-004/benchmark-summary.md) | [Dataset CSV](results/benchmark-004/public-dataset.csv) | [Dataset JSONL](results/benchmark-004/public-dataset.jsonl)
+[Read Benchmark 005 Report](results/benchmark-005/benchmark-summary.md) | [Dataset CSV](results/benchmark-005/public-dataset.csv) | [Dataset JSONL](results/benchmark-005/public-dataset.jsonl)
+[Read Benchmark 006 Report](results/benchmark-006/benchmark-summary.md) | [Dataset CSV](results/benchmark-006/public-dataset.csv) | [Dataset JSONL](results/benchmark-006/public-dataset.jsonl)
+
+
 ## Configuration
 | Setting | Purpose | Default |
 |---|---|---:|

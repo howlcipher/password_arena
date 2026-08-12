@@ -190,7 +190,11 @@ class ArenaEngine:
             generator_mode=config.generator_mode,
             generator_version=config.generator_version,
         )
+        if config.initial_defender_observations:
+            self.defender.observations = list(config.initial_defender_observations)
         self.attacker = AdaptiveAttacker(self.attacker_rng, backend=attacker_backend)
+        if config.initial_attacker_observations:
+            self.attacker.observations = list(config.initial_attacker_observations)
         self.completed_rounds: list[RoundResult] = []
         self._experiment_id = __import__("uuid").uuid4().hex
         self.events: list[ArenaEvent] = []
@@ -240,8 +244,6 @@ class ArenaEngine:
                     attacker_usage and attacker_usage.fallback_used
                 )
 
-                defender_learning = self.defender.observe(family, raw_attack.solved)
-                attacker_learning = self.attacker.observe(password, raw_attack.solved)
                 display = password if self.config.reveal_passwords else "•" * len(password)
                 candidate_display = raw_attack.candidate if self.config.reveal_passwords else None
                 attack = replace(raw_attack, candidate=candidate_display)
@@ -277,21 +279,21 @@ class ArenaEngine:
                     else ""
                 )
 
-                policy = CalibrationPolicy()
-                calibration_warning = policy.evaluate(password, strength, attack.solved)
+                policy_calib = CalibrationPolicy()
+                calibration_warning = policy_calib.evaluate(password, strength, attack.solved)
 
-                round_res = RoundResult(
+                intermediate_round = RoundResult(
                     round_number=index + 1,
                     difficulty=difficulty,
-                    password_display=display,
+                    password_display=password,  # Provide unmasked target for policy enforcement
                     password_length=len(password),
                     strength=strength,
                     attack=attack,
                     defender_strategy=family,
                     attacker_note=attacker_note,
                     defender_note=defender_note,
-                    defender_learning=defender_learning,
-                    attacker_learning=attacker_learning,
+                    defender_learning="",
+                    attacker_learning="",
                     defender_metadata=defender_metadata,
                     attacker_metadata=attacker_metadata,
                     evaluator_metadata=evaluator_metadata,
@@ -299,6 +301,32 @@ class ArenaEngine:
                     defender_usage=defender_usage,
                     calibration_warning=calibration_warning,
                     comparable=comparable,
+                )
+
+                from password_arena.information_policy import get_policy
+
+                policy_id = getattr(self.config, "information_policy_id", "legacy_current")
+                info_policy = get_policy(policy_id)
+
+                attacker_obs = info_policy.create_attacker_observation(intermediate_round)
+                defender_obs = info_policy.create_defender_observation(intermediate_round)
+
+                if policy_id != "frozen":
+                    defender_learning = self.defender.observe(
+                        family, raw_attack.solved, defender_obs
+                    )
+                    attacker_learning = self.attacker.observe(
+                        password, raw_attack.solved, attacker_obs
+                    )
+                else:
+                    defender_learning = "No learning (frozen policy)."
+                    attacker_learning = "No learning (frozen policy)."
+
+                round_res = replace(
+                    intermediate_round,
+                    password_display=display,
+                    defender_learning=defender_learning,
+                    attacker_learning=attacker_learning,
                 )
                 self.completed_rounds.append(round_res)
                 self._record_event("round_completed", index + 1, round_res.to_dict())

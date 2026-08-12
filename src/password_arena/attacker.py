@@ -6,7 +6,7 @@ import string
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Any, Protocol
 
 from password_arena.grammars import COMMON_PASSWORDS as COMMON
 from password_arena.grammars import SHARED_WORDS, SYMBOLS
@@ -180,6 +180,7 @@ class AdaptiveAttacker:
     enabled_strategies: set[str] = field(
         default_factory=lambda: {"common", "mutation", "passphrase", "random", "exhaustive_short"}
     )
+    observations: list[Any] = field(default_factory=list)
 
     def _strategy_weights(self, difficulty: int, max_guesses: int) -> dict[str, float]:
         if self.backend:
@@ -336,7 +337,7 @@ class AdaptiveAttacker:
             tuple(attempted),
         )
 
-    def observe(self, password: str, solved: bool) -> str:
+    def observe(self, password: str, solved: bool, observation: Any = None) -> str:
         # This is only permitted because all arena passwords are synthetic and local.
         parts = password.replace("_", "-").split("-")
         tokens = [token.lower() for token in parts if token.isalpha()]
@@ -348,6 +349,12 @@ class AdaptiveAttacker:
         learned_summary = (
             f" Learned {len(learned_now)} new synthetic token(s)." if learned_now else ""
         )
+
+        if observation is not None:
+            self.observations.append(observation)
+            obs_type = type(observation).__name__
+            learned_summary += f" Appended {obs_type} memory."
+
         if solved:
             return (
                 "Successful strategy received a higher future selection weight." + learned_summary
@@ -370,10 +377,19 @@ class AdaptiveAttacker:
         # Build list of available strategies
         avail = [s for s in self.strategy_registry._strategies if s in self.enabled_strategies]
 
+        from dataclasses import asdict
+
+        recent_obs = self.observations[-5:]
+        obs_dicts = [asdict(o) for o in recent_obs]
+        import json
+
+        obs_str = json.dumps(obs_dicts) if obs_dicts else "[]"
+
         prompt = (
             f"Allocate strategy weights (sum to 1.0) for a password attack at "
             f"difficulty {difficulty} (1-10).\n"
             f"Current strategy scores: {self.strategy_scores}.\n"
+            f"Recent structured observations (max 5): {obs_str}\n"
             f"Total guesses allowed: {max_guesses}.\n"
             f"Strategies typically available: {', '.join(avail)}.\n"
             "Respond strictly in the provided JSON schema."

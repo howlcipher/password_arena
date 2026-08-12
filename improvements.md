@@ -839,3 +839,14 @@ execution.
 - calibration fixtures prove attackers can exploit deliberately trivial targets where appropriate.
 - no real credentials or unbounded guessing allowed.
 - bounded synthetic-only safety rules remain completely unchanged.
+
+## IMP-036 — Co-Adaptation, Drift, and Accumulated-Knowledge Benchmark
+
+**Priority:** P1
+**Status:** Done
+
+**Description:** Execute a comprehensive benchmark (Benchmarks 004, 005, and 006) focusing on co-adaptation, drift, and accumulated-knowledge using the local `qwen3:4b` backend. Implement seven explicit information-sharing policies (frozen, self_only, attacker_observes_defender, defender_observes_attacker, mutual_bounded, mutual_full, legacy_current) and cross-campaign knowledge transfers.
+**Implementation note:**
+Created `information_policy.py` to enforce strict visibility constraints per policy. Updated `AdaptiveAttacker` and `AdaptiveDefender` with `observations` state. Updated `models.py` configuration parameters and schemas for dataset export in `dataset_export.py`. Ran full validation and deterministic testing on local `qwen3:4b`.
+**Validation performed:**
+Ran `pytest`, `ruff check .`, and `mypy`. Successfully executed matrix across seeds and generated Markdown reports and datasets in `results/`. Evaluated the 8 research questions and updated the root `README.md`.

@@ -70,6 +70,14 @@ class PublicBenchmarkRow:
     defender_prompt_version: str | None
     capability_registry_version: str | None
     benchmark_protocol_version: str | None
+    
+    information_policy_id: str
+    information_policy_version: str
+    campaign_id: str | None
+    replication_id: str | None
+    prior_campaign_count: int | None
+    cross_run_knowledge_policy: str | None
+    cross_run_knowledge_version: str | None
 
     tournament_id: str
     matchup_id: str
@@ -231,6 +239,13 @@ def _build_row(
         defender_prompt_version=replay.defender_prompt_version if replay else None,
         capability_registry_version=(replay.capability_registry_version if replay else None),
         benchmark_protocol_version=replay.benchmark_protocol_version if replay else None,
+        information_policy_id=experiment.config.information_policy_id,
+        information_policy_version=experiment.config.information_policy_version,
+        campaign_id=experiment.config.campaign_id,
+        replication_id=experiment.config.replication_id,
+        prior_campaign_count=experiment.config.prior_campaign_count,
+        cross_run_knowledge_policy=experiment.config.cross_run_knowledge_policy,
+        cross_run_knowledge_version=experiment.config.cross_run_knowledge_version,
         tournament_id=tournament_id,
         matchup_id=source.matchup.matchup_id,
         experiment_id=experiment.experiment_id,

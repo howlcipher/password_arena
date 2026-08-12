@@ -424,6 +424,8 @@ def run_matchup(config: MatchupConfig) -> MatchupResult:
             attacker_config=config.attacker,
             generator_mode=config.generator_mode,
             generator_version=config.generator_version,
+            information_policy_id=config.information_policy_id,
+            information_policy_version=config.information_policy_version,
         )
 
         result_or_failure = build_arena_engine(arena_config)

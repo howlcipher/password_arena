@@ -58,6 +58,16 @@ class ArenaConfig:
     evaluator_config: RoleConfig = field(default_factory=RoleConfig)
     generator_mode: str = "secure"
     generator_version: str = "1.0"
+    information_policy_id: str = "legacy_current"
+    information_policy_version: str = "1.0"
+    campaign_id: str | None = None
+    replication_id: str | None = None
+    prior_campaign_count: int | None = None
+    cross_run_knowledge_policy: str | None = None
+    cross_run_knowledge_version: str | None = None
+    
+    initial_attacker_observations: tuple[Any, ...] | None = None
+    initial_defender_observations: tuple[Any, ...] | None = None
 
     def validate(self) -> None:
         for key in asdict(self):
@@ -344,6 +354,13 @@ class MatchupConfig:
     max_tokens: int | None = None
     max_api_cost: float | None = None
     max_retries: int | None = None
+    information_policy_id: str = "legacy_current"
+    information_policy_version: str = "1.0"
+    campaign_id: str | None = None
+    replication_id: str | None = None
+    prior_campaign_count: int | None = None
+    cross_run_knowledge_policy: str | None = None
+    cross_run_knowledge_version: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -390,6 +407,13 @@ class ReplayMetadata:
     defender_prompt_version: str
     capability_registry_version: str
     benchmark_protocol_version: str | None = None
+    information_policy_id: str = "legacy_current"
+    information_policy_version: str = "1.0"
+    campaign_id: str | None = None
+    replication_id: str | None = None
+    prior_campaign_count: int | None = None
+    cross_run_knowledge_policy: str | None = None
+    cross_run_knowledge_version: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -520,3 +544,10 @@ class TournamentConfig:
     max_tokens: int | None = None
     max_api_cost: float | None = None
     max_retries: int | None = None
+    information_policy_id: str = "legacy_current"
+    information_policy_version: str = "1.0"
+    campaign_id: str | None = None
+    replication_id: str | None = None
+    prior_campaign_count: int | None = None
+    cross_run_knowledge_policy: str | None = None
+    cross_run_knowledge_version: str | None = None

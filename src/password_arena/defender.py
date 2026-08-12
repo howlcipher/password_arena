@@ -4,6 +4,7 @@ import random
 import secrets
 import string
 from dataclasses import dataclass, field
+from typing import Any
 
 from password_arena.grammars import HELD_OUT_WORDS, SHARED_WORDS, SYMBOLS
 from password_arena.providers import AgentBackend, ProviderRequest
@@ -23,6 +24,7 @@ class AdaptiveDefender:
     backend: AgentBackend | None = None
     generator_mode: str = "secure"
     generator_version: str = "1.0"
+    observations: list[Any] = field(default_factory=list)
 
     def create_password(self, difficulty: int) -> tuple[str, str, str]:
         effective = min(max(difficulty, 1), 10)
@@ -112,11 +114,20 @@ class AdaptiveDefender:
         note = custom_note if custom_note else base_note
         return password, family, note
 
-    def observe(self, family: str, solved: bool) -> str:
+    def observe(self, family: str, solved: bool, observation: Any = None) -> str:
+        msg = ""
         if solved:
             self.breached_families.add(family)
-            return f"Recorded {family} as breached and will harden it if reused."
-        return f"Recorded {family} as surviving the current bounded attack."
+            msg = f"Recorded {family} as breached and will harden it if reused."
+        else:
+            msg = f"Recorded {family} as surviving the current bounded attack."
+
+        if observation is not None:
+            self.observations.append(observation)
+            obs_type = type(observation).__name__
+            msg += f" Appended {obs_type} memory."
+
+        return msg
 
     def _create_password_backend(self, difficulty: int) -> tuple[str, str, str]:
         available_families = [
@@ -141,9 +152,19 @@ class AdaptiveDefender:
             "required": ["family", "note"],
         }
         breached = ", ".join(self.breached_families) or "None"
+
+        from dataclasses import asdict
+
+        recent_obs = self.observations[-5:]
+        obs_dicts = [asdict(o) for o in recent_obs]
+        import json
+
+        obs_str = json.dumps(obs_dicts) if obs_dicts else "[]"
+
         prompt = (
             f"Select a password strategy family for difficulty {difficulty} (1-10).\n"
             f"Breached families you should avoid reusing in predictable ways: {breached}.\n"
+            f"Recent structured observations (max 5): {obs_str}\n"
             f"Available families: {', '.join(available_families)}.\n"
             "Respond strictly in the provided JSON schema."
         )
