@@ -1,4 +1,6 @@
-import httpx  # type: ignore[import-not-found]
+from typing import Any
+
+import httpx
 import pytest
 
 from password_arena.ollama_provider import list_local_models
@@ -17,7 +19,7 @@ def test_list_local_models_parses_discovered_names(monkeypatch: pytest.MonkeyPat
 
     original_client = httpx.Client
 
-    def fake_client(*args: object, **kwargs: object) -> httpx.Client:
+    def fake_client(*args: Any, **kwargs: Any) -> httpx.Client:
         kwargs["transport"] = httpx.MockTransport(handler)
         return original_client(*args, **kwargs)
 
@@ -33,7 +35,7 @@ def test_list_local_models_non_200_status_is_none(monkeypatch: pytest.MonkeyPatc
 
     original_client = httpx.Client
 
-    def fake_client(*args: object, **kwargs: object) -> httpx.Client:
+    def fake_client(*args: Any, **kwargs: Any) -> httpx.Client:
         kwargs["transport"] = httpx.MockTransport(handler)
         return original_client(*args, **kwargs)
 
