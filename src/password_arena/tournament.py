@@ -221,6 +221,8 @@ def aggregate_matchup(
     entropy_gain_bits: list[float] = []
     defender_entropy_gain_tokens = 0
     entropy_gain_token_metrics_known = True
+    forbidden_requests_attempted = 0
+    forbidden_requests_denied = 0
 
     for experiment in experiments:
         seed = experiment.config.seed
@@ -259,6 +261,9 @@ def aggregate_matchup(
                 guesses_to_solve.append(r.attack.guesses_used)
             else:
                 rounds_resisted += 1
+
+            forbidden_requests_attempted += r.forbidden_requests_attempted
+            forbidden_requests_denied += r.forbidden_requests_denied
 
             if r.attacker_usage is not None:
                 attacker_input_tokens += r.attacker_usage.input_tokens
@@ -383,6 +388,8 @@ def aggregate_matchup(
         mean_final_entropy_bits=statistics.mean(final_entropy_bits) if final_entropy_bits else None,
         mean_entropy_gain_bits=statistics.mean(entropy_gain_bits) if entropy_gain_bits else None,
         defender_entropy_gain_tokens=entropy_gain_token_total,
+        forbidden_requests_attempted=forbidden_requests_attempted,
+        forbidden_requests_denied=forbidden_requests_denied,
         efficiency=efficiency,
     )
 
@@ -426,6 +433,8 @@ def run_matchup(config: MatchupConfig) -> MatchupResult:
             generator_version=config.generator_version,
             information_policy_id=config.information_policy_id,
             information_policy_version=config.information_policy_version,
+            privilege_mode=getattr(config, "privilege_mode", "normal_control"),
+            privilege_mode_version=getattr(config, "privilege_mode_version", "1.0"),
         )
 
         result_or_failure = build_arena_engine(arena_config)

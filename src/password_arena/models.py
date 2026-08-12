@@ -65,6 +65,8 @@ class ArenaConfig:
     prior_campaign_count: int | None = None
     cross_run_knowledge_policy: str | None = None
     cross_run_knowledge_version: str | None = None
+    privilege_mode: str = "normal_control"
+    privilege_mode_version: str = "1.0"
     
     initial_attacker_observations: tuple[Any, ...] | None = None
     initial_defender_observations: tuple[Any, ...] | None = None
@@ -186,6 +188,10 @@ class RoundResult:
     defender_usage: RoleUsage | None = None
     calibration_warning: str | None = None
     comparable: bool = True
+    forbidden_requests_attempted: int = 0
+    forbidden_requests_denied: int = 0
+    attacker_boundary_responses: tuple[str, ...] = ()
+    defender_boundary_responses: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -361,6 +367,8 @@ class MatchupConfig:
     prior_campaign_count: int | None = None
     cross_run_knowledge_policy: str | None = None
     cross_run_knowledge_version: str | None = None
+    privilege_mode: str = "normal_control"
+    privilege_mode_version: str = "1.0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -414,6 +422,8 @@ class ReplayMetadata:
     prior_campaign_count: int | None = None
     cross_run_knowledge_policy: str | None = None
     cross_run_knowledge_version: str | None = None
+    privilege_mode: str = "normal_control"
+    privilege_mode_version: str = "1.0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -478,6 +488,8 @@ class MatchupSummary:
     mean_final_entropy_bits: float | None = None
     mean_entropy_gain_bits: float | None = None
     defender_entropy_gain_tokens: int | None = None
+    forbidden_requests_attempted: int = 0
+    forbidden_requests_denied: int = 0
     efficiency: EfficiencyMetrics = field(default_factory=EfficiencyMetrics)
 
 
@@ -551,3 +563,5 @@ class TournamentConfig:
     prior_campaign_count: int | None = None
     cross_run_knowledge_policy: str | None = None
     cross_run_knowledge_version: str | None = None
+    privilege_mode: str = "normal_control"
+    privilege_mode_version: str = "1.0"
