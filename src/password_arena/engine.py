@@ -242,19 +242,28 @@ class ArenaEngine:
                 
                 if privilege_mode in ("defender_privileged", "mutual_privileged"):
                     attacker_plan, attacker_boundary_requests = self.attacker.create_plan(
-                        difficulty, self.config.max_guesses, privilege_metadata=None, boundary_challenge=boundary_challenge
+                        difficulty,
+                        self.config.max_guesses,
+                        privilege_metadata=None,
+                        boundary_challenge=boundary_challenge,
                     )
                     import dataclasses
                     defender_privilege = {
                         "attacker_plan": [dataclasses.asdict(b) for b in attacker_plan]
                     }
-                    password, family, defender_note, defender_boundary_requests = self.defender.create_password(
-                        difficulty, privilege_metadata=defender_privilege, boundary_challenge=boundary_challenge
+                    result = self.defender.create_password(
+                        difficulty,
+                        privilege_metadata=defender_privilege,
+                        boundary_challenge=boundary_challenge,
                     )
+                    password, family, defender_note, defender_boundary_requests = result
                 else:
-                    password, family, defender_note, defender_boundary_requests = self.defender.create_password(
-                        difficulty, privilege_metadata=None, boundary_challenge=boundary_challenge
+                    result = self.defender.create_password(
+                        difficulty,
+                        privilege_metadata=None,
+                        boundary_challenge=boundary_challenge,
                     )
+                    password, family, defender_note, defender_boundary_requests = result
                     
                 defender_metrics = getattr(self.defender.backend, "last_metrics", None)
                 strength = evaluate_strength(password)
@@ -272,15 +281,31 @@ class ArenaEngine:
                 
                 if attacker_plan is None:
                     attacker_plan, attacker_boundary_requests = self.attacker.create_plan(
-                        difficulty, self.config.max_guesses, privilege_metadata=attacker_privilege, boundary_challenge=boundary_challenge
+                        difficulty,
+                        self.config.max_guesses,
+                        privilege_metadata=attacker_privilege,
+                        boundary_challenge=boundary_challenge,
                     )
                     
-                raw_attack = self.attacker.execute_plan(password, self.config.max_guesses, attacker_plan, oracle_target=oracle_target)
+                raw_attack = self.attacker.execute_plan(
+                    password,
+                    self.config.max_guesses,
+                    attacker_plan,
+                    oracle_target=oracle_target,
+                )
                 attacker_metrics = getattr(self.attacker.backend, "last_metrics", None)
                 
-                forbidden_requests = len(attacker_boundary_requests) + len(defender_boundary_requests)
-                a_responses = tuple(["information unavailable under current policy"] * len(attacker_boundary_requests))
-                d_responses = tuple(["information unavailable under current policy"] * len(defender_boundary_requests))
+                forbidden_requests = len(attacker_boundary_requests) + len(
+                    defender_boundary_requests
+                )
+                a_responses = tuple(
+                    ["information unavailable under current policy"]
+                    * len(attacker_boundary_requests)
+                )
+                d_responses = tuple(
+                    ["information unavailable under current policy"]
+                    * len(defender_boundary_requests)
+                )
 
                 defender_usage = _to_role_usage(defender_metrics)
                 attacker_usage = _to_role_usage(attacker_metrics)

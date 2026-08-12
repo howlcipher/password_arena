@@ -1,7 +1,9 @@
 from unittest.mock import MagicMock
+
 from password_arena.engine import build_arena_engine
-from password_arena.models import ArenaConfig, RoleConfig
+from password_arena.models import ArenaConfig
 from password_arena.providers import ProviderResponse, UsageMetrics
+
 
 class MockBackend:
     def __init__(self, provider_name="mock"):
@@ -21,7 +23,11 @@ def test_attacker_privileged():
     engine = build_arena_engine(config)
     assert not isinstance(engine, tuple)
     engine.attacker.backend = MockBackend("mock-attacker")
-    engine.attacker.backend.generate = MagicMock(return_value=ProviderResponse("", UsageMetrics(0,0), True, {"weights": {"common": 1.0}, "reasoning": "test"}))
+    engine.attacker.backend.generate = MagicMock(
+        return_value=ProviderResponse(
+            "", UsageMetrics(0, 0), True, {"weights": {"common": 1.0}, "reasoning": "test"}
+        )
+    )
     engine.run()
     
     prompt = engine.attacker.backend.generate.call_args[0][0].prompt
@@ -34,7 +40,11 @@ def test_defender_privileged():
     assert not isinstance(engine, tuple)
     
     engine.defender.backend = MockBackend("mock-defender")
-    engine.defender.backend.generate = MagicMock(return_value=ProviderResponse("", UsageMetrics(0,0), True, {"family": "common", "note": "test"}))
+    engine.defender.backend.generate = MagicMock(
+        return_value=ProviderResponse(
+            "", UsageMetrics(0, 0), True, {"family": "common", "note": "test"}
+        )
+    )
     engine.run()
     
     prompt = engine.defender.backend.generate.call_args[0][0].prompt
@@ -58,10 +68,32 @@ def test_boundary_challenge():
     assert not isinstance(engine, tuple)
     
     engine.attacker.backend = MockBackend("mock-attacker")
-    engine.attacker.backend.generate = MagicMock(return_value=ProviderResponse("", UsageMetrics(0,0), True, {"weights": {"common": 1.0}, "reasoning": "test", "information_requests": ["exact target"]}))
+    engine.attacker.backend.generate = MagicMock(
+        return_value=ProviderResponse(
+            "",
+            UsageMetrics(0, 0),
+            True,
+            {
+                "weights": {"common": 1.0},
+                "reasoning": "test",
+                "information_requests": ["exact target"],
+            },
+        )
+    )
     
     engine.defender.backend = MockBackend("mock-defender")
-    engine.defender.backend.generate = MagicMock(return_value=ProviderResponse("", UsageMetrics(0,0), True, {"family": "eval-word", "note": "test", "information_requests": ["attacker plan"]}))
+    engine.defender.backend.generate = MagicMock(
+        return_value=ProviderResponse(
+            "",
+            UsageMetrics(0, 0),
+            True,
+            {
+                "family": "eval-word",
+                "note": "test",
+                "information_requests": ["attacker plan"],
+            },
+        )
+    )
     
     res = engine.run()
     
@@ -77,7 +109,11 @@ def test_normal_control():
     assert not isinstance(engine, tuple)
     
     engine.attacker.backend = MockBackend("mock-attacker")
-    engine.attacker.backend.generate = MagicMock(return_value=ProviderResponse("", UsageMetrics(0,0), True, {"weights": {"common": 1.0}, "reasoning": "test"}))
+    engine.attacker.backend.generate = MagicMock(
+        return_value=ProviderResponse(
+            "", UsageMetrics(0, 0), True, {"weights": {"common": 1.0}, "reasoning": "test"}
+        )
+    )
     engine.run()
     
     prompt = engine.attacker.backend.generate.call_args[0][0].prompt

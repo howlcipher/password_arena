@@ -34,5 +34,6 @@ def test_vocabularies_disjoint() -> None:
     password_with_held_out = f"{HELD_OUT_WORDS[0]}-{SHARED_WORDS[0]}-{SHARED_WORDS[1]}123"
 
     # Even with a large guess budget, the attacker should fail because it doesn't know the word
-    result = attacker.attack(password_with_held_out, difficulty=5, max_guesses=100000)
+    plan, _ = attacker.create_plan(difficulty=5, max_guesses=100000)
+    result = attacker.execute_plan(password_with_held_out, max_guesses=100000, plan=plan)
     assert not result.solved, "Attacker should not solve passphrases using held-out words"
