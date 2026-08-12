@@ -3,7 +3,7 @@ from password_arena.engine import build_arena_engine
 from password_arena.models import ArenaConfig, RoleConfig
 
 
-def test_frozen_policy():
+def test_frozen_policy() -> None:
     config = ArenaConfig(
         rounds=2,
         information_policy_id="frozen",
@@ -26,12 +26,13 @@ def test_frozen_policy():
     assert len(engine.defender.observations) == 0
 
 
-def test_self_only_policy():
+def test_self_only_policy() -> None:
     config = ArenaConfig(
         rounds=2,
         information_policy_id="self_only",
     )
     engine = build_arena_engine(config)
+    assert not isinstance(engine, tuple)
     engine.run()
     
     assert len(engine.attacker.observations) == 2
@@ -46,12 +47,13 @@ def test_self_only_policy():
     assert obs_d.family_choice is not None
 
 
-def test_attacker_observes_defender_policy():
+def test_attacker_observes_defender_policy() -> None:
     config = ArenaConfig(
         rounds=2,
         information_policy_id="attacker_observes_defender",
     )
     engine = build_arena_engine(config)
+    assert not isinstance(engine, tuple)
     engine.run()
     
     obs_a = engine.attacker.observations[0]
@@ -64,12 +66,13 @@ def test_attacker_observes_defender_policy():
     assert len(obs_d.attacker_strategies) == 0
 
 
-def test_defender_observes_attacker_policy():
+def test_defender_observes_attacker_policy() -> None:
     config = ArenaConfig(
         rounds=2,
         information_policy_id="defender_observes_attacker",
     )
     engine = build_arena_engine(config)
+    assert not isinstance(engine, tuple)
     engine.run()
     
     obs_a = engine.attacker.observations[0]
@@ -80,12 +83,13 @@ def test_defender_observes_attacker_policy():
     assert obs_d.complete_safe_attack_plan == ()
 
 
-def test_mutual_bounded_policy():
+def test_mutual_bounded_policy() -> None:
     config = ArenaConfig(
         rounds=2,
         information_policy_id="mutual_bounded",
     )
     engine = build_arena_engine(config)
+    assert not isinstance(engine, tuple)
     engine.run()
     
     obs_a = engine.attacker.observations[0]
@@ -96,12 +100,13 @@ def test_mutual_bounded_policy():
     assert len(obs_d.attacker_strategies) > 0
 
 
-def test_mutual_full_policy():
+def test_mutual_full_policy() -> None:
     config = ArenaConfig(
         rounds=2,
         information_policy_id="mutual_full",
     )
     engine = build_arena_engine(config)
+    assert not isinstance(engine, tuple)
     engine.run()
     
     obs_a = engine.attacker.observations[0]
@@ -114,12 +119,13 @@ def test_mutual_full_policy():
     assert len(obs_d.complete_safe_attack_plan) > 0
 
 
-def test_legacy_current_policy():
+def test_legacy_current_policy() -> None:
     config = ArenaConfig(
         rounds=2,
         information_policy_id="legacy_current",
     )
     engine = build_arena_engine(config)
+    assert not isinstance(engine, tuple)
     result = engine.run()
     
     assert len(engine.attacker.observations) == 0
@@ -130,7 +136,7 @@ def test_legacy_current_policy():
         assert "Recorded" in r.defender_learning
 
 
-def test_target_timing_isolation():
+def test_target_timing_isolation() -> None:
     """
     Test: no Round N target can appear in attacker input before attack N 
     but under an allowed policy: Round N target may appear in Round N+1 memory
@@ -140,6 +146,7 @@ def test_target_timing_isolation():
         information_policy_id="mutual_full",
     )
     engine = build_arena_engine(config)
+    assert not isinstance(engine, tuple)
     
     # We inspect the observations inside the engine.
     # At the start of round 2, the attacker's observations should ONLY contain round 1's target.
