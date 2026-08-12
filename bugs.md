@@ -848,3 +848,31 @@ Changed `results: list` to `results: Sequence[MatchupLike]` in the signatures of
 ### Validation performed
 
 Ran `mypy src/password_arena tests`. It passed with "Success: no issues found in 45 source files".
+
+---
+
+## BUG-029 — test_information_policies.py has mypy strict-mode errors
+
+**Priority:** P2  
+**Status:** Resolved  
+**Resolved in:** Benchmark test sprint
+
+### Reproduction
+
+Run `mypy src/password_arena tests` on `main`.
+
+### Impact
+
+The tests in `test_information_policies.py` lacked return type annotations (`-> None`) and didn't check for `PreflightFailure` when instantiating `ArenaEngine`. This caused 31 `mypy` strict-mode errors. Since GitHub Actions runs `mypy src/password_arena tests`, this caused the CI pipeline to fail, blocking merges.
+
+### Expected resolution
+
+Add `-> None` return type annotations to all test functions. Add `assert not isinstance(engine, tuple)` after `build_arena_engine()` calls to narrow the type and appease mypy.
+
+### Resolution
+
+Added `-> None` to all test functions in `tests/test_information_policies.py` and inserted type-narrowing assertions.
+
+### Validation performed
+
+Ran `mypy src/password_arena tests`. It passed with "Success: no issues found in 50 source files". CI pipeline is green.
