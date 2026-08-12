@@ -3,9 +3,9 @@ import time
 from typing import Any
 
 try:
-    import httpx
+    import httpx  # type: ignore[import-not-found]
 except ImportError:
-    httpx = None  # type: ignore
+    httpx = None
 
 from password_arena.providers import (
     AvailabilityResult,

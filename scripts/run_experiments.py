@@ -43,7 +43,7 @@ def main():
         print(f"  Completed! Solve rate: {result.summary.solve_rate}")
         results[scenario] = dataclasses.asdict(result)
 
-    out_dir = Path("results/benchmark-privilege")
+    out_dir = Path("results/benchmark-007")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     with open(out_dir / "results.json", "w") as f:

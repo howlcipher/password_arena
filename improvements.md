@@ -850,3 +850,24 @@ execution.
 Created `information_policy.py` to enforce strict visibility constraints per policy. Updated `AdaptiveAttacker` and `AdaptiveDefender` with `observations` state. Updated `models.py` configuration parameters and schemas for dataset export in `dataset_export.py`. Ran full validation and deterministic testing on local `qwen3:4b`.
 **Validation performed:**
 Ran `pytest`, `ruff check .`, and `mypy`. Successfully executed matrix across seeds and generated Markdown reports and datasets in `results/`. Evaluated the 8 research questions and updated the root `README.md`.
+
+## IMP-037 — Second Local Model Cross-Comparison
+
+**Priority:** P1
+**Status:** Ready
+
+**Description:** The next major research question is to determine whether the context-overload, drift, memory-efficiency, and privilege effects observed so far are specific to `qwen3:4b`, or if they appear in another small local model.
+
+**Acceptance Criteria:**
+- Select one 3B-4B class model from a different family than Qwen.
+- Must run locally under existing 10 GB Ollama memory limit (CPU-only).
+- Must support structured output reliably.
+- Run a compact comparison matrix (Model B vs Model B):
+  1. frozen
+  2. mutual_bounded
+  3. mutual_full
+  4. normal_control privilege mode
+  5. attacker_privileged
+  6. defender_privileged
+- Compare results against Qwen3 4B findings.
+- Do not run all 001-007 protocols again.

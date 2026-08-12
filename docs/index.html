@@ -93,23 +93,27 @@
             <div class="code-block-wrapper">
                 <div class="code-header">
                     <span>sys.report</span>
-                    <span>benchmark_003</span>
+                    <span>benchmark_007</span>
                 </div>
                 <pre><code>PROTOCOL VERSION: 1.1
 MODEL: Qwen3 4B
 RUNTIME: Ollama / local
-MATCHUPS: 3
-RECORDED ROUNDS: 45
-COMPARABLE: 45
-EXCLUDED: 0
-ATTACK SOLVES: 0
 
-[MATCHUP 1] ollama/qwen3:4b (atk) vs rule_based/v1 (def)   | SOLVE: 0/15
-[MATCHUP 2] rule_based/v1 (atk)   vs ollama/qwen3:4b (def) | SOLVE: 0/15
-[MATCHUP 3] ollama/qwen3:4b (atk) vs ollama/qwen3:4b (def) | SOLVE: 0/15
+NORMAL CONTROL: 13.3% solve
+ATTACKER PRIVILEGED: 16.7%
+DEFENDER PRIVILEGED: 6.7%
+MUTUAL PRIVILEGED: 0.0%
+ORACLE: 100.0%
+
+ORACLE CONTROL IS DIAGNOSTIC, NOT A MODEL SCORE
 
 > <a href="benchmarks.html" style="color: var(--accent-color); text-decoration: underline;">VIEW FULL BENCHMARK DATA</a>
 </code></pre>
+            </div>
+            
+            <div class="warning-box" style="margin-top: 2rem; border-color: var(--accent-color);">
+                <span class="warning-title" style="color: var(--accent-color);">METHODOLOGY_WARNING</span>
+                <p>Cross-protocol results are not directly interchangeable. Protocol and strategy changes are versioned and documented.</p>
             </div>
             
             <div class="warning-box" style="margin-top: 2rem; border-color: var(--accent-color);">

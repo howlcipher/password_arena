@@ -85,105 +85,80 @@
     </header>
 
     <main class="container">
-        
-        <section class="terminal-section">
-            <h2>> BENCHMARK_002 // QWEN3:4B OLLAMA</h2>
-            <p><strong>Methodology:</strong> 3 matchups evaluated over 3 seeds, 5 rounds each, with a max guess budget of 500 guesses per round. Generator mode: <code>deterministic-test</code>.</p>
-            
-            <div class="split-section" style="margin-top: 2rem;">
-                <div class="data-panel">
-                    <h3>> ATTACKER LATENCY (MEAN)</h3>
-                    <div class="stat-container">
-                        <span>qwen3:4b (Ollama)</span>
-                        <div class="stat-bar"><div class="stat-fill" style="width: 100%;"></div></div>
-                        <small>~13,000 ms</small>
-                    </div>
-                    <div class="stat-container">
-                        <span>rule_based/v1</span>
-                        <div class="stat-bar"><div class="stat-fill" style="width: 0%;"></div></div>
-                        <small>N/A (Native execution)</small>
-                    </div>
-                </div>
-                
-                <div class="data-panel">
-                    <h3>> DEFENDER ENTROPY</h3>
-                    <p>Minimum: <strong>6.58 bits</strong></p>
-                    <p>Median: <strong>105.10 bits</strong></p>
-                    <p>Mean: <strong>84.40 bits</strong></p>
-                    <p>Maximum: <strong>176.48 bits</strong></p>
-                </div>
-            </div>
 
-            <div style="overflow-x: auto; margin-top: 2rem;">
+        <div class="warning-box" style="margin-bottom: 2rem; border-color: var(--accent-color);">
+            <span class="warning-title" style="color: var(--accent-color);">METHODOLOGY WARNING</span>
+            <p>Cross-protocol results are not directly interchangeable. Protocol and strategy changes are versioned and documented.</p>
+        </div>
+
+        <section class="terminal-section">
+            <h2>> WHAT_WE_LEARNED</h2>
+            <ul class="hacker-list">
+                <li><strong>MORE_CONTEXT != BETTER_PERFORMANCE:</strong> Qwen3 4B produced lower defender entropy and much higher token usage under mutual-context sharing than under frozen zero-knowledge mode.</li>
+                <li><strong>SURVIVAL != PASSWORD_STRENGTH:</strong> Weak targets can survive if the attacker's coverage lacks the right strategy (e.g., exhaustive search for short strings).</li>
+                <li><strong>REPLICATION_REVEALS_MODEL_DRIFT:</strong> Fresh replication runs preserved 0% macro solve rates while internal token generation and latency varied.</li>
+                <li><strong>LONG_MEMORY_HAS_TOKEN_COST:</strong> Multi-campaign learning gradually improved the defender but cost drastically more tokens compared to the single-run baseline.</li>
+                <li><strong>PRIVILEGED_INFORMATION_CHANGES_BEHAVIOR:</strong> Leaking hidden metadata ahead of execution dramatically shifts attacker and defender solve rates.</li>
+                <li><strong>ORACLE_CONTROL_VALIDATES_EXECUTION:</strong> Oracle tests prove the solve pipeline is mechanically sound and deterministic when the target is known.</li>
+            </ul>
+        </section>
+
+        <section class="terminal-section" style="margin-top: 2rem;">
+            <h2>> CONSOLIDATED_RESULTS_TABLE</h2>
+            <div style="overflow-x: auto; margin-top: 1rem;">
                 <table class="benchmark-table">
                     <thead>
                         <tr>
-                            <th>Attacker</th>
-                            <th>Defender</th>
-                            <th>Rounds</th>
-                            <th>Comparable</th>
-                            <th>Solve Rate</th>
-                            <th>Survival Rate</th>
+                            <th>Benchmark</th>
+                            <th>Purpose</th>
+                            <th>Model</th>
+                            <th>Headline finding</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td><code>ollama/qwen3:4b</code></td>
-                            <td><code>rule_based/v1</code></td>
-                            <td>15</td>
-                            <td>15</td>
-                            <td>0.0% (0/15)</td>
-                            <td>100.0% (15/15)</td>
-                        </tr>
-                        <tr>
-                            <td><code>rule_based/v1</code></td>
-                            <td><code>ollama/qwen3:4b</code></td>
-                            <td>15</td>
-                            <td>15</td>
-                            <td>0.0% (0/15)</td>
-                            <td>100.0% (15/15)</td>
-                        </tr>
-                        <tr>
-                            <td><code>ollama/qwen3:4b</code></td>
-                            <td><code>ollama/qwen3:4b</code></td>
-                            <td>15</td>
-                            <td>15</td>
-                            <td>0.0% (0/15)</td>
-                            <td>100.0% (15/15)</td>
-                        </tr>
+                        <tr><td>001</td><td>baseline</td><td>rule_based</td><td>Establishes deterministic baseline</td></tr>
+                        <tr><td>002</td><td>first LLM</td><td>Qwen3 4B</td><td>0% solve; weak targets survive missing coverage</td></tr>
+                        <tr><td>003</td><td>calibration</td><td>Qwen3 4B</td><td>Added CalibrationPolicy to flag target weakness</td></tr>
+                        <tr><td>004–006</td><td>co-adaptation</td><td>Qwen3 4B</td><td>Mutual sharing consumed more tokens for less entropy gain</td></tr>
+                        <tr><td>007</td><td>privilege/oracle</td><td>Qwen3 4B</td><td>Information asymmetry changed outcomes; oracle 100% solve</td></tr>
                     </tbody>
                 </table>
             </div>
+        </section>
 
-            <div style="margin-top: 2rem;">
-                <a href="https://github.com/howlcipher/password_arena/tree/main/results/benchmark-002" target="_blank" style="color: var(--accent-color); text-decoration: underline;">
-                    > DOWNLOAD FULL BENCHMARK DATASET (CSV/JSONL)
+        <section class="terminal-section" style="margin-top: 2rem;">
+            <h2>> BENCHMARK_007 // PRIVILEGED_INFORMATION & ORACLE_CONTROL</h2>
+            <p><strong>Question:</strong> Why did earlier benchmarks hit a 0% solve floor? Was it capability ceiling or strict information boundaries?</p>
+            <p><strong>Result:</strong> Under current calibrated protocol, normal_control produced measurable solves (13.3%). Attacker privilege modestly changed solve rate (16.7%), while defender privilege worsened attacker success (6.7%). Oracle controls hit 100% proving deterministic pipeline validity.</p>
+            <div style="margin-top: 1rem;">
+                <a href="https://github.com/howlcipher/password_arena/tree/main/results/benchmark-007" target="_blank" style="color: var(--accent-color); text-decoration: underline;">
+                    > DOWNLOAD BENCHMARK 007 DATASET (CSV/JSONL)
                 </a>
-            </div>
-            
-            <div class="warning-box" style="margin-top: 2rem; border-color: var(--accent-color);">
-                <span class="warning-title" style="color: var(--accent-color);">EVALUATION_FINDING: CALIBRATION LIMITATION</span>
-                <p>Benchmark 002 exposed an important limitation in relying solely on survival metrics: A bounded strategy attacker may fail to guess a weak synthetic target.</p>
-                <p>For instance, the weakest Qwen defender generated this target:</p>
-                <ul>
-                    <li>Length: 2</li>
-                    <li>Entropy: 6.58 bits</li>
-                    <li>Family: cryptographic-random</li>
-                </ul>
-                <p>It survived 500 guesses against the Qwen3 4B attacker. A length=2 string is trivial to brute-force, but a bounded agent targeting complex password patterns may entirely omit simple exhaustive searches from its strategy.</p>
-                <p>Therefore Password Arena evaluates: <code>solve/survival + entropy + target structure + strategy coverage + tokens + latency</code></p>
             </div>
         </section>
 
-        <section class="terminal-section">
-            <h2>> BENCHMARK_001 // DETERMINISTIC BASELINE</h2>
-            <p><strong>Methodology:</strong> 15 comparable rounds of <code>rule_based/v1</code> attacker vs <code>rule_based/v1</code> defender to establish a deterministic reproducible baseline.</p>
-            
-            <div style="margin-top: 1rem;">
-                <a href="https://github.com/howlcipher/password_arena/tree/main/results/benchmark-001" target="_blank" style="color: var(--accent-color); text-decoration: underline;">
-                    > DOWNLOAD FULL BENCHMARK DATASET (CSV/JSONL)
-                </a>
-            </div>
+        <section class="terminal-section" style="margin-top: 2rem;">
+            <h2>> BENCHMARK_004-006 // CO_ADAPTATION, REPLICATION_DRIFT & KNOWLEDGE_RETENTION</h2>
+            <p><strong>Question:</strong> How does bounded information sharing, replication, and accumulated knowledge affect agent behavior?</p>
+            <p><strong>Result:</strong> Self-learning and mutual sharing drastically increased token consumption but actually reduced defender entropy generation. Over long-term retention, agents slowly adapted but with immense inefficiency.</p>
+        </section>
+
+        <section class="terminal-section" style="margin-top: 2rem;">
+            <h2>> BENCHMARK_003 // CALIBRATION</h2>
+            <p><strong>Question:</strong> How can we identify survival of structurally weak passwords?</p>
+            <p><strong>Result:</strong> Integrated CalibrationPolicy and a short exhaustive strategy. Flagged objectively weak targets that survive due to missing attacker coverage.</p>
+        </section>
+
+        <section class="terminal-section" style="margin-top: 2rem;">
+            <h2>> BENCHMARK_002 // QWEN3:4B OLLAMA</h2>
+            <p><strong>Question:</strong> How does a local Qwen3 4B model perform against the arena?</p>
+            <p><strong>Result:</strong> Zero attacker solves. Exposed that survival rate alone is a misleading metric for AI capabilities.</p>
+        </section>
+
+        <section class="terminal-section" style="margin-top: 2rem;">
+            <h2>> BENCHMARK_001 // BASELINE</h2>
+            <p><strong>Question:</strong> Is the arena deterministic?</p>
+            <p><strong>Result:</strong> Rule-based agents establish a reproducible synthetic baseline.</p>
         </section>
 
     </main>
