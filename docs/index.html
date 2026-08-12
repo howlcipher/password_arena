@@ -93,19 +93,23 @@
             <div class="code-block-wrapper">
                 <div class="code-header">
                     <span>sys.report</span>
-                    <span>benchmark_007</span>
+                    <span>benchmark_008</span>
                 </div>
                 <pre><code>PROTOCOL VERSION: 1.1
-MODEL: Qwen3 4B
+MODELS: Qwen3 4B vs Gemma 3 4B
 RUNTIME: Ollama / local
 
-NORMAL CONTROL: 13.3% solve
-ATTACKER PRIVILEGED: 16.7%
-DEFENDER PRIVILEGED: 6.7%
-MUTUAL PRIVILEGED: 0.0%
-ORACLE: 100.0%
+CROSS-MODEL GENERALIZATION STUDY
+FROZEN:               Qwen 0.0%  | Gemma 0.0%
+MUTUAL BOUNDED:       Qwen 0.0%  | Gemma 13.3%
+MUTUAL FULL:          Qwen 0.0%  | Gemma 0.0%
+NORMAL CONTROL:       Qwen 0.0%  | Gemma 0.0%
+ATTACKER PRIVILEGED:  Qwen 0.0%  | Gemma 0.0%
+DEFENDER PRIVILEGED:  Qwen 0.0%  | Gemma 0.0%
 
-ORACLE CONTROL IS DIAGNOSTIC, NOT A MODEL SCORE
+CONTEXT OVERLOAD GENERALIZES, ASYMMETRICALLY:
+QWEN ENTROPY 80-96 BITS -> ~36 BITS UNDER MUTUAL SHARING
+GEMMA ENTROPY FLAT AT ~37-43 BITS THROUGHOUT
 
 > <a href="benchmarks.html" style="color: var(--accent-color); text-decoration: underline;">VIEW FULL BENCHMARK DATA</a>
 </code></pre>
