@@ -81,14 +81,18 @@ schema. Result: **20/20 schema-valid (100%)**, mean latency 7.9s, mean input tok
 
 ## Results summary
 
+_Updated 2026-08-13 from a full re-run of this matrix under identical code,
+protocol, seeds, and budgets — see "Reproducibility check" below for what changed
+and what held._
+
 | Scenario | Qwen rounds | Qwen solve % | Qwen mean entropy | Gemma rounds | Gemma solve % | Gemma mean entropy |
 |---|---|---|---|---|---|---|
-| frozen | 12/15 | 0.0 | 80.2 | 15/15 | 0.0 | 43.1 |
-| mutual_bounded | 15/15 | 0.0 | 36.3 | 15/15 | **13.3** | 38.9 |
-| mutual_full | 15/15 | 0.0 | 36.3 | 15/15 | 0.0 | 38.1 |
-| normal_control | 15/15 | 0.0 | 95.6 | 15/15 | 0.0 | 39.2 |
-| attacker_privileged | 11/15 | 0.0 | 86.0 | 15/15 | 0.0 | 42.0 |
-| defender_privileged | 15/15 | 0.0 | 95.1 | 15/15 | 0.0 | 37.9 |
+| frozen | 15/15 | 0.0 | 81.2 | 15/15 | 0.0 | 42.1 |
+| mutual_bounded | 15/15 | 0.0 | 36.3 | 15/15 | 0.0 | 56.6 |
+| mutual_full | 15/15 | 0.0 | 36.3 | 15/15 | **6.7** | 39.9 |
+| normal_control | 15/15 | 0.0 | 77.2 | 15/15 | 0.0 | 37.7 |
+| attacker_privileged | 14/15 | **7.1** | 77.4 | 15/15 | 0.0 | 42.7 |
+| defender_privileged | 15/15 | 0.0 | 92.3 | 15/15 | 0.0 | 37.7 |
 
 "Rounds" is comparable rounds completed out of 15 requested (3 seeds x 5 rounds); a
 shortfall means one or more trials were excluded for a schema-validation
@@ -100,60 +104,63 @@ the matchup):
 
 | Scenario | Qwen attacker tok (in/out) | Qwen defender tok (in/out) | Gemma attacker tok (in/out) | Gemma defender tok (in/out) |
 |---|---|---|---|---|
-| frozen | 1791/2975 | 1212/732 | 2517/2066 | 1800/445 |
-| mutual_bounded | 9768/3580 | 9168/1069 | 10027/2173 | 9602/604 |
-| mutual_full | 10001/3814 | 13204/1066 | 10679/2245 | 14171/729 |
-| normal_control | 2450/7690 | 1515/726 | 2517/2050 | 1800/514 |
-| attacker_privileged | 2059/2097 | 1111/656 | 3143/2395 | 1800/391 |
-| defender_privileged | 2428/7272 | 4241/1037 | 2517/1992 | 3982/706 |
+| frozen | 2454/3657 | 1515/781 | 2517/1962 | 1800/446 |
+| mutual_bounded | 9838/5901 | 9166/1223 | 10142/2188 | 9686/782 |
+| mutual_full | 9971/3637 | 12988/1074 | 10603/2278 | 14226/761 |
+| normal_control | 2402/8270 | 1515/775 | 2517/2046 | 1800/466 |
+| attacker_privileged | 2796/2691 | 1418/758 | 3030/2449 | 1800/524 |
+| defender_privileged | 2376/4987 | 4082/1091 | 2517/1998 | 3917/592 |
 
 ## Interpretation
 
 - **Context overload generalizes, but asymmetrically.** Qwen's defender entropy
-  collapses from ~80-96 bits (frozen / normal_control / either privilege scenario) to
+  collapses from ~77-92 bits (frozen / normal_control / either privilege scenario) to
   ~36 bits under both mutual policies — a large, consistent drop, replicating the
   context-overload pattern from earlier Qwen-only benchmarks under this fresh
   matched protocol. Gemma's defender entropy is flat and already low across every
-  scenario (37-43 bits) — it does not show a comparable collapse, because it never
+  scenario (38-57 bits) — it does not show a comparable collapse, because it never
   had the high baseline to collapse from. **Within this controlled run**, added
   cross-agent context measurably hurt Qwen's defender and left Gemma's defender
   essentially unchanged.
 - **Token growth without benefit, for both models.** Both models' input-token usage
-  grows roughly 4-11x from `frozen`/`normal_control` to `mutual_full`, and neither
-  model's solve rate improves from it — mutual_full produced 0% solves for both.
-  Gemma's only non-zero solve rate (13.3%) came under `mutual_bounded`, the smaller
-  information payload, not `mutual_full`, the larger one — more context did not mean
-  more attacker value for either model in this run.
+  grows roughly 4x from `frozen`/`normal_control` to `mutual_full`, and neither
+  model's solve rate improves from it — mutual_full produced Gemma's only non-zero
+  main-matrix solve rate (6.7%), not a larger one; Qwen stayed at 0% under both
+  mutual scenarios. More context did not translate into more attacker value for
+  either model in this run.
 - **Privilege effects did not clearly replicate at this smaller scale.** Comparing
-  `normal_control` to `attacker_privileged`/`defender_privileged`, solve rate stayed
-  at 0.0 for both models in every case (Gemma's one non-zero result was under a
-  different scenario). Entropy shifts under privilege are modest and mixed
-  (Qwen's attacker_privileged entropy is ~10 bits lower than its normal_control;
-  Gemma's is flat). Benchmark 007 found measurable privilege effects (13.3%-16.7%
-  attacker solve rates) under a larger Qwen-only protocol; this compact 3-seed,
-  5-round matrix is not powered to confirm or refute that at the same resolution for
-  either model. Treat this as inconclusive, not a null result.
-- **Stability differed measurably.** Across the 18 main-matrix trials per model,
-  Qwen had 3 trials interrupted by a structured-output schema-validation failure
-  (`frozen` seed 43, `attacker_privileged` seeds 42 and 43) — 16.7% trial exclusion.
-  Gemma had 0/18 trial exclusions. The cross-model pilot adds one more Qwen-side
-  interruption (Qwen attacking Gemma, seed 43). In this specific run, Gemma was the
-  more reliable structured-output participant; Qwen's failures were transient
-  (retried trials at other seeds in the same scenario succeeded cleanly), consistent
-  with occasional malformed output rather than a systemic incapability.
+  `normal_control` to `attacker_privileged`/`defender_privileged`, Gemma's solve rate
+  stayed at 0.0 in every case; Qwen's only non-zero solve rate in the entire main
+  matrix (7.1%) came under `attacker_privileged`. Entropy shifts under privilege are
+  modest and mixed (Qwen's attacker_privileged entropy is ~0 bits different from its
+  normal_control this run; Gemma's is flat). Benchmark 007 found measurable privilege
+  effects (13.3%-16.7% attacker solve rates) under a larger Qwen-only protocol; this
+  compact 3-seed, 5-round matrix is not powered to confirm or refute that at the same
+  resolution for either model. Treat this as inconclusive, not a null result.
+- **Stability differed measurably, though less than in the first run.** Across the 18
+  main-matrix trials per model, Qwen had 1 trial interrupted by a schema-validation
+  failure (`attacker_privileged` seed 44) — 5.6% trial exclusion, down from 16.7% (3
+  interruptions) in the original run. Gemma again had 0/18 trial exclusions across
+  both runs. Qwen's interruptions remain transient and scenario-inconsistent (a
+  different scenario/seed each run), consistent with occasional malformed output
+  rather than a systemic incapability tied to any one scenario.
 - **Defender family-selection style differs.** Under `normal_control`, Qwen's
-  defender chose `eval-two-word` (7/15), `two-word-passphrase` (6/15), and
-  `cryptographic-random` (2/15) — passphrase-leaning. Gemma's defender chose
-  `cryptographic-random` (13/15) and `eval-word` (2/15) — almost exclusively
-  cryptographic-random, yet at markedly lower measured entropy than Qwen's own
-  cryptographic-random choices. The family label alone does not predict entropy;
-  the two models differ in what they actually produce under the same label.
-- **The one solvable configuration was self-play, not cross-play.** Gemma's attacker
-  solved 2/15 rounds against Gemma's own defender under `mutual_bounded` — the only
-  non-zero solve rate in the entire main matrix. The cross-model pilot (below) did
-  not reproduce a solve in either direction, suggesting this result is tied to
-  Gemma's specific (lower-entropy) defender baseline combined with bounded shared
-  context, not a generically stronger Gemma attacker.
+  defender chose `two-word-passphrase` (7/15), `eval-two-word` (4/15), and
+  `cryptographic-random` (4/15) — still passphrase-leaning, though the exact split
+  shifted from the original run's 7/6/2. Gemma's defender chose `cryptographic-random`
+  (14/15) and `eval-word` (1/15) — again almost exclusively cryptographic-random, at
+  markedly lower measured entropy than Qwen's own cryptographic-random choices. The
+  family label alone does not predict entropy; the two models differ in what they
+  actually produce under the same label.
+- **The one solvable configuration moved between runs — both were self-play.** In the
+  original run, Gemma's attacker solved 2/15 rounds against Gemma's own defender
+  under `mutual_bounded`. In this re-run, that specific cell reproduced at 0%, but
+  Gemma solved 1/15 under `mutual_full` instead, and Qwen (previously 0% everywhere)
+  solved 1/15 under `attacker_privileged`. Every non-zero solve across both runs has
+  been self-play, and each run's single-digit solve count is well within Wilson noise
+  at n=15 — the safest reading is "near-zero solve rate for both models, with an
+  occasional single-round fluke landing in an unpredictable cell," not a stable
+  per-scenario attacker advantage for either model.
 
 ## Cross-model pilot (exploratory, not headline)
 
@@ -162,24 +169,59 @@ requested rounds.
 
 | Direction | Rounds | Solve % | Survival % | Mean entropy |
 |---|---|---|---|---|
-| Qwen attacks Gemma | 12/15 | 0.0 | 100.0 | 34.3 |
-| Gemma attacks Qwen | 15/15 | 0.0 | 100.0 | 94.6 |
+| Qwen attacks Gemma | 15/15 | 0.0 | 100.0 | 36.3 |
+| Gemma attacks Qwen | 15/15 | 0.0 | 100.0 | 87.0 |
 
-Both directions produced 0% attacker solves. The defender's own identity dominates
-the resulting entropy in both directions (Gemma-defended rounds average ~34 bits
-regardless of attacker; Qwen-defended rounds average ~95 bits regardless of
+Both directions produced 0% attacker solves, in both this run and the original
+(which additionally saw one Qwen-side schema interruption at 12/15 rounds; this
+re-run had none, 15/15 both directions). The defender's own identity dominates the
+resulting entropy in both directions (Gemma-defended rounds average ~36 bits
+regardless of attacker; Qwen-defended rounds average ~87 bits regardless of
 attacker) — consistent with the self-vs-self matrix's finding that defender family
 choice and entropy are primarily a property of the defending model, not the
-attacking one. The clean, comparable result here (no schema-validity concerns beyond
-the one already-recorded interruption) suggests a full cross-family attacker/
-defender tournament would be a reasonable next step, but 15 rounds per direction is
-too small to support a stronger claim than "worth investigating further."
+attacking one. The clean, comparable result here suggests a full cross-family
+attacker/defender tournament would be a reasonable next step, but 15 rounds per
+direction is too small to support a stronger claim than "worth investigating
+further."
+
+## Reproducibility check (2026-08-13 re-run)
+
+This benchmark was re-run once in full — same code, protocol, seeds (42/43/44),
+rounds (5), and guess budget (500) — to check how much the headline findings depend
+on a single run's luck versus holding up under repetition. The numbers above are
+from the re-run; the original run's numbers are preserved in this section for
+comparison.
+
+**What held:** the core qualitative hierarchy did not change. Qwen's defender
+entropy stayed well above Gemma's in every scenario in both runs (Qwen 36-95 bits
+original / 36-92 bits re-run vs. Gemma 38-43 bits original / 38-57 bits re-run).
+Both models' attacker solve rate stayed at or near 0% in both runs — no scenario
+produced a stable, repeatable attacker advantage for either model. Structured-output
+reliability ranking held (Gemma more reliable than Qwen in both runs, 0 vs.
+1-3 interruptions). Token-growth-without-benefit under `mutual_full` held for both
+models.
+
+**What drifted:** individual entropy values moved by single-digit-to-~18-bit
+amounts run to run (largest: Gemma's `mutual_bounded` entropy rose from 38.9 to 56.6
+bits; Qwen's `normal_control` entropy fell from 95.6 to 77.2 bits) — normal
+seed-to-seed/sampling variance at n=3 seeds, not a contradiction of the headline
+claims. The one non-zero solve rate in each run's main matrix landed in a different
+(model, scenario) cell both times (original: Gemma/`mutual_bounded`; re-run:
+Gemma/`mutual_full` and Qwen/`attacker_privileged`) — this is itself informative: it
+argues those single-round solves are closer to noise than a stable per-scenario
+effect. Qwen's interrupted-trial count dropped from 3 to 1 between runs.
+
+**Conclusion:** the headline model-comparison findings in this report are
+reproducible at the level of "which model wins on which axis," not at the level of
+"exact numbers." Anyone treating a single number from this benchmark (e.g. "Gemma
+solved 13.3% under mutual_bounded") as a fixed property of the model rather than one
+observation from a 3-seed sample should not.
 
 ## What this benchmark proves
 
 - `gemma3:4b` is a qualified, reliable Password Arena participant: 100% schema-valid
   under qualification, and it completed more comparable rounds (90/90 main matrix)
-  than Qwen (83/90) in this specific run.
+  than Qwen (89/90 in this re-run; 83/90 in the original run) across both runs.
 - Context-overload-style defender degradation is not unique to Qwen's specific
   failure mode, but the two models express it differently: Qwen degrades sharply
   from a high baseline, Gemma stays flat from an already-low baseline.

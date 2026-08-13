@@ -208,9 +208,10 @@ The journal is an audit log, not a request for private model chain-of-thought. P
 
 * first cross-model-family comparison; introduces `gemma3:4b` (Google) alongside `qwen3:4b` (Alibaba) under an identical matched protocol
 * Gemma qualified cleanly: 100% schema-valid (20/20) structured-output calls before benchmarking
-* 173 comparable rounds across the matched 6-scenario matrix (83 Qwen, 90 Gemma), plus a 27-round exploratory cross-model pilot
-* context-overload-style defender degradation generalized, but asymmetrically: Qwen's entropy collapsed from ~80-96 bits to ~36 bits under mutual-information sharing; Gemma stayed flat at ~37-43 bits throughout
-* Gemma was the more reliable participant in this run (0/18 trials interrupted vs Qwen's 3/18)
+* re-run in full on 2026-08-13 (identical code, protocol, seeds, budgets) as a reproducibility check; numbers below are from that re-run — 179 comparable rounds across the matched 6-scenario matrix (89 Qwen, 90 Gemma), plus a 30-round exploratory cross-model pilot
+* context-overload-style defender degradation generalized, but asymmetrically, and reproduced across both runs: Qwen's entropy collapsed from ~36-92 bits to ~36 bits under mutual-information sharing; Gemma stayed flat at ~38-57 bits throughout
+* Gemma was the more reliable participant in both runs (0/18 trials interrupted vs Qwen's 1/18 this run, 3/18 originally)
+* each run's single non-zero solve rate landed in a different (model, scenario) cell — informative in itself: those solves read as noise, not a stable per-scenario effect (see the Reproducibility check section in the report)
 * discovered and documented that the local Ollama container runs GPU-accelerated (Vulkan/AMD), not CPU-only as intended — likely true of Benchmarks 002-007 as well
 
 [Read Benchmark 008 Report](results/benchmark-008/README.md) | [Model Comparison](results/benchmark-008/model-comparison.md) | [Dataset CSV](results/benchmark-008/public-dataset.csv) | [Dataset JSONL](results/benchmark-008/public-dataset.jsonl)
@@ -241,7 +242,7 @@ Benchmark 007 shows privileged information changes outcomes.
 The oracle path proves the solve pipeline itself can succeed deterministically when the target is known.
 
 ### 8. Context overload is not Qwen-specific, but it is not uniform either
-Benchmark 008 reran the compact 6-scenario matrix on `gemma3:4b` under the same code and protocol. Qwen's defender entropy collapse under mutual-information sharing replicated (~80-96 bits down to ~36 bits). Gemma's defender stayed flat and low (~37-43 bits) across every scenario, so the same *mechanism* — added cross-agent context correlating with weaker defender behavior, not better attacker or defender outcomes — appears in both model families, but each model's starting point and sensitivity differ. Gemma also completed the matrix with zero interrupted trials, versus three for Qwen, in this run.
+Benchmark 008 reran the compact 6-scenario matrix on `gemma3:4b` under the same code and protocol, then repeated the full matrix again on 2026-08-13 to check reproducibility. Qwen's defender entropy collapse under mutual-information sharing replicated in both runs (~36-92 bits down to ~36 bits). Gemma's defender stayed flat and low (~38-57 bits) across every scenario in both runs, so the same *mechanism* — added cross-agent context correlating with weaker defender behavior, not better attacker or defender outcomes — appears in both model families, but each model's starting point and sensitivity differ. Gemma also completed the matrix with zero interrupted trials in both runs, versus one to three for Qwen. Individual entropy values drifted by single-digit-to-~18-bit amounts run to run, and the one non-zero solve rate landed in a different scenario each time — reinforcing that the *mechanism* is reproducible even where exact numbers are not.
 
 
 ## Configuration

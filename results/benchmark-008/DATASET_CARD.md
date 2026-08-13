@@ -21,8 +21,8 @@ for reproducible analysis and educational comparison. Dataset schema version:
 
 All targets are generated synthetically inside Password Arena.
 No real credentials are tested, collected, imported, or included. The export contains
-200
-recorded rounds: 200 comparable and 0
+209
+recorded rounds: 209 comparable and 0
 excluded from headline comparison.
 
 ## Methodology

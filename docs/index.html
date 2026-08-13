@@ -99,17 +99,19 @@
 MODELS: Qwen3 4B vs Gemma 3 4B
 RUNTIME: Ollama / local
 
-CROSS-MODEL GENERALIZATION STUDY
+CROSS-MODEL GENERALIZATION STUDY (reproducibility-checked 2026-08-13)
 FROZEN:               Qwen 0.0%  | Gemma 0.0%
-MUTUAL BOUNDED:       Qwen 0.0%  | Gemma 13.3%
-MUTUAL FULL:          Qwen 0.0%  | Gemma 0.0%
+MUTUAL BOUNDED:       Qwen 0.0%  | Gemma 0.0%
+MUTUAL FULL:          Qwen 0.0%  | Gemma 6.7%
 NORMAL CONTROL:       Qwen 0.0%  | Gemma 0.0%
-ATTACKER PRIVILEGED:  Qwen 0.0%  | Gemma 0.0%
+ATTACKER PRIVILEGED:  Qwen 7.1%  | Gemma 0.0%
 DEFENDER PRIVILEGED:  Qwen 0.0%  | Gemma 0.0%
 
 CONTEXT OVERLOAD GENERALIZES, ASYMMETRICALLY:
-QWEN ENTROPY 80-96 BITS -> ~36 BITS UNDER MUTUAL SHARING
-GEMMA ENTROPY FLAT AT ~37-43 BITS THROUGHOUT
+QWEN ENTROPY 36-92 BITS, COLLAPSING TO ~36 BITS UNDER MUTUAL SHARING
+GEMMA ENTROPY FLAT AT ~38-57 BITS THROUGHOUT
+(re-run once in full; single-round solves land in a different cell each run —
+see the Reproducibility check in the benchmark README)
 
 > <a href="benchmarks.html" style="color: var(--accent-color); text-decoration: underline;">VIEW FULL BENCHMARK DATA</a>
 </code></pre>
