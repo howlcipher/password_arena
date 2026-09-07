@@ -34,6 +34,8 @@ jobs:
       run: password-arena --rounds 1 --max-guesses 10
     - name: Dashboard import smoke test
       run: python -c "import password_arena.dashboard"
+    - name: Run SEO verification
+      run: python scripts/test_seo.py
 
   docker:
     runs-on: ubuntu-latest
